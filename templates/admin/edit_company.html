@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Company{% endblock %}
+
+{% block content %}
+<div class="panel form-panel">
+	<h2>Edit Company</h2>
+	<p>Update company details, enabled modules, and company login password.</p>
+
+	<form method="POST" class="form-grid">
+		<label>Name</label>
+		<input type="text" name="company_name" value="{{ company.company_name }}" required>
+
+		<label>Address</label>
+		<input type="text" name="address" value="{{ company.address or '' }}">
+
+		<label>Email</label>
+		<input type="email" name="email" value="{{ company.email }}" required>
+
+		<label>Company ID</label>
+		<input type="text" name="company_code" value="{{ company.company_code }}" required>
+
+		<label>New Password</label>
+		<input type="password" name="password" placeholder="Leave blank to keep current password">
+
+		<label>Confirm New Password</label>
+		<input type="password" name="confirm_password" placeholder="Leave blank to keep current password">
+
+		<label>Modules</label>
+		<div class="checkbox-group">
+			<label class="checkbox-item">
+				<input type="checkbox" name="attendance_module_enabled" value="1" {% if company.attendance_module_enabled %}checked{% endif %}>
+				Attendance
+			</label>
+			<label class="checkbox-item">
+				<input type="checkbox" name="canteen_module_enabled" value="1" {% if company.canteen_module_enabled %}checked{% endif %}>
+				Canteen Management
+			</label>
+		</div>
+
+		<button class="btn" type="submit">Update Company</button>
+	</form>
+</div>
+{% endblock %}
