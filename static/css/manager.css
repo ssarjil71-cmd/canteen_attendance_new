@@ -1,0 +1,68 @@
+/* manager.css: Custom styles for Manager Dashboard sidebar and content */
+
+.sidebar {
+    background: #181c2f;
+    color: #fff;
+    min-height: 100vh;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+}
+
+.sidebar-section {
+    margin-top: 24px;
+}
+
+.sidebar-title {
+    color: #b9c2d9;
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+    margin-top: 18px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.sidebar-link {
+    color: #d9e2ff;
+    background: none;
+    border: none;
+    display: block;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    transition: background 0.18s;
+    font-size: 1rem;
+}
+
+.sidebar-link.active, .sidebar-link:focus, .sidebar-link:hover {
+    background: #23294a;
+    color: #fff;
+}
+
+@media (max-width: 900px) {
+    .sidebar {
+        width: 100%;
+        min-height: unset;
+        position: fixed;
+        left: 0;
+        top: 68px;
+        z-index: 100;
+        display: none;
+    }
+    .sidebar.open {
+        display: block;
+    }
+}
+
+.card {
+    border-radius: 16px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.13);
+    border: none;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+}
+
+.alert {
+    border-radius: 10px;
+}

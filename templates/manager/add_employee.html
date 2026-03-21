@@ -1,0 +1,349 @@
+{% extends 'base.html' %}
+{% block title %}Add Employee - Smart Canteen System{% endblock %}
+{% block page_title %}Add Employee{% endblock %}
+
+{% block content %}
+<!-- QR Button positioned in top-right -->
+<div style="position: fixed; top: 90px; right: 30px; z-index: 1000;">
+    <button type="button" class="btn btn-primary btn-sm px-3 py-2 shadow-sm" 
+            data-bs-toggle="modal" data-bs-target="#qrModal"
+            style="background: linear-gradient(90deg, #5f8bff 0%, #7f5cff 100%); color: #fff; border: none; border-radius: 8px;">
+        <i class="bi bi-qr-code me-1"></i>Register Employee QR
+    </button>
+</div>
+
+<!-- QR Modal -->
+<div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 shadow-lg border-0">
+            <div class="modal-header border-0 pb-2">
+                <h5 class="modal-title fw-bold text-primary" id="qrModalLabel">
+                    <i class="bi bi-qr-code me-2"></i>Employee Registration QR
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-2 pb-4 px-4 text-center">
+                <div class="card border-0 bg-light rounded-3 p-3 mb-3">
+                    <img src="/static/qr_codes/add_employee_qr.png" 
+                         alt="Employee Registration QR Code" 
+                         class="img-fluid rounded-3 shadow-sm mx-auto d-block" 
+                         style="max-width: 220px;">
+                </div>
+                <p class="text-muted small mb-3">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Scan this QR code to access the employee registration form
+                </p>
+                <a href="/static/qr_codes/add_employee_qr.png" 
+                   download="employee_registration_qr.png" 
+                   class="btn btn-primary px-4 py-2"
+                   style="background: linear-gradient(90deg, #5f8bff 0%, #7f5cff 100%); border: none;">
+                    <i class="bi bi-download me-2"></i>Download QR Code
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- Form Section: Employee Details -->
+    <div class="row">
+        <div class="col-12">
+            <div class="dashboard-card">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="card-title mb-0 fw-semibold text-dark">
+                        <i class="bi bi-person-plus me-2 text-primary"></i>Employee Details
+                    </h5>
+                    <p class="text-muted small mb-0">Fill in all required information to register a new employee</p>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Alert Messages -->
+                    {% if error %}
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endif %}
+
+                    <!-- Employee Form -->
+                    <form method="POST" id="employeeForm" novalidate>
+                        <div class="row g-3">
+                            <!-- Employee Name -->
+                            <div class="col-md-6">
+                                <label for="name" class="form-label fw-medium">
+                                    <i class="bi bi-person me-1 text-primary"></i>Employee Name
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="name" name="name" 
+                                       placeholder="Enter full name" required>
+                                <div class="invalid-feedback">Please provide a valid employee name.</div>
+                            </div>
+
+                            <!-- Employee ID -->
+                            <div class="col-md-6">
+                                <label for="emp_id" class="form-label fw-medium">
+                                    <i class="bi bi-badge-tm me-1 text-primary"></i>Employee ID
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="emp_id" name="emp_id" 
+                                       placeholder="Unique employee ID" required>
+                                <div class="invalid-feedback">Please provide a unique employee ID.</div>
+                            </div>
+
+                            <!-- Gender -->
+                            <div class="col-md-6">
+                                <label for="gender" class="form-label fw-medium">
+                                    <i class="bi bi-gender-ambiguous me-1 text-primary"></i>Gender
+                                </label>
+                                <select class="form-select form-select-lg" id="gender" name="gender" required>
+                                    <option value="">Select gender</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <div class="invalid-feedback">Please select a gender.</div>
+                            </div>
+
+                            <!-- Date of Birth -->
+                            <div class="col-md-6">
+                                <label for="dob" class="form-label fw-medium">
+                                    <i class="bi bi-calendar-date me-1 text-primary"></i>Date of Birth
+                                </label>
+                                <input type="date" class="form-control form-control-lg" id="dob" name="dob" required>
+                                <div class="invalid-feedback">Please provide a valid date of birth.</div>
+                            </div>
+
+                            <!-- Company Name -->
+                            <div class="col-md-6">
+                                <label for="company" class="form-label fw-medium">
+                                    <i class="bi bi-building me-1 text-primary"></i>Company Name
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="company" name="company" 
+                                       placeholder="Enter company name" required>
+                                <div class="invalid-feedback">Please provide a company name.</div>
+                            </div>
+
+                            <!-- Role -->
+                            <div class="col-md-6">
+                                <label for="role" class="form-label fw-medium">
+                                    <i class="bi bi-briefcase me-1 text-primary"></i>Role
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="role" name="role" 
+                                       placeholder="Enter job role" required>
+                                <div class="invalid-feedback">Please provide a job role.</div>
+                            </div>
+
+                            <!-- Department -->
+                            <div class="col-md-6">
+                                <label for="department" class="form-label fw-medium">
+                                    <i class="bi bi-diagram-3 me-1 text-primary"></i>Department
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="department" name="department" 
+                                       placeholder="Enter department" required>
+                                <div class="invalid-feedback">Please provide a department.</div>
+                            </div>
+
+                            <!-- Shift -->
+                            <div class="col-md-6">
+                                <label for="shift" class="form-label fw-medium">
+                                    <i class="bi bi-clock me-1 text-primary"></i>Shift
+                                </label>
+                                <select class="form-select form-select-lg" id="shift" name="shift" required>
+                                    <option value="">Select shift</option>
+                                    <option value="Morning">Morning (6 AM - 2 PM)</option>
+                                    <option value="Afternoon">Afternoon (2 PM - 10 PM)</option>
+                                    <option value="Night">Night (10 PM - 6 AM)</option>
+                                </select>
+                                <div class="invalid-feedback">Please select a shift.</div>
+                            </div>
+
+                            <!-- Joining Date -->
+                            <div class="col-md-6">
+                                <label for="joining_date" class="form-label fw-medium">
+                                    <i class="bi bi-calendar-plus me-1 text-primary"></i>Joining Date
+                                </label>
+                                <input type="date" class="form-control form-control-lg" id="joining_date" name="joining_date" required>
+                                <div class="invalid-feedback">Please provide a joining date.</div>
+                            </div>
+
+                            <!-- Face Capture -->
+                            <div class="col-12">
+                                <label class="form-label fw-medium">
+                                    <i class="bi bi-camera me-1 text-primary"></i>Face Capture
+                                </label>
+                                <div class="dashboard-card">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex gap-2 mb-3">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" id="startCamera">
+                                                <i class="bi bi-camera-video me-1"></i>Start Camera
+                                            </button>
+                                            <button type="button" class="btn btn-success btn-sm" id="capturePhoto" disabled>
+                                                <i class="bi bi-camera me-1"></i>Capture Photo
+                                            </button>
+                                        </div>
+                                        <div class="text-center">
+                                            <video id="video" width="300" height="225" autoplay class="rounded-3 border" style="display:none;"></video>
+                                            <canvas id="canvas" width="300" height="225" style="display:none;"></canvas>
+                                            <img id="photoPreview" src="#" alt="Photo Preview" class="rounded-3 border shadow-sm" 
+                                                 style="display:none; max-width:300px; max-height:225px;"/>
+                                            <div id="photoPlaceholder" class="bg-light border rounded-3 d-flex align-items-center justify-content-center" 
+                                                 style="width:300px; height:225px; margin:0 auto;">
+                                                <div class="text-center text-muted">
+                                                    <i class="bi bi-camera display-6"></i>
+                                                    <p class="mb-0 mt-2">No photo captured</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" name="photo_data" id="photo_data" required>
+                                        <div class="form-text mt-2">
+                                            <i class="bi bi-info-circle me-1"></i>Please capture a clear face photo for identification.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-end gap-3">
+                                    <button type="reset" class="btn btn-outline-secondary btn-lg px-4">
+                                        <i class="bi bi-arrow-clockwise me-2"></i>Reset Form
+                                    </button>
+                                    <button type="submit" class="btn btn-primary btn-lg px-5">
+                                        <i class="bi bi-person-plus me-2"></i>Add Employee
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+// Webcam and Photo Capture Logic
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let photoPreview = document.getElementById('photoPreview');
+let photoPlaceholder = document.getElementById('photoPlaceholder');
+let startCameraBtn = document.getElementById('startCamera');
+let capturePhotoBtn = document.getElementById('capturePhoto');
+let photoDataInput = document.getElementById('photo_data');
+let stream = null;
+
+startCameraBtn.addEventListener('click', async function() {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 300, height: 225 } 
+            });
+            video.srcObject = stream;
+            video.style.display = 'block';
+            canvas.style.display = 'none';
+            photoPreview.style.display = 'none';
+            photoPlaceholder.style.display = 'none';
+            capturePhotoBtn.disabled = false;
+            startCameraBtn.textContent = 'Camera Active';
+            startCameraBtn.classList.remove('btn-outline-primary');
+            startCameraBtn.classList.add('btn-warning');
+        } catch (err) {
+            console.error('Camera error:', err);
+            alert('Could not access camera: ' + err.message);
+        }
+    } else {
+        alert('Webcam not supported in this browser.');
+    }
+});
+
+capturePhotoBtn.addEventListener('click', function() {
+    if (!stream) return;
+    
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    // Show captured photo
+    photoPreview.src = dataUrl;
+    photoPreview.style.display = 'block';
+    canvas.style.display = 'none';
+    video.style.display = 'none';
+    photoPlaceholder.style.display = 'none';
+    
+    // Store photo data
+    photoDataInput.value = dataUrl;
+    
+    // Stop camera
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    
+    // Update button states
+    capturePhotoBtn.disabled = true;
+    startCameraBtn.textContent = 'Retake Photo';
+    startCameraBtn.classList.remove('btn-warning');
+    startCameraBtn.classList.add('btn-outline-primary');
+    startCameraBtn.disabled = false;
+});
+
+// Form Validation and Submission
+document.getElementById('employeeForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Check if photo is captured
+    if (!photoDataInput.value) {
+        alert('Please capture a photo before submitting the form.');
+        return false;
+    }
+    
+    // Add Bootstrap validation classes
+    const form = e.target;
+    if (form.checkValidity() === false) {
+        e.stopPropagation();
+        form.classList.add('was-validated');
+        return false;
+    }
+    
+    // If validation passes, submit the form
+    form.submit();
+});
+
+// Reset form functionality
+document.querySelector('button[type="reset"]').addEventListener('click', function() {
+    // Reset photo capture
+    photoPreview.style.display = 'none';
+    video.style.display = 'none';
+    photoPlaceholder.style.display = 'flex';
+    photoDataInput.value = '';
+    
+    // Stop camera if active
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    
+    // Reset button states
+    startCameraBtn.textContent = 'Start Camera';
+    startCameraBtn.classList.remove('btn-warning');
+    startCameraBtn.classList.add('btn-outline-primary');
+    capturePhotoBtn.disabled = true;
+    
+    // Remove validation classes
+    document.getElementById('employeeForm').classList.remove('was-validated');
+});
+
+// Auto-generate Employee ID based on name (optional enhancement)
+document.getElementById('name').addEventListener('input', function() {
+    const name = this.value.trim();
+    const empIdField = document.getElementById('emp_id');
+    
+    if (name && !empIdField.value) {
+        // Generate simple ID: first 3 letters + random 3 digits
+        const namePrefix = name.replace(/\s+/g, '').substring(0, 3).toUpperCase();
+        const randomSuffix = Math.floor(Math.random() * 900) + 100;
+        empIdField.value = namePrefix + randomSuffix;
+    }
+});
+</script>
+{% endblock %}

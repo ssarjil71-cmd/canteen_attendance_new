@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}View Managers{% endblock %}
+
+{% block content %}
+<div class="panel">
+	<h2>View Managers</h2>
+	<p>All managers listed company wise.</p>
+
+	<div class="table-card">
+		<table>
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Name</th>
+					<th>Email</th>
+					<th>Company</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for manager in managers %}
+				<tr>
+					<td>{{ manager.id }}</td>
+					<td>{{ manager.full_name or manager.username }}</td>
+					<td>{{ manager.email or '-' }}</td>
+					<td>{{ manager.company_name or '-' }}</td>
+					<td>
+						<div class="action-row">
+							<a href="/admin/manager/{{ manager.id }}" class="btn btn-small">Open Manager</a>
+							<a href="/admin/manager/{{ manager.id }}/edit" class="btn btn-small">Edit Manager</a>
+						</div>
+					</td>
+				</tr>
+				{% else %}
+				<tr><td colspan="5">No managers created yet.</td></tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}

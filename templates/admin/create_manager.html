@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Create Manager{% endblock %}
+
+{% block content %}
+<div class="panel form-panel">
+	<h2>Create Manager</h2>
+	<p>Create a manager account and map it to a company.</p>
+
+	<form method="POST" class="form-grid">
+		<label>Name</label>
+		<input type="text" name="full_name" placeholder="Manager full name" required>
+
+		<label>Email</label>
+		<input type="email" name="email" placeholder="Manager email" required>
+
+		<label>Assign Company</label>
+		<select name="company_id" required>
+			<option value="">Select Company</option>
+			{% for company in companies %}
+			<option value="{{ company.id }}">{{ company.company_name }}</option>
+			{% endfor %}
+		</select>
+
+		<label>Create Password</label>
+		<input type="password" name="password" placeholder="Create password" required>
+
+		<label>Confirm Password</label>
+		<input type="password" name="confirm_password" placeholder="Confirm password" required>
+
+		<button class="btn" type="submit">Create Manager</button>
+	</form>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Manager Details{% endblock %}
+
+{% block content %}
+<div class="panel form-panel">
+	<h2>Manager Details</h2>
+	<p>Details for the selected manager.</p>
+
+	<div class="table-card">
+		<table>
+			<tbody>
+				<tr>
+					<th>ID</th>
+					<td>{{ manager.id }}</td>
+				</tr>
+				<tr>
+					<th>Name</th>
+					<td>{{ manager.full_name or manager.username }}</td>
+				</tr>
+				<tr>
+					<th>Username</th>
+					<td>{{ manager.username }}</td>
+				</tr>
+				<tr>
+					<th>Email</th>
+					<td>{{ manager.email or '-' }}</td>
+				</tr>
+				<tr>
+					<th>Company</th>
+					<td>{{ manager.company_name or '-' }}</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<div class="action-row" style="margin-top: 14px;">
+		<a href="/admin/managers" class="btn btn-small">Back to View Managers</a>
+		<a href="/admin/manager/{{ manager.id }}/edit" class="btn btn-small">Edit Manager</a>
+	</div>
+</div>
+{% endblock %}

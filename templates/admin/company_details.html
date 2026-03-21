@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Company Details{% endblock %}
+
+{% block content %}
+<div class="panel form-panel">
+	<h2>Company Details</h2>
+	<p>Details for the selected company.</p>
+
+	<div class="table-card">
+		<table>
+			<tbody>
+				<tr>
+					<th>ID</th>
+					<td>{{ company.id }}</td>
+				</tr>
+				<tr>
+					<th>Name</th>
+					<td>{{ company.company_name }}</td>
+				</tr>
+				<tr>
+					<th>Company ID</th>
+					<td>{{ company.company_code }}</td>
+				</tr>
+				<tr>
+					<th>Email</th>
+					<td>{{ company.email }}</td>
+				</tr>
+				<tr>
+					<th>Address</th>
+					<td>{{ company.address or '-' }}</td>
+				</tr>
+				<tr>
+					<th>Attendance Module</th>
+					<td>{{ 'Enabled' if company.attendance_module_enabled else 'Disabled' }}</td>
+				</tr>
+				<tr>
+					<th>Canteen Module</th>
+					<td>{{ 'Enabled' if company.canteen_module_enabled else 'Disabled' }}</td>
+				</tr>
+				<tr>
+					<th>Created At</th>
+					<td>{{ company.created_at }}</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<a href="/admin/companies" class="back-link">← Back to View Companies</a>
+</div>
+{% endblock %}

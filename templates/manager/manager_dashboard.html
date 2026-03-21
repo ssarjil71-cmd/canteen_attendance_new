@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Manager Dashboard{% endblock %}
+
+{% block content %}
+<div class="panel">
+	<h2>Manager Dashboard</h2>
+	<p>Welcome to the manager control area.</p>
+
+	<div class="stats-grid">
+		<div class="stat-card">
+			<h4>Attendance Ops</h4>
+			<h3>Active</h3>
+		</div>
+		<div class="stat-card">
+			<h4>Company ID</h4>
+			<h3>{{ session.get('company_id') or '-' }}</h3>
+		</div>
+	</div>
+</div>
+{% endblock %}
