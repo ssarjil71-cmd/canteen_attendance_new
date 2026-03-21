@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Company Dashboard{% endblock %}
+
+{% block content %}
+<div class="panel">
+	<h2>Company Dashboard</h2>
+	<p>Manage managers for your company account.</p>
+
+	<div class="quick-links-grid">
+		<a href="/company/add_manager" class="quick-link-card">
+			<h4>Add Manager</h4>
+			<p>Create a manager login under this company.</p>
+		</a>
+		<a href="/company/managers" class="quick-link-card">
+			<h4>View Managers</h4>
+			<p>View all managers assigned to this company.</p>
+		</a>
+	</div>
+</div>
+{% endblock %}

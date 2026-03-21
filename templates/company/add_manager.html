@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Add Manager{% endblock %}
+
+{% block content %}
+<div class="panel form-panel">
+	<h2>Add Manager</h2>
+	<p>Create a manager account for your company.</p>
+
+	<form method="POST" class="form-grid">
+		<label>Full Name</label>
+		<input type="text" name="full_name" placeholder="Enter manager full name" required>
+
+		<label>Email</label>
+		<input type="email" name="email" placeholder="Enter manager email" required>
+
+		<label>Password</label>
+		<input type="password" name="password" placeholder="Set manager password" required>
+
+		<label>Confirm Password</label>
+		<input type="password" name="confirm_password" placeholder="Confirm manager password" required>
+
+		<button class="btn" type="submit">Add Manager</button>
+	</form>
+</div>
+{% endblock %}
