@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}View Companies{% endblock %}
+
+{% block content %}
+<div class="panel">
+	<h2>View Companies</h2>
+	<p>Browse all companies and open a company to view details.</p>
+
+	<div class="table-card">
+		<table>
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Name</th>
+					<th>Company ID</th>
+					<th>Email</th>
+					<th>Modules</th>
+					<th>Action</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for company in companies %}
+				<tr>
+					<td>{{ company.id }}</td>
+					<td>{{ company.company_name }}</td>
+					<td>{{ company.company_code }}</td>
+					<td>{{ company.email }}</td>
+					<td>
+						{% if company.attendance_module_enabled %}Attendance{% endif %}
+						{% if company.attendance_module_enabled and company.canteen_module_enabled %}, {% endif %}
+						{% if company.canteen_module_enabled %}Canteen{% endif %}
+					</td>
+					<td>
+						<div class="action-row">
+							<a href="/admin/company/{{ company.id }}" class="btn btn-small">Open Company</a>
+							<a href="/admin/company/{{ company.id }}/edit" class="btn btn-small">Edit Company</a>
+						</div>
+					</td>
+				</tr>
+				{% else %}
+				<tr>
+					<td colspan="6">No companies created yet.</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}
