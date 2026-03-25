@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}View Departments{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h2><i class="bi bi-diagram-2 me-2"></i>Departments</h2>
+        <p>Manage all departments in your company organization.</p>
+        <div class="panel-actions">
+            <a href="{{ url_for('company.add_department') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>Add New Department
+            </a>
+        </div>
+    </div>
+
+    {% if departments %}
+    <div class="departments-grid">
+        {% for department in departments %}
+        <div class="department-card">
+            <div class="department-header">
+                <div class="department-icon">
+                    <i class="bi bi-diagram-3"></i>
+                </div>
+                <div class="department-info">
+                    <h4>{{ department.name }}</h4>
+                    <p class="department-meta">Created: {{ department.created_at.strftime('%B %d, %Y') }}</p>
+                </div>
+            </div>
+            
+            <div class="department-actions">
+                <button class="btn btn-small btn-outline" onclick="editDepartment({{ department.id }}, '{{ department.name }}')">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </button>
+                <form method="POST" action="{{ url_for('company.delete_department', department_id=department.id) }}" 
+                      style="display: inline;" onsubmit="return confirmDelete('{{ department.name }}')">
+                    <button type="submit" class="btn btn-small btn-danger">
+                        <i class="bi bi-trash me-1"></i>Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="bi bi-diagram-2"></i>
+        </div>
+        <h3>No Departments Found</h3>
+        <p>You haven't created any departments yet. Start by adding your first department to organize your workforce.</p>
+        <a href="{{ url_for('company.add_department') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>Add First Department
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Edit Department Modal -->
+<div class="modal fade" id="editDepartmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Department</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editDepartmentForm" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="edit_department_name">Department Name</label>
+                        <input type="text" id="edit_department_name" name="department_name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Department</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.panel-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.departments-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.department-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.department-card:hover {
+    border-color: rgba(95, 139, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.department-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.department-icon {
+    font-size: 2rem;
+    color: var(--primary);
+}
+
+.department-info h4 {
+    margin: 0 0 4px 0;
+    color: var(--text);
+    font-size: 1.1rem;
+}
+
+.department-meta {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.department-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text);
+}
+
+.btn-outline:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--primary);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    border: none;
+    color: white;
+}
+
+.btn-danger:hover {
+    opacity: 0.9;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    margin: 0 0 8px 0;
+    color: var(--text);
+}
+
+.empty-state p {
+    margin: 0 0 24px 0;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.modal-content {
+    background: var(--surface);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text);
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text);
+    font-weight: 500;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--text);
+}
+
+@media (max-width: 768px) {
+    .departments-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .panel-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .department-actions {
+        justify-content: center;
+    }
+}
+</style>
+
+<script>
+function editDepartment(id, name) {
+    document.getElementById('edit_department_name').value = name;
+    document.getElementById('editDepartmentForm').action = `/company/edit_department/${id}`;
+    new bootstrap.Modal(document.getElementById('editDepartmentModal')).show();
+}
+
+function confirmDelete(departmentName) {
+    return confirm(`Are you sure you want to delete the "${departmentName}" department? This action cannot be undone.`);
+}
+</script>
+{% endblock %}

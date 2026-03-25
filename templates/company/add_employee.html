@@ -1,0 +1,733 @@
+{% if minimal %}
+    {% extends "base_minimal.html" %}
+{% else %}
+    {% extends "base.html" %}
+{% endif %}
+
+{% block title %}Add Employee{% endblock %}
+
+{% block content %}
+<div class="panel form-panel">
+    <div class="panel-header">
+        <div class="panel-title">
+            <h2><i class="bi bi-person-plus me-2"></i>Add Employee</h2>
+            <p>Create a comprehensive employee profile for your company workforce management.</p>
+            {% if minimal and company_name %}
+                <div class="company-name mb-2 mt-2 text-center">
+                    <span class="fw-bold fs-5">{{ company_name }}</span>
+                </div>
+            {% endif %}
+        </div>
+        {% if not minimal %}
+        <div class="panel-actions">
+            <button class="btn btn-outline-primary generate-qr-btn" title="Generate Registration QR Code">
+                <i class="bi bi-qr-code me-2"></i>Generate Registration QR
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <form method="POST" class="employee-form">
+        
+        <!-- SECTION 1: Basic Information -->
+        <div class="form-section">
+            <div class="section-header">
+                <h4><i class="bi bi-person-circle me-2"></i>Basic Information</h4>
+                <p class="section-desc">Essential employee identification details</p>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="name">Full Name <span class="required">*</span></label>
+                    <input type="text" id="name" name="name" 
+                           placeholder="Enter employee's full name" 
+                           value="{{ request.form.get('name', '') }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="emp_id">Employee ID <span class="required">*</span></label>
+                    <input type="text" id="emp_id" name="emp_id" 
+                           placeholder="EMP001" 
+                           value="{{ request.form.get('emp_id', '') }}" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" 
+                           placeholder="employee@company.com" 
+                           value="{{ request.form.get('email', '') }}">
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" 
+                           placeholder="+1 (555) 123-4567" 
+                           value="{{ request.form.get('phone', '') }}">
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 2: Personal Details -->
+        <div class="form-section">
+            <div class="section-header">
+                <h4><i class="bi bi-person-badge me-2"></i>Personal Details</h4>
+                <p class="section-desc">Personal information and contact details</p>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="gender">Gender <span class="required">*</span></label>
+                    <select id="gender" name="gender" required>
+                        <option value="">Select Gender</option>
+                        <option value="Male" {{ 'selected' if request.form.get('gender') == 'Male' }}>Male</option>
+                        <option value="Female" {{ 'selected' if request.form.get('gender') == 'Female' }}>Female</option>
+                        <option value="Other" {{ 'selected' if request.form.get('gender') == 'Other' }}>Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dob">Date of Birth <span class="required">*</span></label>
+                    <input type="date" id="dob" name="dob" 
+                           value="{{ request.form.get('dob', '') }}" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="address">Address</label>
+                    <textarea id="address" name="address" rows="3" 
+                              placeholder="Enter complete address">{{ request.form.get('address', '') }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 3: Work Details -->
+        <div class="form-section">
+            <div class="section-header">
+                <h4><i class="bi bi-briefcase me-2"></i>Work Details</h4>
+                <p class="section-desc">Employment and organizational information</p>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="employee_role">Employee Role <span class="required">*</span></label>
+                    <select id="employee_role" name="employee_role" required>
+                        <option value="">Select Employee Role</option>
+                        {% for role in roles %}
+                        <option value="{{ role.name }}" {{ 'selected' if request.form.get('employee_role') == role.name }}>{{ role.name }}</option>
+                        {% endfor %}
+                        {% if not roles %}
+                        <!-- Fallback options if no roles are created yet -->
+                        <option value="Manager" {{ 'selected' if request.form.get('employee_role') == 'Manager' }}>Manager</option>
+                        <option value="Supervisor" {{ 'selected' if request.form.get('employee_role') == 'Supervisor' }}>Supervisor</option>
+                        <option value="Staff" {{ 'selected' if request.form.get('employee_role') == 'Staff' }}>Staff</option>
+                        <option value="Worker" {{ 'selected' if request.form.get('employee_role') == 'Worker' }}>Worker</option>
+                        <option value="Other" {{ 'selected' if request.form.get('employee_role') == 'Other' }}>Other</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="role">Job Position</label>
+                    <input type="text" id="role" name="role" 
+                           placeholder="e.g., Software Engineer, Sales Executive" 
+                           value="{{ request.form.get('role', '') }}">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="department_id">Department</label>
+                    <select id="department_id" name="department_id">
+                        <option value="">Select Department</option>
+                        {% for department in departments %}
+                        <option value="{{ department.id }}" 
+                                {{ 'selected' if request.form.get('department_id') == department.id|string }}>
+                            {{ department.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="shift_id">Shift</label>
+                    <select id="shift_id" name="shift_id">
+                        <option value="">Select Shift</option>
+                        {% for shift in shifts %}
+                        <option value="{{ shift.id }}" 
+                                {{ 'selected' if request.form.get('shift_id') == shift.id|string }}>
+                            {{ shift.name }}
+                            {% if shift.start_time and shift.end_time %}
+                                ({{ shift.start_time.strftime('%I:%M %p') }} - {{ shift.end_time.strftime('%I:%M %p') }})
+                            {% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="joining_date">Joining Date <span class="required">*</span></label>
+                    <input type="date" id="joining_date" name="joining_date" 
+                           value="{{ request.form.get('joining_date', '') }}" required>
+                </div>
+                <div class="form-group">
+                    <!-- Empty space for alignment -->
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 4: Face Capture -->
+        <div class="form-section">
+            <div class="section-header">
+                <h4><i class="bi bi-camera me-2"></i>Face Capture</h4>
+                <p class="section-desc">Capture employee face for attendance verification</p>
+            </div>
+            
+            <!-- Face Capture Section -->
+            <div class="face-capture-section" id="faceCaptureSection">
+                <div class="camera-container">
+                    <video id="cameraVideo" autoplay playsinline></video>
+                    <canvas id="captureCanvas" style="display: none;"></canvas>
+                    <div class="camera-overlay">
+                        <div class="face-guide">
+                            <div class="face-outline"></div>
+                            <p class="guide-text">Position your face within the circle</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="capture-controls">
+                    <button type="button" id="captureBtn" class="btn btn-primary">
+                        <i class="bi bi-camera me-2"></i>Capture Face
+                    </button>
+                    <button type="button" id="retakeBtn" class="btn btn-outline-secondary" style="display: none;">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Retake
+                    </button>
+                </div>
+                
+                <div class="captured-preview" id="capturedPreview" style="display: none;">
+                    <h5>Captured Face:</h5>
+                    <img id="previewImage" alt="Captured face">
+                    <input type="hidden" id="faceImageData" name="face_image_data">
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                <i class="bi bi-person-plus me-2"></i>Add Employee
+            </button>
+            <a href="{{ url_for('company.view_employees') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Cancel
+            </a>
+            <div class="submit-requirements" id="submitRequirements">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Complete face capture to enable submission
+                </small>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+.employee-form {
+    width: 100%;
+    max-width: none;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.panel-title h2 {
+    margin: 0 0 8px 0;
+    color: var(--text);
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.panel-title p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.form-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.section-header {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.section-header h4 {
+    margin: 0 0 4px 0;
+    color: var(--primary);
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+}
+
+.section-desc {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 16px;
+}
+
+.form-row:last-child {
+    margin-bottom: 0;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    margin-bottom: 6px;
+    color: var(--text);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.required {
+    color: #ff6b6b;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+    background: var(--surface);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-group select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236c757d' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: 40px;
+    appearance: none;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-start;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    padding: 12px 24px;
+    font-weight: 600;
+}
+
+.btn-secondary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 24px;
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-secondary:hover {
+    background: rgba(13, 110, 253, 0.1);
+    color: var(--text);
+    text-decoration: none;
+    border-color: var(--primary);
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .form-section {
+        padding: 20px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}
+
+/* Face Capture Styles */
+.location-status {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid var(--border);
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+}
+
+.status-item.success {
+    color: #28a745;
+}
+
+.status-item.error {
+    color: #dc3545;
+}
+
+.face-capture-section {
+    text-align: center;
+}
+
+.camera-container {
+    position: relative;
+    display: inline-block;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    margin-bottom: 20px;
+}
+
+#cameraVideo {
+    width: 400px;
+    height: 300px;
+    object-fit: cover;
+    display: block;
+}
+
+.camera-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.face-guide {
+    text-align: center;
+}
+
+.face-outline {
+    width: 200px;
+    height: 200px;
+    border: 3px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
+}
+
+.guide-text {
+    color: white;
+    font-size: 14px;
+    margin: 0;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.capture-controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.captured-preview {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    border: 1px solid var(--border);
+}
+
+.captured-preview h5 {
+    margin-bottom: 15px;
+    color: var(--text);
+}
+
+.captured-preview img {
+    width: 200px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #28a745;
+}
+
+.location-blocked .alert {
+    margin: 0;
+}
+
+.submit-requirements {
+    margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+    #cameraVideo {
+        width: 100%;
+        max-width: 350px;
+        height: 250px;
+    }
+    
+    .face-outline {
+        width: 150px;
+        height: 150px;
+    }
+    
+    .capture-controls {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .captured-preview img {
+        width: 150px;
+        height: 120px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('.employee-form');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Face capture variables
+    let stream = null;
+    let faceCaptured = false;
+    
+    // Initialize camera immediately (no location check)
+    initializeCamera();
+    
+    function initializeCamera() {
+        const video = document.getElementById('cameraVideo');
+        const captureBtn = document.getElementById('captureBtn');
+        const retakeBtn = document.getElementById('retakeBtn');
+        
+        // Request camera access
+        navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 400 },
+                height: { ideal: 300 },
+                facingMode: 'user'
+            } 
+        })
+        .then(function(mediaStream) {
+            stream = mediaStream;
+            video.srcObject = stream;
+            captureBtn.disabled = false;
+        })
+        .catch(function(error) {
+            console.error('Camera access error:', error);
+            alert('Camera access denied. Please allow camera access to capture face.');
+        });
+        
+        // Capture button click
+        captureBtn.addEventListener('click', function() {
+            capturePhoto();
+        });
+        
+        // Retake button click
+        retakeBtn.addEventListener('click', function() {
+            retakePhoto();
+        });
+    }
+    
+    function capturePhoto() {
+        const video = document.getElementById('cameraVideo');
+        const canvas = document.getElementById('captureCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        ctx.drawImage(video, 0, 0);
+        
+        // Convert to base64
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Show preview
+        const previewImg = document.getElementById('previewImage');
+        previewImg.src = imageData;
+        
+        // Store image data
+        document.getElementById('faceImageData').value = imageData;
+        
+        // Update UI
+        document.getElementById('capturedPreview').style.display = 'block';
+        document.getElementById('captureBtn').style.display = 'none';
+        document.getElementById('retakeBtn').style.display = 'inline-block';
+        
+        // Stop camera
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        video.style.display = 'none';
+        
+        faceCaptured = true;
+        updateSubmitButton();
+    }
+    
+    function retakePhoto() {
+        // Reset UI
+        document.getElementById('capturedPreview').style.display = 'none';
+        document.getElementById('captureBtn').style.display = 'inline-block';
+        document.getElementById('retakeBtn').style.display = 'none';
+        document.getElementById('cameraVideo').style.display = 'block';
+        
+        // Clear image data
+        document.getElementById('faceImageData').value = '';
+        
+        faceCaptured = false;
+        updateSubmitButton();
+        
+        // Restart camera
+        initializeCamera();
+    }
+    
+    function updateSubmitButton() {
+        const submitBtn = document.getElementById('submitBtn');
+        const requirements = document.getElementById('submitRequirements');
+        
+        if (faceCaptured) {
+            submitBtn.disabled = false;
+            requirements.innerHTML = `
+                <small class="text-success">
+                    <i class="bi bi-check-circle me-1"></i>
+                    Ready to submit - Face captured successfully
+                </small>
+            `;
+        } else {
+            submitBtn.disabled = true;
+            requirements.innerHTML = `
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Please capture employee face to continue
+                </small>
+            `;
+        }
+    }
+    
+    // Form submission handling
+    form.addEventListener('submit', function(e) {
+        if (!faceCaptured) {
+            e.preventDefault();
+            alert('Please capture employee face before submitting.');
+            return;
+        }
+        
+        // Disable submit button to prevent double submission
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding Employee...';
+        
+        // Re-enable button after 5 seconds in case of error
+        setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-person-plus me-2"></i>Add Employee';
+        }, 5000);
+    });
+    
+    // Auto-generate employee ID suggestion
+    const empIdField = document.getElementById('emp_id');
+    const nameField = document.getElementById('name');
+    
+    nameField.addEventListener('blur', function() {
+        if (!empIdField.value && this.value) {
+            const nameParts = this.value.trim().split(' ');
+            const initials = nameParts.map(part => part.charAt(0).toUpperCase()).join('');
+            const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            empIdField.placeholder = `Suggestion: EMP${initials}${randomNum}`;
+        }
+    });
+    
+    // Phone number formatting
+    const phoneField = document.getElementById('phone');
+    phoneField.addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value.length >= 6) {
+            value = value.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+        } else if (value.length >= 3) {
+            value = value.replace(/(\d{3})(\d{0,3})/, '($1) $2');
+        }
+        e.target.value = value;
+    });
+    
+    // Age calculation from DOB
+    const dobField = document.getElementById('dob');
+    dobField.addEventListener('change', function() {
+        if (this.value) {
+            const today = new Date();
+            const birthDate = new Date(this.value);
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            
+            if (age < 16) {
+                alert('Employee must be at least 16 years old.');
+                this.value = '';
+            }
+        }
+    });
+    
+    // Cleanup camera on page unload
+    window.addEventListener('beforeunload', function() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    });
+});
+</script>
+{% endblock %}

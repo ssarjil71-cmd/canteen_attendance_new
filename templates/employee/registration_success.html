@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Registration Successful{% endblock %}
+
+{% block content %}
+<div class="panel success-panel">
+    <div class="success-content">
+        <div class="success-icon">
+            <i class="bi bi-check-circle-fill"></i>
+        </div>
+        
+        <h2>Registration Successful!</h2>
+        <p class="success-message">
+            Welcome <strong>{{ name }}</strong>! Your employee registration with <strong>{{ company_name }}</strong> has been completed successfully.
+        </p>
+        
+        <div class="employee-details">
+            <div class="detail-card">
+                <div class="detail-icon">
+                    <i class="bi bi-person-badge"></i>
+                </div>
+                <div class="detail-info">
+                    <h4>Employee ID</h4>
+                    <p class="employee-id">{{ employee_id }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="next-steps">
+            <h4>What's Next?</h4>
+            <ul>
+                <li><i class="bi bi-check2 me-2"></i>Your registration has been submitted to {{ company_name }}</li>
+                <li><i class="bi bi-check2 me-2"></i>HR will review and activate your account</li>
+                <li><i class="bi bi-check2 me-2"></i>You'll receive confirmation once approved</li>
+                <li><i class="bi bi-check2 me-2"></i>Keep your Employee ID safe: <strong>{{ employee_id }}</strong></li>
+            </ul>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="/employee/register" class="btn btn-primary">
+                <i class="bi bi-person-plus me-2"></i>Register Another Employee
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.success-panel {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+    padding: 40px;
+}
+
+.success-content {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    border-radius: 16px;
+    padding: 40px;
+    backdrop-filter: blur(10px);
+}
+
+.success-icon {
+    font-size: 4rem;
+    color: #2ecc71;
+    margin-bottom: 24px;
+    animation: successPulse 2s ease-in-out infinite;
+}
+
+@keyframes successPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.success-content h2 {
+    color: var(--text);
+    margin: 0 0 16px 0;
+    font-size: 2rem;
+}
+
+.success-message {
+    color: var(--muted);
+    font-size: 1.1rem;
+    margin-bottom: 32px;
+    line-height: 1.6;
+}
+
+.success-message strong {
+    color: var(--primary);
+}
+
+.employee-details {
+    margin: 32px 0;
+}
+
+.detail-card {
+    background: rgba(46, 204, 113, 0.1);
+    border: 1px solid rgba(46, 204, 113, 0.2);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin: 0 auto;
+    max-width: 300px;
+}
+
+.detail-icon {
+    font-size: 2rem;
+    color: #2ecc71;
+}
+
+.detail-info h4 {
+    margin: 0 0 4px 0;
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.employee-id {
+    margin: 0;
+    color: #2ecc71;
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+}
+
+.next-steps {
+    text-align: left;
+    background: rgba(52, 152, 219, 0.1);
+    border: 1px solid rgba(52, 152, 219, 0.2);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 32px 0;
+}
+
+.next-steps h4 {
+    color: var(--primary);
+    margin: 0 0 16px 0;
+    text-align: center;
+}
+
+.next-steps ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.next-steps li {
+    color: var(--text);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+}
+
+.next-steps li:last-child {
+    margin-bottom: 0;
+}
+
+.next-steps i {
+    color: #2ecc71;
+}
+
+.action-buttons {
+    margin-top: 32px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    padding: 14px 28px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    border-radius: 10px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(95, 139, 255, 0.3);
+    text-decoration: none;
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .success-panel {
+        padding: 20px;
+    }
+    
+    .success-content {
+        padding: 30px 20px;
+    }
+    
+    .success-content h2 {
+        font-size: 1.5rem;
+    }
+    
+    .success-icon {
+        font-size: 3rem;
+    }
+    
+    .detail-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
+    }
+}
+</style>
+{% endblock %}

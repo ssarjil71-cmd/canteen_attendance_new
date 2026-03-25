@@ -18,7 +18,8 @@
 		<input type="email" name="email" value="{{ company.email }}" required>
 
 		<label>Company ID</label>
-		<input type="text" name="company_code" value="{{ company.company_code }}" required>
+		<input type="text" name="company_code" value="{{ company.company_code }}" readonly style="background-color: #f5f5f5; cursor: not-allowed;">
+		<small style="color: #666; font-size: 0.9em;">Company ID cannot be changed as it's used for employee identification.</small>
 
 		<label>New Password</label>
 		<input type="password" name="password" placeholder="Leave blank to keep current password">

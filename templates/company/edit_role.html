@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Role{% endblock %}
+
+{% block content %}
+<div class="panel form-panel">
+    <div class="panel-header">
+        <div class="panel-title">
+            <h2><i class="bi bi-pencil-square me-2"></i>Edit Role</h2>
+            <p>Update role information, permissions and responsibilities.</p>
+        </div>
+    </div>
+
+    <form method="POST" class="role-form">
+        
+        <!-- SECTION 1: Basic Information -->
+        <div class="form-section">
+            <div class="section-header">
+                <h4><i class="bi bi-person-badge me-2"></i>Role Information</h4>
+                <p class="section-desc">Update the role name and description</p>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="role_name">Role Name <span class="required">*</span></label>
+                    <input type="text" id="role_name" name="role_name" 
+                           placeholder="e.g., Team Lead, Senior Developer" 
+                           value="{{ request.form.get('role_name', role.name) }}" required>
+                </div>
+                <div class="form-group">
+                    <!-- Empty for layout balance -->
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="4" 
+                              placeholder="Describe the role responsibilities and requirements">{{ request.form.get('description', role.description or '') }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle me-2"></i>Update Role
+            </button>
+            <a href="{{ url_for('company.view_roles') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.role-form {
+    width: 100%;
+    max-width: none;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.panel-title h2 {
+    margin: 0 0 8px 0;
+    color: var(--text);
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.panel-title p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.form-section {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    backdrop-filter: blur(10px);
+}
+
+.section-header {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-header h4 {
+    margin: 0 0 4px 0;
+    color: var(--primary);
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+}
+
+.section-desc {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 16px;
+}
+
+.form-row:last-child {
+    margin-bottom: 0;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    margin-bottom: 6px;
+    color: var(--text);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.required {
+    color: #ff6b6b;
+}
+
+.form-group input,
+.form-group textarea {
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--text);
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(95, 139, 255, 0.1);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-start;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    padding: 12px 24px;
+    font-weight: 600;
+}
+
+.btn-outline-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text);
+    padding: 12px 24px;
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-outline-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--text);
+    text-decoration: none;
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .form-section {
+        padding: 20px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('.role-form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Form submission handling
+    form.addEventListener('submit', function(e) {
+        // Disable submit button to prevent double submission
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Updating Role...';
+        
+        // Re-enable button after 3 seconds in case of error
+        setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Update Role';
+        }, 3000);
+    });
+});
+</script>
+{% endblock %}

@@ -49,16 +49,23 @@ def admin_dashboard():
 def add_company():
 	if request.method == "POST":
 		company_name = request.form.get("company_name", "").strip()
-		company_code = request.form.get("company_code", "").strip()
 		address = request.form.get("address", "").strip()
 		email = request.form.get("email", "").strip()
+		phone = request.form.get("phone", "").strip()
+		city = request.form.get("city", "").strip()
+		state = request.form.get("state", "").strip()
+		pincode = request.form.get("pincode", "").strip()
+		gst_number = request.form.get("gst_number", "").strip()
 		password = request.form.get("password", "").strip()
 		confirm_password = request.form.get("confirm_password", "").strip()
+		latitude = request.form.get("latitude", "").strip()
+		longitude = request.form.get("longitude", "").strip()
+		radius = request.form.get("radius", "").strip()
 		attendance_module_enabled = 1 if request.form.get("attendance_module_enabled") else 0
 		canteen_module_enabled = 1 if request.form.get("canteen_module_enabled") else 0
 
-		if not company_name or not company_code or not email or not password or not confirm_password:
-			flash("Company name, ID, email, password and confirm password are required.", "error")
+		if not company_name or not email or not password or not confirm_password:
+			flash("Company name, email, password and confirm password are required.", "error")
 			return render_template("admin/add_company.html")
 
 		if password != confirm_password:
@@ -67,31 +74,80 @@ def add_company():
 
 		connection = get_db_connection()
 		cursor = connection.cursor(dictionary=True)
-		cursor.execute(
-			"SELECT id FROM companies WHERE company_code = %s OR email = %s",
-			(company_code, email),
-		)
+		
+		# Check if email already exists
+		cursor.execute("SELECT id FROM companies WHERE email = %s", (email,))
 		existing_company = cursor.fetchone()
 		if existing_company:
 			cursor.close()
 			connection.close()
-			flash("Company ID or email already exists.", "error")
+			flash("Email already exists.", "error")
 			return render_template("admin/add_company.html")
+
+		# Handle logo upload
+		logo_filename = None
+		if 'logo' in request.files:
+			logo_file = request.files['logo']
+			if logo_file and logo_file.filename:
+				import os
+				from werkzeug.utils import secure_filename
+				from flask import current_app
+				
+				# Create uploads directory if it doesn't exist
+				upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'logos')
+				os.makedirs(upload_dir, exist_ok=True)
+				
+				# Generate secure filename
+				import time
+				filename = secure_filename(logo_file.filename)
+				timestamp = str(int(time.time()))
+				logo_filename = f"company_new_{timestamp}_{filename}"
+				logo_path = os.path.join(upload_dir, logo_filename)
+				
+				# Save the file
+				logo_file.save(logo_path)
+
+		# Auto-generate company code
+		# Get the next company ID to generate a unique code
+		cursor.execute("SELECT MAX(id) as max_id FROM companies")
+		result = cursor.fetchone()
+		next_id = (result['max_id'] or 0) + 1
+		company_code = f"CMP{next_id:03d}"  # Format: CMP001, CMP002, etc.
+		
+		# Ensure the generated code is unique (in case of gaps in IDs)
+		while True:
+			cursor.execute("SELECT id FROM companies WHERE company_code = %s", (company_code,))
+			if not cursor.fetchone():
+				break
+			next_id += 1
+			company_code = f"CMP{next_id:03d}"
 
 		cursor.execute(
 			"""
 			INSERT INTO companies
-			(company_name, company_code, address, email, password, attendance_module_enabled, canteen_module_enabled)
-			VALUES (%s, %s, %s, %s, %s, %s, %s)
+			(company_name, company_code, address, email, phone, city, state, pincode, 
+			 gst_number, logo, latitude, longitude, radius, password, 
+			 attendance_module_enabled, canteen_module_enabled, status)
+			VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 			""",
 			(
 				company_name,
 				company_code,
 				address or None,
 				email,
+				phone or None,
+				city or None,
+				state or None,
+				pincode or None,
+				gst_number or None,
+				logo_filename,
+				float(latitude) if latitude else None,
+				float(longitude) if longitude else None,
+				int(radius) if radius else 100,
 				password,
 				attendance_module_enabled,
 				canteen_module_enabled,
+				'active'
 			),
 		)
 		connection.commit()
@@ -169,7 +225,6 @@ def edit_company(company_id):
 
 	if request.method == "POST":
 		company_name = request.form.get("company_name", "").strip()
-		company_code = request.form.get("company_code", "").strip()
 		address = request.form.get("address", "").strip()
 		email = request.form.get("email", "").strip()
 		password = request.form.get("password", "").strip()
@@ -177,8 +232,8 @@ def edit_company(company_id):
 		attendance_module_enabled = 1 if request.form.get("attendance_module_enabled") else 0
 		canteen_module_enabled = 1 if request.form.get("canteen_module_enabled") else 0
 
-		if not company_name or not company_code or not email:
-			flash("Company name, ID and email are required.", "error")
+		if not company_name or not email:
+			flash("Company name and email are required.", "error")
 			cursor.close()
 			connection.close()
 			return render_template("admin/edit_company.html", company=company)
@@ -190,22 +245,19 @@ def edit_company(company_id):
 				connection.close()
 				return render_template("admin/edit_company.html", company=company)
 
+		# Check if email already exists for other companies
 		cursor.execute(
-			"""
-			SELECT id FROM companies
-			WHERE (company_code = %s OR email = %s) AND id != %s
-			""",
-			(company_code, email, company_id),
+			"SELECT id FROM companies WHERE email = %s AND id != %s",
+			(email, company_id),
 		)
 		duplicate_company = cursor.fetchone()
 		if duplicate_company:
-			flash("Company ID or email already exists.", "error")
+			flash("Email already exists.", "error")
 			cursor.close()
 			connection.close()
 			company.update(
 				{
 					"company_name": company_name,
-					"company_code": company_code,
 					"address": address,
 					"email": email,
 					"password": password,
@@ -220,7 +272,6 @@ def edit_company(company_id):
 				"""
 				UPDATE companies
 				SET company_name = %s,
-					company_code = %s,
 					address = %s,
 					email = %s,
 					password = %s,
@@ -230,7 +281,6 @@ def edit_company(company_id):
 				""",
 				(
 					company_name,
-					company_code,
 					address or None,
 					email,
 					password,
@@ -244,7 +294,6 @@ def edit_company(company_id):
 				"""
 				UPDATE companies
 				SET company_name = %s,
-					company_code = %s,
 					address = %s,
 					email = %s,
 					attendance_module_enabled = %s,
@@ -253,7 +302,6 @@ def edit_company(company_id):
 				""",
 				(
 					company_name,
-					company_code,
 					address or None,
 					email,
 					attendance_module_enabled,
@@ -293,7 +341,7 @@ def delete_company(company_id):
 	connection.close()
 
 	flash("Company deleted successfully.", "success")
-	return redirect(url_for("admin.admin_dashboard"))
+	return redirect(url_for("admin.view_companies"))
 
 
 @admin.route("/admin/create_manager", methods=["GET", "POST"])

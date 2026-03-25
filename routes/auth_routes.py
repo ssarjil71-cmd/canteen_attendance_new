@@ -9,8 +9,7 @@ auth = Blueprint('auth', __name__)
 
 ROLE_LOGIN_SELECT_MAP = {
 	"admin": "SELECT id, username, NULL AS company_id FROM admins WHERE (username = %s OR email = %s) AND password = %s",
-	"manager": "SELECT id, username, company_id FROM managers WHERE (username = %s OR email = %s) AND password = %s",
-	"company": "SELECT id, company_code AS username, id AS company_id FROM companies WHERE company_code = %s AND password = %s",
+	"company": "SELECT id, email AS username, id AS company_id FROM companies WHERE email = %s AND password = %s",
 	"canteen": "SELECT id, username, company_id FROM canteen WHERE (username = %s OR email = %s) AND password = %s",
 }
 
@@ -44,7 +43,7 @@ def landing_page():
 
 @auth.route("/<role>/login", methods=["GET", "POST"])
 def role_login(role):
-	allowed_roles = ["admin", "manager", "canteen", "company"]
+	allowed_roles = ["admin", "canteen", "company"]
 	if role not in allowed_roles:
 		flash("Invalid role.", "error")
 		return redirect(url_for("auth.landing_page"))
@@ -92,17 +91,9 @@ def redirect_dashboard():
 
 	if role == "admin":
 		return redirect(url_for("admin.admin_dashboard"))
-	if role == "manager":
-		return redirect(url_for("auth.manager_dashboard"))
 	if role == "company":
 		return redirect(url_for("company.company_dashboard"))
 	return redirect(url_for("auth.canteen_dashboard"))
-
-
-@auth.route("/manager/dashboard")
-@login_required(["manager", "company"])
-def manager_dashboard():
-	return render_template("manager/manager_dashboard.html")
 
 
 @auth.route("/canteen/dashboard")

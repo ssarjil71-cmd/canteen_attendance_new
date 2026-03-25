@@ -101,20 +101,6 @@ def _ensure_core_tables(connection):
 
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS managers (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(80) NOT NULL UNIQUE,
-            full_name VARCHAR(150) NULL,
-            email VARCHAR(150) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            company_id INT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
-
-    cursor.execute(
-        """
         CREATE TABLE IF NOT EXISTS canteen (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(80) NOT NULL UNIQUE,
@@ -122,7 +108,6 @@ def _ensure_core_tables(connection):
             email VARCHAR(150) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
             company_id INT NOT NULL UNIQUE,
-            created_by_manager_id INT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
@@ -134,12 +119,12 @@ def _ensure_core_tables(connection):
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
             emp_id VARCHAR(100) UNIQUE NOT NULL,
-            gender ENUM('Male', 'Female', 'Other') NOT NULL,
-            dob DATE NOT NULL,
+            gender ENUM('Male', 'Female', 'Other') NULL,
+            dob DATE NULL,
             company VARCHAR(255) NOT NULL,
             role VARCHAR(255) NOT NULL,
-            department VARCHAR(255) NOT NULL,
-            shift ENUM('Morning', 'Afternoon', 'Night') NOT NULL,
+            department VARCHAR(100) NOT NULL DEFAULT 'General',
+            shift VARCHAR(100) NOT NULL DEFAULT 'General',
             joining_date DATE NOT NULL,
             photo VARCHAR(500),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -157,6 +142,49 @@ def _ensure_core_tables(connection):
             phone VARCHAR(20),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS departments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            company_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_departments_name_company (name, company_id)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS shifts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(50) NOT NULL,
+            start_time TIME NOT NULL,
+            end_time TIME NOT NULL,
+            company_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_shifts_name_company (name, company_id)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS roles (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            description TEXT NULL,
+            permissions TEXT NULL,
+            company_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_roles_name_company (name, company_id)
         )
         """
     )
@@ -187,6 +215,62 @@ def _apply_schema_updates(connection):
     if not _column_exists(cursor, "companies", "canteen_module_enabled"):
         cursor.execute("ALTER TABLE companies ADD COLUMN canteen_module_enabled TINYINT(1) NOT NULL DEFAULT 1")
 
+    # Add additional profile fields
+    if not _column_exists(cursor, "companies", "phone"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN phone VARCHAR(20) NULL")
+    if not _column_exists(cursor, "companies", "city"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN city VARCHAR(100) NULL")
+    if not _column_exists(cursor, "companies", "state"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN state VARCHAR(100) NULL")
+    if not _column_exists(cursor, "companies", "pincode"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN pincode VARCHAR(10) NULL")
+    if not _column_exists(cursor, "companies", "logo"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN logo VARCHAR(255) NULL")
+    if not _column_exists(cursor, "companies", "gst_number"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN gst_number VARCHAR(50) NULL")
+    if not _column_exists(cursor, "companies", "status"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN status ENUM('active', 'inactive') DEFAULT 'active'")
+    if not _column_exists(cursor, "companies", "latitude"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN latitude DECIMAL(10, 8) NULL")
+    if not _column_exists(cursor, "companies", "longitude"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN longitude DECIMAL(11, 8) NULL")
+    if not _column_exists(cursor, "companies", "radius"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN radius INT DEFAULT 100")
+    # Add face capture and location fields to employees table
+    if not _column_exists(cursor, "employees", "face_image"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN face_image VARCHAR(500) NULL")
+    if not _column_exists(cursor, "employees", "registration_latitude"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN registration_latitude DECIMAL(10, 8) NULL")
+    if not _column_exists(cursor, "employees", "registration_longitude"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN registration_longitude DECIMAL(11, 8) NULL")
+    if not _column_exists(cursor, "employees", "registration_location_verified"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN registration_location_verified TINYINT(1) DEFAULT 0")
+
+    # Create attendance table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS attendance (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            employee_id VARCHAR(100) NOT NULL,
+            company_id INT NOT NULL,
+            date DATE NOT NULL,
+            check_in_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            check_out_time TIMESTAMP NULL,
+            face_image VARCHAR(500) NULL,
+            latitude DECIMAL(10, 8) NULL,
+            longitude DECIMAL(11, 8) NULL,
+            location_verified TINYINT(1) DEFAULT 0,
+            face_verified TINYINT(1) DEFAULT 0,
+            status ENUM('present', 'absent', 'late') DEFAULT 'present',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_employee_date (employee_id, date),
+            INDEX idx_company_date (company_id, date),
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     cursor.execute("UPDATE companies SET company_name = CONCAT('Company ', id) WHERE company_name IS NULL OR company_name = ''")
     cursor.execute("UPDATE companies SET company_code = CONCAT('CMP-', id) WHERE company_code IS NULL OR company_code = ''")
     cursor.execute("UPDATE companies SET email = CONCAT('company', id, '@example.com') WHERE email IS NULL OR email = ''")
@@ -207,12 +291,6 @@ def _apply_schema_updates(connection):
     if not _index_exists(cursor, "companies", "uk_companies_email"):
         cursor.execute("ALTER TABLE companies ADD UNIQUE KEY uk_companies_email (email)")
 
-    if _column_exists(cursor, "managers", "name") and not _column_exists(cursor, "managers", "full_name"):
-        cursor.execute("ALTER TABLE managers ADD COLUMN full_name VARCHAR(150) NULL")
-        cursor.execute("UPDATE managers SET full_name = name WHERE full_name IS NULL OR full_name = ''")
-    if not _column_exists(cursor, "managers", "full_name"):
-        cursor.execute("ALTER TABLE managers ADD COLUMN full_name VARCHAR(150) NULL")
-
     if _table_exists(cursor, "users"):
         if not _column_exists(cursor, "users", "full_name"):
             cursor.execute("ALTER TABLE users ADD COLUMN full_name VARCHAR(150) NULL")
@@ -224,7 +302,7 @@ def _apply_schema_updates(connection):
 
         cursor.execute(
             """
-            INSERT IGNORE INTO admins (username, full_name, email, password, created_at)
+            INSERT INTO admins (username, full_name, email, password, created_at)
             SELECT username, full_name, email, password, created_at
             FROM users
             WHERE role = 'admin'
@@ -239,35 +317,7 @@ def _apply_schema_updates(connection):
             """
         )
 
-        cursor.execute(
-            """
-            INSERT IGNORE INTO managers (username, full_name, email, password, company_id, created_at)
-            SELECT username, full_name, email, password, company_id, created_at
-            FROM users
-            WHERE role = 'manager' AND company_id IS NOT NULL
-            """
-        )
-
-        cursor.execute(
-            """
-            UPDATE managers m
-            JOIN users u ON u.username = m.username AND u.role = 'manager'
-            SET m.full_name = u.full_name, m.email = u.email, m.password = u.password, m.company_id = u.company_id
-            """
-        )
-
         cursor.execute("DROP TABLE users")
-
-    if not _foreign_key_exists_for_column(cursor, "managers", "company_id"):
-        cursor.execute(
-            """
-            ALTER TABLE managers
-            ADD CONSTRAINT fk_managers_company
-            FOREIGN KEY (company_id) REFERENCES companies(id)
-            ON DELETE CASCADE
-            ON UPDATE CASCADE
-            """
-        )
 
     if not _foreign_key_exists_for_column(cursor, "canteen", "company_id"):
         cursor.execute(
@@ -280,13 +330,120 @@ def _apply_schema_updates(connection):
             """
         )
 
-    if not _foreign_key_exists_for_column(cursor, "canteen", "created_by_manager_id"):
+    # Add foreign key constraints for departments and shifts
+    if not _foreign_key_exists_for_column(cursor, "departments", "company_id"):
         cursor.execute(
             """
-            ALTER TABLE canteen
-            ADD CONSTRAINT fk_canteen_created_by_manager
-            FOREIGN KEY (created_by_manager_id) REFERENCES managers(id)
-            ON DELETE SET NULL
+            ALTER TABLE departments
+            ADD CONSTRAINT fk_departments_company
+            FOREIGN KEY (company_id) REFERENCES companies(id)
+            ON DELETE CASCADE
+            ON UPDATE CASCADE
+            """
+        )
+
+    if not _foreign_key_exists_for_column(cursor, "shifts", "company_id"):
+        cursor.execute(
+            """
+            ALTER TABLE shifts
+            ADD CONSTRAINT fk_shifts_company
+            FOREIGN KEY (company_id) REFERENCES companies(id)
+            ON DELETE CASCADE
+            ON UPDATE CASCADE
+            """
+        )
+
+    # Add foreign key constraint for roles
+    if not _foreign_key_exists_for_column(cursor, "roles", "company_id"):
+        cursor.execute(
+            """
+            ALTER TABLE roles
+            ADD CONSTRAINT fk_roles_company
+            FOREIGN KEY (company_id) REFERENCES companies(id)
+            ON DELETE CASCADE
+            ON UPDATE CASCADE
+            """
+        )
+
+    # Add company_id to employees table
+    if not _column_exists(cursor, "employees", "company_id"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN company_id INT NULL")
+    
+    # Add employee_role column
+    if not _column_exists(cursor, "employees", "employee_role"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN employee_role VARCHAR(50) NULL")
+    
+    # Update employees table to use proper department and shift references
+    if not _column_exists(cursor, "employees", "email"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN email VARCHAR(150) NULL")
+    if not _column_exists(cursor, "employees", "phone"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN phone VARCHAR(20) NULL")
+    if not _column_exists(cursor, "employees", "address"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN address TEXT NULL")
+    if not _column_exists(cursor, "employees", "status"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN status ENUM('pending', 'registered', 'active', 'inactive') DEFAULT 'pending'")
+    
+    # Fix shift column to allow custom shift names instead of ENUM
+    cursor.execute("DESCRIBE employees")
+    columns = cursor.fetchall()
+    shift_column_info = None
+    for column in columns:
+        if column[0] == 'shift':
+            shift_column_info = column
+            break
+    
+    # If shift column exists and is ENUM, change it to VARCHAR
+    if shift_column_info and 'enum' in shift_column_info[1].lower():
+        cursor.execute("ALTER TABLE employees MODIFY COLUMN shift VARCHAR(100) NOT NULL DEFAULT 'General'")
+    
+    # If shift column doesn't exist, add it as VARCHAR
+    if not _column_exists(cursor, "employees", "shift"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN shift VARCHAR(100) NOT NULL DEFAULT 'General'")
+    
+    # Also fix department column to be VARCHAR if it's not already
+    cursor.execute("DESCRIBE employees")
+    columns = cursor.fetchall()
+    department_column_info = None
+    for column in columns:
+        if column[0] == 'department':
+            department_column_info = column
+            break
+    
+    if department_column_info and 'varchar' not in department_column_info[1].lower():
+        cursor.execute("ALTER TABLE employees MODIFY COLUMN department VARCHAR(100) NOT NULL DEFAULT 'General'")
+    
+    # Fix gender and dob columns to allow NULL values
+    cursor.execute("ALTER TABLE employees MODIFY COLUMN gender ENUM('Male', 'Female', 'Other') NULL")
+    cursor.execute("ALTER TABLE employees MODIFY COLUMN dob DATE NULL")
+    
+    # Remove manager-related functionality
+    # First drop foreign key constraints that reference managers table
+    if _constraint_exists(cursor, "canteen", "fk_canteen_created_by_manager"):
+        cursor.execute("ALTER TABLE canteen DROP FOREIGN KEY fk_canteen_created_by_manager")
+    
+    if _constraint_exists(cursor, "employees", "fk_employees_manager"):
+        cursor.execute("ALTER TABLE employees DROP FOREIGN KEY fk_employees_manager")
+    
+    # Remove manager_id column from employees if it exists
+    if _column_exists(cursor, "employees", "manager_id"):
+        cursor.execute("ALTER TABLE employees DROP COLUMN manager_id")
+    
+    # Remove created_by_manager_id column from canteen if it exists
+    if _column_exists(cursor, "canteen", "created_by_manager_id"):
+        cursor.execute("ALTER TABLE canteen DROP COLUMN created_by_manager_id")
+    
+    # Now drop the managers table
+    if _table_exists(cursor, "managers"):
+        cursor.execute("DROP TABLE IF EXISTS managers")
+    
+    # Add foreign key constraint for employees
+    if not _foreign_key_exists_for_column(cursor, "employees", "company_id"):
+        cursor.execute(
+            """
+            ALTER TABLE employees
+            ADD CONSTRAINT fk_employees_company
+            FOREIGN KEY (company_id) REFERENCES companies(id)
+            ON DELETE CASCADE
             ON UPDATE CASCADE
             """
         )
