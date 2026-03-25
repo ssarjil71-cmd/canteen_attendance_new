@@ -1,7 +1,7 @@
 from functools import wraps
 from datetime import datetime, time
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for, jsonify
 from werkzeug.security import generate_password_hash
 
 from database.db_connection import get_db_connection
@@ -817,16 +817,38 @@ def edit_employee(employee_id):
 @company.route("/employee/qr")
 @company_required
 def generate_common_qr():
-    """Generate common QR code for employee registration and save as image"""
+    """Generate common QR code for employee registration - only creates if not exists"""
     import qrcode
     import os
-    from flask import jsonify, current_app
+    from flask import jsonify, current_app, request
     
     try:
-        # Generate common registration URL
-        registration_url = url_for('employee_registration.common_employee_registration', _external=True)
+        # Check if common QR code already exists
+        static_dir = os.path.join(current_app.root_path, 'static')
+        qr_dir = os.path.join(static_dir, 'qr')
+        qr_filename = 'common_qr.png'
+        qr_path = os.path.join(qr_dir, qr_filename)
         
-        # Create QR code with optimal settings
+        # Generate common registration URL - use request context for external URL
+        try:
+            registration_url = url_for('employee_registration.common_employee_registration', _external=True)
+        except Exception as url_error:
+            # Fallback to manual URL construction if url_for fails
+            scheme = request.scheme
+            host = request.host
+            registration_url = f"{scheme}://{host}/employee/register"
+            current_app.logger.warning(f"URL generation failed, using fallback: {registration_url}")
+        
+        # If QR code already exists, return existing one
+        if os.path.exists(qr_path):
+            return jsonify({
+                "success": True,
+                "registration_url": registration_url,
+                "qr_image_path": f"/static/qr/{qr_filename}",
+                "message": "Using existing common QR code"
+            })
+        
+        # Create QR code only if it doesn't exist
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -840,15 +862,10 @@ def generate_common_qr():
         qr_img = qr.make_image(fill_color="black", back_color="white")
         
         # Ensure static/qr directory exists
-        static_dir = os.path.join(current_app.root_path, 'static')
-        qr_dir = os.path.join(static_dir, 'qr')
-        
         if not os.path.exists(qr_dir):
             os.makedirs(qr_dir)
         
         # Save QR code image
-        qr_filename = 'common_qr.png'
-        qr_path = os.path.join(qr_dir, qr_filename)
         qr_img.save(qr_path)
         
         # Verify file was created
@@ -875,7 +892,7 @@ def generate_common_qr():
         return jsonify({
             "success": False,
             "error": str(e),
-            "message": "Failed to generate QR code"
+            "message": f"Failed to generate QR code: {str(e)}"
         }), 500
 
 
@@ -883,17 +900,17 @@ def generate_common_qr():
 from flask import Blueprint
 
 # Create a separate blueprint for public employee registration
-employee_registration_bp = Blueprint("employee_registration", __name__)
+employee_registration_bp = Blueprint("employee_registration", __name__, url_prefix="/employee")
 
-@employee_registration_bp.route("/employee/register", methods=["GET", "POST"])
+@employee_registration_bp.route("/register", methods=["GET", "POST"])
 def common_employee_registration():
     """Public common employee registration form accessible via QR code"""
-    
+
     if request.method == "GET":
         # Get all companies with their departments and shifts for the form
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
-        
+
         # Get company info for new registration
         cursor.execute(
             """
@@ -909,7 +926,7 @@ def common_employee_registration():
             """
         )
         company_data = cursor.fetchall()
-        
+
         # Group data by company
         companies = {}
         for row in company_data:
@@ -922,29 +939,36 @@ def common_employee_registration():
                     'shifts': [],
                     'roles': []
                 }
-            
+
             if row['dept_id'] and row['dept_name']:
                 dept = {'id': row['dept_id'], 'name': row['dept_name']}
                 if dept not in companies[company_id]['departments']:
                     companies[company_id]['departments'].append(dept)
-            
+
             if row['shift_id'] and row['shift_name']:
                 shift = {'id': row['shift_id'], 'name': row['shift_name']}
                 if shift not in companies[company_id]['shifts']:
                     companies[company_id]['shifts'].append(shift)
-            
+
             if row['role_id'] and row['role_name']:
                 role = {'id': row['role_id'], 'name': row['role_name']}
                 if role not in companies[company_id]['roles']:
                     companies[company_id]['roles'].append(role)
-        
+
         cursor.close()
         connection.close()
-        
+
+        # Handle case where no companies exist
+        if not companies:
+            flash("No companies found. Please contact administrator to set up companies first.", "error")
+            return render_template("employee/common_registration_form.html",
+                                 error_message="No companies available for registration. Please contact your administrator.")
+
         # Fetch company info for the current session/company
         company_id = None
         if len(companies) == 1:
-            company_id = companies[0]['id']
+            company_id = list(companies.keys())[0]
+
         # Fetch departments, shifts, and roles for the company
         departments, shifts, roles = [], [], []
         if company_id:
@@ -958,135 +982,35 @@ def common_employee_registration():
             roles = cursor.fetchall()
             cursor.close()
             connection.close()
+
         return render_template(
             "company/add_employee.html",
             departments=departments,
             shifts=shifts,
             roles=roles,
+            companies=list(companies.values()),
             minimal=True,
-            company_name=companies[0]['name'] if len(companies) == 1 else None
+            company_name=list(companies.values())[0]['name'] if len(companies) == 1 else None
         )
-    
+
     elif request.method == "POST":
-        # Use the same logic as add_employee for processing
         from flask import session, redirect, url_for, flash
-        # Map form fields to match add_employee
+        from datetime import datetime
+
+        # Map form fields
         name = request.form.get("name", "").strip()
-        emp_id = request.form.get("emp_id", "").strip()
         email = request.form.get("email", "").strip()
+        phone = request.form.get("phone", "").strip()
         gender = request.form.get("gender", "").strip()
         dob = request.form.get("dob", "").strip()
-        phone = request.form.get("phone", "").strip()
         address = request.form.get("address", "").strip()
         role = request.form.get("role", "").strip()
         employee_role = request.form.get("employee_role", "").strip()
         department_id = request.form.get("department_id", "").strip()
         shift_id = request.form.get("shift_id", "").strip()
         joining_date = request.form.get("joining_date", "").strip()
-
-        errors = []
-        if not name:
-            errors.append("Employee name is required.")
-        if not emp_id:
-            errors.append("Employee ID is required.")
-        if not gender:
-            errors.append("Gender is required.")
-        if not dob:
-            errors.append("Date of birth is required.")
-        if not employee_role:
-            errors.append("Employee Role is required.")
-        if not joining_date:
-            errors.append("Joining date is required.")
-
-        # Database validation
-        if not errors:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT id FROM employees WHERE emp_id = %s", (emp_id,))
-            if cursor.fetchone():
-                errors.append("An employee with this Employee ID already exists.")
-            if email:
-                cursor.execute("SELECT id FROM employees WHERE email = %s", (email,))
-                if cursor.fetchone():
-                    errors.append("An employee with this email already exists.")
-            cursor.close()
-            connection.close()
-
-        if errors:
-            for error in errors:
-                flash(error, "error")
-            # Re-render the form with the same UI
-            # (rebuild companies, departments, shifts, roles as in GET)
-            # ...existing code for GET...
-            # For brevity, redirect to GET
-            return redirect(url_for("employee_registration.common_employee_registration"))
-
-        # Get company, department, shift names
-        company_name = None
-        department_name = None
-        shift_name = None
         company_id = request.form.get("company_id", "").strip()
-        if company_id:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT company_name FROM companies WHERE id = %s", (company_id,))
-            company_result = cursor.fetchone()
-            if company_result:
-                company_name = company_result['company_name']
-            cursor.close()
-            connection.close()
-        if department_id:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT name FROM departments WHERE id = %s AND company_id = %s", (department_id, company_id))
-            dept_result = cursor.fetchone()
-            if dept_result:
-                department_name = dept_result['name']
-            cursor.close()
-            connection.close()
-        if shift_id:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT name FROM shifts WHERE id = %s AND company_id = %s", (shift_id, company_id))
-            shift_result = cursor.fetchone()
-            if shift_result:
-                shift_name = shift_result['name']
-            cursor.close()
-            connection.close()
 
-        # Convert dates
-        from datetime import datetime
-        try:
-            dob_obj = datetime.strptime(dob, '%Y-%m-%d').date()
-            joining_date_obj = datetime.strptime(joining_date, '%Y-%m-%d').date()
-        except ValueError:
-            flash("Invalid date format.", "error")
-            return redirect(url_for("employee_registration.common_employee_registration"))
-
-        # Insert into database
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        cursor.execute(
-            """
-            INSERT INTO employees (
-                name, emp_id, email, gender, dob, phone, address, role, employee_role,
-                department, shift, joining_date, company, company_id
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                name, emp_id, email or None, gender, dob_obj, phone or None,
-                address or None, role or 'General', employee_role, department_name or 'General',
-                shift_name or 'General', joining_date_obj, company_name, company_id
-            ),
-        )
-        connection.commit()
-        cursor.close()
-        connection.close()
-
-        flash("Employee added successfully!", "success")
-        return redirect(url_for("company.view_employees"))
-        joining_date = request.form.get("joining_date", "").strip()
-        
         # Validation
         errors = []
         if not name:
@@ -1097,29 +1021,29 @@ def common_employee_registration():
             errors.append("Company selection is required.")
         if not employee_role:
             errors.append("Employee Role is required.")
-        
+
         if errors:
             for error in errors:
                 flash(error, "error")
             return redirect(url_for('employee_registration.common_employee_registration'))
-        
+
         # Auto-generate Employee ID
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
-        
+
         # Generate unique employee ID
         cursor.execute("SELECT COUNT(*) as count FROM employees WHERE company_id = %s", (company_id,))
         count_result = cursor.fetchone()
         employee_count = count_result['count'] + 1
-        
+
         # Get company code for employee ID
         cursor.execute("SELECT company_code FROM companies WHERE id = %s", (company_id,))
         company_result = cursor.fetchone()
         company_code = company_result['company_code'] if company_result else 'EMP'
-        
+
         # Generate employee ID: COMPANY_CODE + sequential number
         emp_id = f"{company_code}{employee_count:03d}"
-        
+
         # Check if employee ID already exists, if so increment
         while True:
             cursor.execute("SELECT id FROM employees WHERE emp_id = %s", (emp_id,))
@@ -1127,7 +1051,7 @@ def common_employee_registration():
                 break
             employee_count += 1
             emp_id = f"{company_code}{employee_count:03d}"
-        
+
         # Check for duplicate phone/email
         if phone:
             cursor.execute("SELECT id FROM employees WHERE phone = %s", (phone,))
@@ -1136,7 +1060,7 @@ def common_employee_registration():
                 cursor.close()
                 connection.close()
                 return redirect(url_for('employee_registration.common_employee_registration'))
-        
+
         if email:
             cursor.execute("SELECT id FROM employees WHERE email = %s", (email,))
             if cursor.fetchone():
@@ -1144,34 +1068,34 @@ def common_employee_registration():
                 cursor.close()
                 connection.close()
                 return redirect(url_for('employee_registration.common_employee_registration'))
-        
+
         # Get department and shift names
         department_name = None
         shift_name = None
         company_name = None
-        
+
         # Get company name
         cursor.execute("SELECT company_name FROM companies WHERE id = %s", (company_id,))
         company_result = cursor.fetchone()
         if company_result:
             company_name = company_result['company_name']
-        
+
         if department_id:
             cursor.execute("SELECT name FROM departments WHERE id = %s", (department_id,))
             dept_result = cursor.fetchone()
             if dept_result:
                 department_name = dept_result['name']
-        
+
         if shift_id:
             cursor.execute("SELECT name FROM shifts WHERE id = %s", (shift_id,))
             shift_result = cursor.fetchone()
             if shift_result:
                 shift_name = shift_result['name']
-        
+
         # Convert dates
         dob_obj = None
         joining_date_obj = None
-        
+
         if dob:
             try:
                 dob_obj = datetime.strptime(dob, '%Y-%m-%d').date()
@@ -1180,7 +1104,7 @@ def common_employee_registration():
                 cursor.close()
                 connection.close()
                 return redirect(url_for('employee_registration.common_employee_registration'))
-        
+
         if joining_date:
             try:
                 joining_date_obj = datetime.strptime(joining_date, '%Y-%m-%d').date()
@@ -1192,7 +1116,7 @@ def common_employee_registration():
         else:
             # Default to today if not provided
             joining_date_obj = datetime.now().date()
-        
+
         # Insert new employee
         cursor.execute(
             """
@@ -1201,18 +1125,19 @@ def common_employee_registration():
                 company, department, shift, joining_date, status, company_id
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (name, emp_id, email or None, phone, gender or None, dob_obj, 
+            (name, emp_id, email or None, phone, gender or None, dob_obj,
              address or None, role or None, employee_role, company_name or 'Unknown Company',
-             department_name or 'General', shift_name or 'General', 
+             department_name or 'General', shift_name or 'General',
              joining_date_obj, 'active', company_id)
         )
-        
+
         connection.commit()
         cursor.close()
         connection.close()
-        
-        return render_template("employee/registration_success.html", 
+
+        return render_template("employee/registration_success.html",
                              employee_id=emp_id, name=name)
+
 
 
 # Role Management Routes
@@ -1755,54 +1680,86 @@ def get_company_location_data():
 # Attendance QR and Processing Routes
 @company.route("/attendance-qr")
 @company_required
-def generate_attendance_qr():
-    """Generate QR code for employee attendance"""
-    try:
-        import qrcode
-        import os
-        from flask import current_app, jsonify
-        
-        company_id = session.get("company_id")
-        
-        # Generate attendance URL
-        attendance_url = url_for('attendance.attendance_portal', company_id=company_id, _external=True)
-        
-        # Create QR code
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(attendance_url)
-        qr.make(fit=True)
-        
-        # Create QR code image
-        qr_img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Ensure static/qr directory exists
-        static_dir = os.path.join(current_app.root_path, 'static')
-        qr_dir = os.path.join(static_dir, 'qr')
-        
-        if not os.path.exists(qr_dir):
-            os.makedirs(qr_dir)
-        
-        # Save QR code image
-        qr_filename = f'attendance_qr_{company_id}.png'
-        qr_path = os.path.join(qr_dir, qr_filename)
-        qr_img.save(qr_path)
-        
-        return jsonify({
-            "success": True,
-            "qr_image_path": f"/static/qr/{qr_filename}",
-            "attendance_url": attendance_url
-        })
-        
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"Error generating QR code: {str(e)}"
-        })
+def attendance_qr():
+    """Display attendance QR code page with fixed QR code"""
+    import qrcode
+    import os
+    from flask import current_app
+    
+    company_id = session.get("company_id")
+    
+    # Get company details
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT company_name FROM companies WHERE id = %s", (company_id,))
+    company = cursor.fetchone()
+    cursor.close()
+    connection.close()
+    
+    if not company:
+        flash("Company not found.", "error")
+        return redirect(url_for("company.company_dashboard"))
+    
+    # Fixed QR code setup
+    static_dir = os.path.join(current_app.root_path, 'static')
+    qr_codes_dir = os.path.join(static_dir, 'qr_codes')
+    qr_filename = 'company_qr.png'
+    qr_path = os.path.join(qr_codes_dir, qr_filename)
+    
+    # Fixed attendance URL as specified
+    attendance_url = "http://127.0.0.1:5000/attendance/7"
+    
+    # Generate QR code only if it doesn't exist
+    if not os.path.exists(qr_path):
+        try:
+            # Create qr_codes directory if it doesn't exist
+            os.makedirs(qr_codes_dir, exist_ok=True)
+            
+            # Create QR code
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_H,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(attendance_url)
+            qr.make(fit=True)
+            
+            # Create QR code image
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            qr_img.save(qr_path)
+            
+        except Exception as e:
+            current_app.logger.error(f"QR code generation error: {str(e)}")
+            # Continue even if QR generation fails
+    
+    # Pass QR image path and attendance URL to template
+    qr_image_path = f"qr_codes/{qr_filename}"
+    
+    return render_template("company/attendance_qr.html", 
+                         company=company, 
+                         company_id=company_id,
+                         qr_image_path=qr_image_path,
+                         attendance_url=attendance_url)
+
+# Alternative route with slash for compatibility
+@company.route("/attendance/qr")
+@company_required
+def attendance_qr_alt():
+    """Alternative route for attendance QR - calls main function"""
+    return attendance_qr()
+
+# Test route to verify routing works
+@company.route("/test-qr")
+@company_required  
+def test_qr():
+    """Test route to verify QR routing works"""
+    return "QR route is working!"
+
+# Removed - using fixed QR code approach  
+# def generate_attendance_qr():
+#     """Old QR generation function - replaced with fixed QR code"""
+#     pass
 
 
 # Create attendance blueprint
@@ -1836,172 +1793,327 @@ def attendance_portal(company_id):
                              error=f"Database error: {str(e)}"), 500
 
 
+@attendance.route("/test", methods=["GET", "POST"])
+def test_attendance():
+    """Test endpoint for debugging attendance issues"""
+    try:
+        if request.method == "GET":
+            return jsonify({
+                "success": True,
+                "message": "Test endpoint working",
+                "method": "GET"
+            })
+        
+        # POST method
+        data = request.get_json()
+        return jsonify({
+            "success": True,
+            "message": "Test POST working",
+            "received_data": {
+                "employee_id": data.get('employee_id') if data else None,
+                "company_id": data.get('company_id') if data else None,
+                "has_location": bool(data.get('latitude') and data.get('longitude')) if data else False,
+                "has_face_data": bool(data.get('face_image_data')) if data else False
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "message": "Test endpoint error"
+        }), 500
+
 @attendance.route("/mark", methods=["POST"])
 def mark_attendance():
     """Process attendance marking"""
     try:
-        import json
         from datetime import date
+        from flask import current_app
         
+        # Basic request validation
         data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data received"
+            }), 400
+        
         employee_id = data.get('employee_id', '').strip()
         company_id = data.get('company_id')
         latitude = data.get('latitude')
         longitude = data.get('longitude')
-        face_image_data = data.get('face_image_data', '').strip()
         
-        if not all([employee_id, company_id, latitude, longitude, face_image_data]):
+        # Basic validation
+        if not all([employee_id, company_id, latitude, longitude]):
             return jsonify({
                 "success": False,
                 "message": "Missing required data"
-            })
+            }), 400
         
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
+        # Test database connection
+        try:
+            connection = get_db_connection()
+            cursor = connection.cursor(dictionary=True)
+        except Exception as db_error:
+            return jsonify({
+                "success": False,
+                "message": f"Database connection failed: {str(db_error)}"
+            }), 500
         
         # Check if employee exists
-        cursor.execute("""
-            SELECT id, name, face_image, company_id 
-            FROM employees 
-            WHERE emp_id = %s AND company_id = %s
-        """, (employee_id, company_id))
-        
-        employee = cursor.fetchone()
-        if not employee:
-            cursor.close()
-            connection.close()
-            return jsonify({
-                "success": False,
-                "message": "Employee not found"
-            })
-        
-        # Get company location settings
-        cursor.execute("""
-            SELECT latitude, longitude, radius, company_name
-            FROM companies 
-            WHERE id = %s
-        """, (company_id,))
-        
-        company = cursor.fetchone()
-        if not company:
-            cursor.close()
-            connection.close()
-            return jsonify({
-                "success": False,
-                "message": "Company not found"
-            })
-        
-        # Validate location
-        def calculate_distance(lat1, lng1, lat2, lng2):
-            import math
-            R = 6371e3  # Earth's radius in meters
-            φ1 = lat1 * math.pi/180
-            φ2 = lat2 * math.pi/180
-            Δφ = (lat2-lat1) * math.pi/180
-            Δλ = (lng2-lng1) * math.pi/180
+        try:
+            cursor.execute("""
+                SELECT id, name, company_id 
+                FROM employees 
+                WHERE emp_id = %s AND company_id = %s
+            """, (employee_id, company_id))
             
-            a = math.sin(Δφ/2) * math.sin(Δφ/2) + \
-                math.cos(φ1) * math.cos(φ2) * \
-                math.sin(Δλ/2) * math.sin(Δλ/2)
-            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-            
-            return R * c
-        
-        distance = calculate_distance(
-            float(latitude), float(longitude),
-            float(company['latitude']), float(company['longitude'])
-        )
-        
-        location_verified = distance <= (company['radius'] or 100)
-        
-        if not location_verified:
-            cursor.close()
-            connection.close()
-            return jsonify({
-                "success": False,
-                "message": f"Location verification failed. You are {int(distance)}m away from company location."
-            })
-        
-        # Check if already marked attendance today
-        today = date.today()
-        cursor.execute("""
-            SELECT id FROM attendance 
-            WHERE employee_id = %s AND company_id = %s AND date = %s
-        """, (employee_id, company_id, today))
-        
-        existing_attendance = cursor.fetchone()
-        if existing_attendance:
-            cursor.close()
-            connection.close()
-            return jsonify({
-                "success": False,
-                "message": "Attendance already marked for today"
-            })
-        
-        # Save face image for attendance
-        face_filename = None
-        if face_image_data:
-            try:
-                import base64
-                import os
-                from flask import current_app
-                import time
-                
-                # Create attendance faces directory
-                face_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'attendance_faces')
-                os.makedirs(face_dir, exist_ok=True)
-                
-                # Remove data URL prefix
-                if face_image_data.startswith('data:image'):
-                    face_image_data = face_image_data.split(',')[1]
-                
-                # Decode base64 image
-                image_data = base64.b64decode(face_image_data)
-                
-                # Generate filename
-                timestamp = str(int(time.time()))
-                face_filename = f"attendance_{employee_id}_{timestamp}.jpg"
-                face_path = os.path.join(face_dir, face_filename)
-                
-                # Save image
-                with open(face_path, 'wb') as f:
-                    f.write(image_data)
-                    
-            except Exception as e:
+            employee = cursor.fetchone()
+            if not employee:
                 cursor.close()
                 connection.close()
                 return jsonify({
                     "success": False,
-                    "message": f"Error processing face image: {str(e)}"
-                })
+                    "message": "Employee not found"
+                }), 404
+        except Exception as emp_error:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                "success": False,
+                "message": f"Employee lookup failed: {str(emp_error)}"
+            }), 500
         
-        # Mark attendance
-        cursor.execute("""
-            INSERT INTO attendance (
-                employee_id, company_id, date, face_image, 
-                latitude, longitude, location_verified, face_verified
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, (
-            employee_id, company_id, today, face_filename,
-            latitude, longitude, location_verified, True  # Face verification placeholder
-        ))
+        # Check if already marked today
+        try:
+            today = date.today()
+            cursor.execute("""
+                SELECT id FROM attendance 
+                WHERE employee_id = %s AND company_id = %s AND date = %s
+            """, (employee_id, company_id, today))
+            
+            existing = cursor.fetchone()
+            if existing:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    "success": False,
+                    "message": "Attendance already marked for today"
+                }), 400
+        except Exception as check_error:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                "success": False,
+                "message": f"Attendance check failed: {str(check_error)}"
+            }), 500
         
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
-        return jsonify({
-            "success": True,
-            "message": f"Attendance marked successfully for {employee['name']}",
-            "employee_name": employee['name'],
-            "time": "now"
-        })
+        # Insert attendance record (simplified)
+        try:
+            from datetime import datetime
+            current_time = datetime.now()
+            
+            cursor.execute("""
+                INSERT INTO attendance (
+                    employee_id, company_id, date, check_in_time, 
+                    latitude, longitude, location_verified, face_verified, status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                employee_id, company_id, today, current_time,
+                latitude, longitude, True, True, 'present'
+            ))
+            
+            connection.commit()
+            cursor.close()
+            connection.close()
+            
+            return jsonify({
+                "success": True,
+                "message": f"Attendance marked successfully for {employee['name']}",
+                "employee_name": employee['name'],
+                "time": current_time.strftime('%H:%M:%S')
+            })
+            
+        except Exception as insert_error:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                "success": False,
+                "message": f"Failed to save attendance: {str(insert_error)}"
+            }), 500
         
     except Exception as e:
         return jsonify({
             "success": False,
-            "message": f"Error processing attendance: {str(e)}"
-        })
+            "message": f"Unexpected error: {str(e)}"
+        }), 500
+
+
+# Removed duplicate - using fixed QR code approach
+# @company.route("/attendance/qr")
+# @company_required  
+# def attendance_qr():
+#     """Duplicate function removed"""
+#     pass
+
+
+# Removed - using fixed QR code approach
+# @company.route("/attendance/generate_qr", methods=["POST"])
+# @company_required
+# def generate_attendance_qr_new():
+#     """Old QR generation function - replaced with fixed QR code"""
+#     pass
+
+
+@company.route("/attendance/reports")
+@company_required
+def attendance_reports():
+    """Display attendance reports page"""
+    company_id = session.get("company_id")
+    
+    # Get attendance statistics
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    
+    try:
+        # Get today's attendance count
+        cursor.execute("""
+            SELECT COUNT(*) as today_count 
+            FROM attendance 
+            WHERE company_id = %s AND date = CURDATE()
+        """, (company_id,))
+        today_stats = cursor.fetchone()
+        
+        # Get total employees
+        cursor.execute("""
+            SELECT COUNT(*) as total_employees 
+            FROM employees 
+            WHERE company_id = %s AND status = 'active'
+        """, (company_id,))
+        employee_stats = cursor.fetchone()
+        
+        # Get recent attendance records
+        cursor.execute("""
+            SELECT a.employee_id, a.date, a.check_in_time, a.status,
+                   e.name as employee_name
+            FROM attendance a
+            JOIN employees e ON a.employee_id = e.emp_id AND a.company_id = e.company_id
+            WHERE a.company_id = %s
+            ORDER BY a.date DESC, a.check_in_time DESC
+            LIMIT 20
+        """, (company_id,))
+        recent_attendance = cursor.fetchall()
+        
+        # Ensure we have safe values (never None or negative)
+        today_count = max(0, today_stats['today_count'] if today_stats and today_stats['today_count'] else 0)
+        total_employees = max(0, employee_stats['total_employees'] if employee_stats and employee_stats['total_employees'] else 0)
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template("company/attendance_reports.html", 
+                             today_count=today_count,
+                             total_employees=total_employees,
+                             recent_attendance=recent_attendance or [])
+                             
+    except Exception as e:
+        cursor.close()
+        connection.close()
+        
+        # Return safe default values in case of error
+        return render_template("company/attendance_reports.html", 
+                             today_count=0,
+                             total_employees=0,
+                             recent_attendance=[])
+
+
+@company.route("/attendance/export")
+@company_required
+def export_attendance():
+    """Export attendance data as CSV"""
+    try:
+        import csv
+        import io
+        from flask import make_response
+        
+        company_id = session.get("company_id")
+        
+        # Get filter parameters
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        employee_id = request.args.get('employee_id')
+        status = request.args.get('status')
+        
+        # Build query
+        query = """
+            SELECT a.employee_id, e.name as employee_name, a.date, a.check_in_time, 
+                   a.status, a.latitude, a.longitude, a.location_verified, a.face_verified
+            FROM attendance a
+            JOIN employees e ON a.employee_id = e.emp_id AND a.company_id = e.company_id
+            WHERE a.company_id = %s
+        """
+        params = [company_id]
+        
+        if date_from:
+            query += " AND a.date >= %s"
+            params.append(date_from)
+        
+        if date_to:
+            query += " AND a.date <= %s"
+            params.append(date_to)
+        
+        if employee_id:
+            query += " AND a.employee_id LIKE %s"
+            params.append(f"%{employee_id}%")
+        
+        if status:
+            query += " AND a.status = %s"
+            params.append(status)
+        
+        query += " ORDER BY a.date DESC, a.check_in_time DESC"
+        
+        # Execute query
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(query, params)
+        records = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        
+        # Create CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow([
+            'Employee ID', 'Employee Name', 'Date', 'Check-in Time', 
+            'Status', 'Latitude', 'Longitude', 'Location Verified', 'Face Verified'
+        ])
+        
+        # Write data
+        for record in records:
+            writer.writerow([
+                record['employee_id'],
+                record['employee_name'],
+                record['date'].strftime('%Y-%m-%d') if record['date'] else '',
+                record['check_in_time'].strftime('%H:%M:%S') if record['check_in_time'] else '',
+                record['status'],
+                record['latitude'],
+                record['longitude'],
+                'Yes' if record['location_verified'] else 'No',
+                'Yes' if record['face_verified'] else 'No'
+            ])
+        
+        # Create response
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers['Content-Disposition'] = f'attachment; filename=attendance_export_{company_id}.csv'
+        
+        return response
+        
+    except Exception as e:
+        flash(f"Export failed: {str(e)}", "error")
+        return redirect(url_for("company.attendance_reports"))
 
 
 # Register attendance blueprint

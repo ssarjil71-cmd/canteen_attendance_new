@@ -1,0 +1,66 @@
+{% extends "base_minimal.html" %}
+
+{% block title %}Attendance Error{% endblock %}
+
+{% block content %}
+<div class="container-fluid min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div class="row w-100 justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-danger text-white text-center py-4">
+                    <h3 class="mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Attendance Error
+                    </h3>
+                </div>
+                
+                <div class="card-body p-4 text-center">
+                    <div class="mb-4">
+                        <i class="bi bi-x-circle text-danger" style="font-size: 4rem;"></i>
+                    </div>
+                    
+                    <h5 class="text-danger mb-3">Unable to Access Attendance Portal</h5>
+                    
+                    <p class="text-muted mb-4">
+                        {{ error }}
+                    </p>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="/" class="btn btn-primary">
+                            <i class="bi bi-house me-2"></i>
+                            Go to Home
+                        </a>
+                        <button onclick="history.back()" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>
+                            Go Back
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    If you continue to experience issues, please contact your administrator.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border-radius: 15px;
+}
+
+@media (max-width: 576px) {
+    .container-fluid {
+        padding: 15px;
+    }
+    
+    .card-body {
+        padding: 20px !important;
+    }
+}
+</style>
+{% endblock %}

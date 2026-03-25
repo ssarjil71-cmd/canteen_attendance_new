@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance QR Code{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Attendance QR Code</h1>
+            <p class="text-muted">Fixed QR code for employee attendance</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- QR Code Display Card -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-qr-code me-2"></i>Employee Attendance QR Code
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <div id="qrContainer" class="mb-4">
+                        <div id="qrDisplay">
+                            <img id="qrImage" src="{{ url_for('static', filename=qr_image_path) }}" alt="Attendance QR Code" class="qr-code-large mb-3">
+                            <div class="qr-info">
+                                <h6>Attendance Portal Link</h6>
+                                <div class="input-group mb-3">
+                                    <input type="text" id="attendanceUrl" class="form-control" value="{{ attendance_url }}" readonly>
+                                    <button class="btn btn-outline-secondary" type="button" id="copyUrlBtn" title="Copy Link">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-center gap-3">
+                        <button type="button" id="downloadQRBtn" class="btn btn-success">
+                            <i class="bi bi-download me-2"></i>Download QR Code
+                        </button>
+                        <button type="button" id="printQRBtn" class="btn btn-info">
+                            <i class="bi bi-printer me-2"></i>Print QR Code
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions Card -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>How to Use
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="step-instructions">
+                        <div class="step-item">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h6>Display QR Code</h6>
+                                <p class="small text-muted">Print or display this fixed QR code at your workplace entrance or common area.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step-item">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h6>Employee Scanning</h6>
+                                <p class="small text-muted">Employees scan the QR code with their phones to access the attendance portal.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step-item">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h6>Mark Attendance</h6>
+                                <p class="small text-muted">Employees enter their ID, verify location, capture face photo, and mark attendance.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats Card -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up me-2"></i>QR Code Info
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ company.company_name }}</div>
+                        <div class="stat-label">Company Name</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">Fixed QR</div>
+                        <div class="stat-label">QR Code Type</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">Always Active</div>
+                        <div class="stat-label">Status</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.qr-code-large {
+    max-width: 300px;
+    height: auto;
+    border: 3px solid #28a745;
+    border-radius: 10px;
+    padding: 10px;
+    background: white;
+}
+
+.step-instructions {
+    padding: 0;
+}
+
+.step-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.step-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.step-number {
+    width: 30px;
+    height: 30px;
+    background: #007bff;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.step-content h6 {
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.stat-item {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #28a745;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .qr-code-large {
+        max-width: 250px;
+    }
+    
+    .d-flex.gap-3 {
+        flex-direction: column;
+        gap: 10px !important;
+    }
+    
+    .d-flex.gap-3 .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 576px) {
+    .container-fluid {
+        padding: 15px;
+    }
+    
+    .qr-code-large {
+        max-width: 200px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const downloadQRBtn = document.getElementById('downloadQRBtn');
+    const printQRBtn = document.getElementById('printQRBtn');
+    const qrImage = document.getElementById('qrImage');
+    const attendanceUrl = document.getElementById('attendanceUrl');
+    const copyUrlBtn = document.getElementById('copyUrlBtn');
+
+    // Download QR Code functionality
+    downloadQRBtn.addEventListener('click', function() {
+        const link = document.createElement('a');
+        link.href = qrImage.src;
+        link.download = 'company_attendance_qr.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+
+    // Print QR Code functionality
+    printQRBtn.addEventListener('click', function() {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Attendance QR Code - {{ company.company_name }}</title>
+                    <style>
+                        body { 
+                            text-align: center; 
+                            font-family: Arial, sans-serif; 
+                            margin: 40px;
+                            background: white;
+                        }
+                        .qr-print { 
+                            max-width: 400px; 
+                            margin: 20px auto; 
+                        }
+                        .company-info { 
+                            margin-bottom: 30px; 
+                        }
+                        .instructions { 
+                            margin-top: 30px; 
+                            font-size: 14px; 
+                            color: #666; 
+                        }
+                        .qr-image {
+                            width: 100%; 
+                            border: 2px solid #000;
+                            border-radius: 10px;
+                        }
+                        @media print {
+                            body { margin: 20px; }
+                            .qr-print { max-width: 300px; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="company-info">
+                        <h1>{{ company.company_name }}</h1>
+                        <h2>Employee Attendance Portal</h2>
+                    </div>
+                    <div class="qr-print">
+                        <img src="${qrImage.src}" alt="Attendance QR Code" class="qr-image">
+                    </div>
+                    <div class="instructions">
+                        <p><strong>Instructions:</strong></p>
+                        <p>1. Scan this QR code with your smartphone</p>
+                        <p>2. Enter your Employee ID</p>
+                        <p>3. Allow location access</p>
+                        <p>4. Capture your face photo</p>
+                        <p>5. Mark your attendance</p>
+                        <br>
+                        <p><strong>URL:</strong> {{ attendance_url }}</p>
+                    </div>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    });
+
+    // Copy URL functionality
+    if (copyUrlBtn) {
+        copyUrlBtn.addEventListener('click', function() {
+            attendanceUrl.select();
+            attendanceUrl.setSelectionRange(0, 99999); // For mobile devices
+            
+            try {
+                document.execCommand('copy');
+                // Show feedback
+                const originalIcon = copyUrlBtn.innerHTML;
+                copyUrlBtn.innerHTML = '<i class="bi bi-check"></i>';
+                copyUrlBtn.classList.add('btn-success');
+                copyUrlBtn.classList.remove('btn-outline-secondary');
+                
+                setTimeout(() => {
+                    copyUrlBtn.innerHTML = originalIcon;
+                    copyUrlBtn.classList.remove('btn-success');
+                    copyUrlBtn.classList.add('btn-outline-secondary');
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy URL:', err);
+                // Fallback for modern browsers
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(attendanceUrl.value).then(() => {
+                        const originalIcon = copyUrlBtn.innerHTML;
+                        copyUrlBtn.innerHTML = '<i class="bi bi-check"></i>';
+                        copyUrlBtn.classList.add('btn-success');
+                        copyUrlBtn.classList.remove('btn-outline-secondary');
+                        
+                        setTimeout(() => {
+                            copyUrlBtn.innerHTML = originalIcon;
+                            copyUrlBtn.classList.remove('btn-success');
+                            copyUrlBtn.classList.add('btn-outline-secondary');
+                        }, 2000);
+                    });
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

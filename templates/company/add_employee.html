@@ -107,6 +107,28 @@
                 <p class="section-desc">Employment and organizational information</p>
             </div>
             
+            {% if companies and companies|length > 1 %}
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="company_id">Company <span class="required">*</span></label>
+                    <select id="company_id" name="company_id" required>
+                        <option value="">Select Company</option>
+                        {% for company in companies %}
+                        <option value="{{ company.id }}" 
+                                {{ 'selected' if request.form.get('company_id') == company.id|string }}>
+                            {{ company.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <!-- Empty space for alignment -->
+                </div>
+            </div>
+            {% elif companies and companies|length == 1 %}
+            <input type="hidden" name="company_id" value="{{ companies[0].id }}">
+            {% endif %}
+            
             <div class="form-row">
                 <div class="form-group">
                     <label for="employee_role">Employee Role <span class="required">*</span></label>
@@ -728,6 +750,123 @@ document.addEventListener('DOMContentLoaded', function() {
             stream.getTracks().forEach(track => track.stop());
         }
     });
+    
+    // QR Code Generation
+    const generateQrBtn = document.querySelector('.generate-qr-btn');
+    if (generateQrBtn) {
+        generateQrBtn.addEventListener('click', function() {
+            generateEmployeeRegistrationQR();
+        });
+    }
+    
+    function generateEmployeeRegistrationQR() {
+        const btn = document.querySelector('.generate-qr-btn');
+        const originalText = btn.innerHTML;
+        
+        // Show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Generating QR...';
+        
+        // Make AJAX request to generate QR
+        fetch('/company/employee/qr', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showQRModal(data.qr_image_path, data.registration_url);
+            } else {
+                alert('Failed to generate QR code: ' + (data.message || data.error));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to generate QR code. Please try again.');
+        })
+        .finally(() => {
+            // Restore button state
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
+    }
+    
+    function showQRModal(qrImagePath, registrationUrl) {
+        // Create modal HTML
+        const modalHtml = `
+            <div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="qrModalLabel">
+                                <i class="bi bi-qr-code me-2"></i>Employee Registration QR Code
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <p class="mb-3">Scan this QR code to access the employee registration form:</p>
+                            <div class="qr-container mb-3">
+                                <img src="${qrImagePath}" alt="Registration QR Code" class="img-fluid" style="max-width: 300px;">
+                            </div>
+                            <div class="url-container">
+                                <small class="text-muted">Or visit directly:</small>
+                                <div class="input-group mt-2">
+                                    <input type="text" class="form-control" value="${registrationUrl}" readonly id="registrationUrl">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard()">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <a href="${qrImagePath}" download="employee_registration_qr.png" class="btn btn-primary">
+                                <i class="bi bi-download me-2"></i>Download QR
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('qrModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('qrModal'));
+        modal.show();
+        
+        // Clean up modal when hidden
+        document.getElementById('qrModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    }
+    
+    function copyToClipboard() {
+        const urlInput = document.getElementById('registrationUrl');
+        urlInput.select();
+        urlInput.setSelectionRange(0, 99999); // For mobile devices
+        
+        try {
+            document.execCommand('copy');
+            const btn = event.target.closest('button');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check"></i>';
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy: ', err);
+        }
+    }
 });
 </script>
 {% endblock %}
