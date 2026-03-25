@@ -104,6 +104,12 @@ def canteen_dashboard():
 
 @auth.route("/logout")
 def logout():
+	previous_role = session.get("role")
 	session.clear()
+
+	if previous_role == "admin":
+		flash("You have been logged out.", "logout")
+		return redirect(url_for("auth.role_login", role="admin"))
+
 	flash("You have been logged out.", "success")
 	return redirect(url_for("auth.landing_page"))

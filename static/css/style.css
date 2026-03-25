@@ -150,9 +150,23 @@ body {
     overflow-x: hidden;
 }
 
+body.landing-page {
+    background:
+        radial-gradient(circle at 18% 14%, rgba(13, 110, 253, 0.16) 0%, rgba(13, 110, 253, 0.04) 30%, transparent 55%),
+        radial-gradient(circle at 82% 86%, rgba(13, 110, 253, 0.12) 0%, rgba(13, 110, 253, 0.03) 35%, transparent 60%),
+        linear-gradient(145deg, #ffffff 0%, #eef4ff 55%, #e8f1ff 100%);
+}
+
+    body.auth-page {
+        background:
+        radial-gradient(circle at 18% 14%, rgba(13, 110, 253, 0.16) 0%, rgba(13, 110, 253, 0.04) 30%, transparent 55%),
+        radial-gradient(circle at 82% 86%, rgba(13, 110, 253, 0.12) 0%, rgba(13, 110, 253, 0.03) 35%, transparent 60%),
+        linear-gradient(145deg, #ffffff 0%, #eef4ff 55%, #e8f1ff 100%);
+    }
+
 body.dashboard-layout {
     height: 100vh;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .bg-orb {
@@ -216,11 +230,20 @@ body.dashboard-layout {
     list-style: none;
     cursor: pointer;
     user-select: none;
-    background: var(--surface);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(13, 110, 253, 0.10));
+    border: 1.5px solid rgba(13, 110, 253, 0.45);
     border-radius: 10px;
     padding: 9px 14px;
     font-weight: 600;
+    color: var(--text);
+    box-shadow: 0 2px 10px rgba(13, 110, 253, 0.12);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.login-dropdown summary:hover,
+.login-dropdown[open] summary {
+    border-color: rgba(13, 110, 253, 0.65);
+    box-shadow: 0 4px 14px rgba(13, 110, 253, 0.2);
 }
 
 .login-dropdown summary::-webkit-details-marker {
@@ -235,21 +258,22 @@ body.dashboard-layout {
     display: grid;
     gap: 4px;
     padding: 8px;
-    background: rgba(8, 13, 24, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(13, 110, 253, 0.12));
+    border: 1px solid rgba(13, 110, 253, 0.30);
     border-radius: 12px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 12px 28px rgba(13, 110, 253, 0.20);
 }
 
 .login-dropdown-menu a {
     color: var(--text);
     text-decoration: none;
-    padding: 8px 10px;
+    font-weight: 600;
+    padding: 9px 10px;
     border-radius: 8px;
 }
 
 .login-dropdown-menu a:hover {
-    background: rgba(95, 139, 255, 0.2);
+    background: rgba(13, 110, 253, 0.16);
 }
 
 .hero-header {
@@ -258,7 +282,14 @@ body.dashboard-layout {
     animation: fadeUp 0.65s ease;
 }
 
-.hero-header h1,
+.hero-header h1 {
+    margin: 0 0 10px;
+    font-size: clamp(2rem, 3.8vw, 3.05rem);
+    font-family: "Trebuchet MS", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.3px;
+    color: #174ea6;
+}
+
 .auth-card h2,
 .panel h2 {
     margin: 0 0 10px;
@@ -270,6 +301,10 @@ body.dashboard-layout {
 .panel p {
     color: var(--muted);
     margin: 0;
+}
+
+.hero-header p {
+    color: #000;
 }
 
 .login-options {
@@ -329,6 +364,14 @@ body.dashboard-layout {
     animation: fadeUp 0.6s ease;
 }
 
+.auth-card-square {
+    width: min(420px, 92vw);
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
 .form-grid {
     display: grid;
     gap: 12px;
@@ -354,6 +397,31 @@ select {
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
+}
+
+.password-field {
+    position: relative;
+}
+
+.password-field input {
+    padding-right: 42px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: #174ea6;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+}
+
+.password-toggle:hover {
+    color: #0d6efd;
 }
 
 select option {
@@ -503,6 +571,7 @@ select option {
     border-right: 1px solid var(--border);
     background: var(--surface);
     backdrop-filter: blur(12px);
+    height: calc(100vh - 68px);
     min-height: calc(100vh - 68px);
     position: sticky;
     top: 68px;
@@ -571,13 +640,35 @@ select option {
 .main-content {
     flex: 1;
     padding: 0;
+    height: calc(100vh - 68px);
     min-height: calc(100vh - 68px);
     width: 100%;
     background: transparent;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .main-content::-webkit-scrollbar {
-    display: none;
+    width: 10px;
+}
+
+.main-content::-webkit-scrollbar-track {
+    background: rgba(13, 110, 253, 0.08);
+    border-radius: 999px;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(13, 110, 253, 0.6), rgba(102, 16, 242, 0.55));
+    border-radius: 999px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(13, 110, 253, 0.8), rgba(102, 16, 242, 0.75));
+}
+
+.main-content {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(13, 110, 253, 0.6) rgba(13, 110, 253, 0.08);
 }
 
 .panel {
@@ -596,8 +687,91 @@ select option {
     width: 100%;
 }
 
+.add-company-panel {
+    width: min(900px, 100%);
+    margin-left: 0;
+    margin-right: auto;
+    padding: 26px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 6px 18px var(--shadow);
+}
+
+.add-company-form {
+    margin-top: 8px;
+}
+
+.add-company-form .form-label,
+.add-company-form label {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: #2b3543;
+    margin-bottom: 6px;
+}
+
+.add-company-form .form-control {
+    border-radius: 12px;
+    padding: 11px 12px;
+}
+
+.add-company-form .location-section {
+    border-radius: 14px;
+}
+
+.add-company-form .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.add-company-form .checkbox-item input {
+    width: auto;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: #000;
+}
+
+.form-panel h2,
+.form-panel h3,
+.form-panel h4,
+.form-panel h5 {
+    color: #000;
+}
+
 .form-panel {
     max-width: 680px;
+}
+
+.add-company-panel.form-panel {
+    max-width: 900px;
+}
+
+.add-company-form .save-company-row {
+    max-width: 100%;
+}
+
+.add-company-form .save-company-btn {
+    width: 100%;
+    font-size: 0.96rem;
+    padding: 11px 16px;
+}
+
+.add-company-form .location-btn {
+    background: linear-gradient(135deg, #4b8ef7, #7a5cf6);
+    color: #fff;
+    border: none;
+}
+
+.add-company-form .location-btn:hover {
+    background: linear-gradient(135deg, #3e82ef, #6f50ef);
+    color: #fff;
 }
 
 .stats-grid {
@@ -605,6 +779,19 @@ select option {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 14px;
+}
+
+.admin-dashboard-page .admin-stats-grid {
+    grid-template-columns: minmax(240px, 320px);
+    justify-content: start;
+}
+
+.admin-dashboard-page .admin-stats-grid .stat-card {
+    min-height: 124px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .stat-card {
@@ -799,11 +986,13 @@ th {
 /* Full-width dashboard layout fixes */
 .container-fluid {
     display: flex;
+    height: calc(100vh - 68px);
     min-height: calc(100vh - 68px);
     margin: 0;
     padding: 0;
     width: 100%;
     max-width: 100%;
+    overflow: hidden;
 }
 
 /* Form section improvements */
@@ -858,7 +1047,6 @@ th {
 }
 
 /* Remove any remaining max-width constraints */
-.auth-card,
 .table-card,
 .stat-card,
 .quick-link-card {
@@ -1089,6 +1277,12 @@ th {
 .alert-success {
     background: linear-gradient(135deg, #d4edda, #c3e6cb);
     color: #155724;
+}
+
+.auth-card .logout-alert {
+    margin-top: 14px;
+    margin-bottom: 20px;
+    transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
 .alert-error {
@@ -1383,4 +1577,10 @@ th {
 
 .section-header h4 i.bi-camera {
     color: #007bff;
+}
+
+.add-company-form label {
+    font-size: 1.02rem;
+    font-weight: 600;
+    color: #2b3543;
 }
