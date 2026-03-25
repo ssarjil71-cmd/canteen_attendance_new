@@ -509,8 +509,8 @@ def add_employee():
                 image_data = base64.b64decode(face_image_data)
                 
                 # Generate filename
-                import time
-                timestamp = str(int(time.time()))
+                import time as time_module
+                timestamp = str(int(time_module.time()))
                 face_image_filename = f"face_{emp_id}_{timestamp}.jpg"
                 face_image_path = os.path.join(face_dir, face_image_filename)
                 
@@ -1564,9 +1564,9 @@ def company_profile():
                 os.makedirs(upload_dir, exist_ok=True)
                 
                 # Generate secure filename
-                import time
+                import time as time_module
                 filename = secure_filename(logo_file.filename)
-                timestamp = str(int(time.time()))
+                timestamp = str(int(time_module.time()))
                 logo_filename = f"company_{company_id}_{timestamp}_{filename}"
                 logo_path = os.path.join(upload_dir, logo_filename)
                 
@@ -1615,7 +1615,7 @@ def company_profile():
     try:
         cursor.execute("""
             SELECT id, company_name, company_code, email, phone, address, city, state, 
-                   pincode, logo, gst_number, status, created_at
+                   pincode, logo, gst_number, status, created_at, latitude, longitude, radius
             FROM companies 
             WHERE id = %s
         """, (company_id,))
@@ -1635,6 +1635,54 @@ def company_profile():
         return redirect(url_for("company.company_dashboard"))
     
     return render_template("company/profile.html", company=company)
+
+
+@company.route("/update-location", methods=["POST"])
+@company_required
+def update_location():
+    """Update company location for attendance verification"""
+    company_id = session.get("company_id")
+    
+    latitude = request.form.get("latitude", "").strip()
+    longitude = request.form.get("longitude", "").strip()
+    radius = request.form.get("radius", "100").strip()
+    
+    # Validation
+    errors = []
+    try:
+        lat_float = float(latitude)
+        lng_float = float(longitude)
+        radius_int = int(radius)
+        
+        if not (-90 <= lat_float <= 90):
+            errors.append("Latitude must be between -90 and 90.")
+        if not (-180 <= lng_float <= 180):
+            errors.append("Longitude must be between -180 and 180.")
+        if not (50 <= radius_int <= 1000):
+            errors.append("Radius must be between 50 and 1000 meters.")
+            
+    except ValueError:
+        errors.append("Invalid coordinates provided.")
+    
+    if errors:
+        for error in errors:
+            flash(error, "error")
+    else:
+        # Update company location
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
+        cursor.execute(
+            "UPDATE companies SET latitude = %s, longitude = %s, radius = %s WHERE id = %s",
+            (lat_float, lng_float, radius_int, company_id)
+        )
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        flash("Company location updated successfully!", "success")
+    
+    return redirect(url_for("company.company_profile"))
 
 # Location and Face Capture Routes
 @company.route("/location-data")
@@ -1791,6 +1839,105 @@ def attendance_portal(company_id):
         connection.close()
         return render_template("attendance/error.html", 
                              error=f"Database error: {str(e)}"), 500
+
+
+@attendance.route("/verify-location", methods=["POST"])
+def verify_location():
+    """Verify employee location against company location"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data provided"
+            }), 400
+        
+        company_id = data.get('company_id')
+        employee_lat = data.get('latitude')
+        employee_lng = data.get('longitude')
+        
+        if not all([company_id, employee_lat, employee_lng]):
+            return jsonify({
+                "success": False,
+                "message": "Missing required location data"
+            }), 400
+        
+        # Get company location from database
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        cursor.execute("""
+            SELECT latitude, longitude, radius, company_name 
+            FROM companies 
+            WHERE id = %s
+        """, (company_id,))
+        
+        company = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if not company:
+            return jsonify({
+                "success": False,
+                "message": "Company not found"
+            }), 404
+        
+        if not company['latitude'] or not company['longitude']:
+            return jsonify({
+                "success": False,
+                "message": "Company location not configured. Please contact administrator."
+            }), 400
+        
+        # Calculate distance using Haversine formula
+        import math
+        
+        def haversine_distance(lat1, lon1, lat2, lon2):
+            """Calculate distance between two points using Haversine formula"""
+            # Convert latitude and longitude from degrees to radians
+            lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+            
+            # Haversine formula
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+            c = 2 * math.asin(math.sqrt(a))
+            
+            # Radius of earth in meters
+            r = 6371000
+            return c * r
+        
+        distance = haversine_distance(
+            float(company['latitude']), 
+            float(company['longitude']),
+            float(employee_lat), 
+            float(employee_lng)
+        )
+        
+        allowed_radius = company['radius'] or 100  # Default 100 meters
+        
+        if distance <= allowed_radius:
+            return jsonify({
+                "success": True,
+                "message": "Location verified successfully",
+                "distance": round(distance, 2),
+                "allowed_radius": allowed_radius,
+                "company_name": company['company_name']
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": f"You are outside company location. Distance: {round(distance, 2)}m (Max: {allowed_radius}m)",
+                "distance": round(distance, 2),
+                "allowed_radius": allowed_radius,
+                "company_name": company['company_name']
+            }), 403
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Location verification failed: {str(e)}"
+        }), 500
 
 
 @attendance.route("/test", methods=["GET", "POST"])

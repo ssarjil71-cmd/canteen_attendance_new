@@ -577,10 +577,34 @@ select option {
     top: 68px;
     margin: 0;
     flex-shrink: 0;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
-/* Sidebar scrollbar removed - no scrolling needed */
+/* Sidebar Scrollbar Styling */
+.sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: rgba(13, 110, 253, 0.05);
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(13, 110, 253, 0.4), rgba(102, 16, 242, 0.35));
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(13, 110, 253, 0.6), rgba(102, 16, 242, 0.55));
+}
+
+/* Firefox scrollbar */
+.sidebar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(13, 110, 253, 0.4) rgba(13, 110, 253, 0.05);
+}
 
 .sidebar-link {
     display: flex;
@@ -922,7 +946,8 @@ th {
         transition: left 0.3s ease;
         width: 280px;
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
-        overflow: hidden;
+        overflow-y: auto;
+        overflow-x: hidden;
     }
 
     .main-content {
@@ -1200,6 +1225,22 @@ th {
 
 .details-card .card-body {
     padding: 2rem;
+}
+
+/* Location Settings Specific Styles */
+.location-info {
+    text-align: center;
+}
+
+.alert-sm {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
 }
 
 .modal-content {

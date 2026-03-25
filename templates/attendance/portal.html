@@ -11,28 +11,25 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px 0;
         }
         
         .attendance-container {
-            max-width: 500px;
+            max-width: 600px;
             margin: 0 auto;
             padding: 20px;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
         }
         
         .attendance-card {
             background: white;
             border-radius: 20px;
-            padding: 30px;
+            padding: 40px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            text-align: center;
         }
         
         .company-header {
-            margin-bottom: 30px;
+            text-align: center;
+            margin-bottom: 40px;
         }
         
         .company-header h2 {
@@ -46,69 +43,32 @@
             margin: 0;
         }
         
-        .step-indicator {
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        .form-section {
             margin-bottom: 30px;
-            flex-wrap: nowrap;
         }
         
-        .step {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #e9ecef;
+        .section-header {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin: 0 5px;
-            font-weight: bold;
-            color: #6c757d;
-            position: relative;
-            flex-shrink: 0;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f8f9fa;
         }
         
-        .step.active {
-            background: #667eea;
-            color: white;
+        .section-header h5 {
+            margin: 0;
+            color: #333;
+            font-weight: 600;
         }
         
-        .step.completed {
-            background: #28a745;
-            color: white;
-        }
-        
-        .step::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: calc(100% + 5px);
-            width: 10px;
-            height: 2px;
-            background: #e9ecef;
-            transform: translateY(-50%);
-        }
-        
-        .step:last-child::after {
-            display: none;
-        }
-        
-        .step.completed::after {
-            background: #28a745;
-        }
-        
-        .attendance-step {
-            display: none;
-        }
-        
-        .attendance-step.active {
-            display: block;
+        .section-header i {
+            font-size: 1.2rem;
+            margin-right: 10px;
+            color: #667eea;
         }
         
         .form-group {
             margin-bottom: 20px;
-            text-align: left;
         }
         
         .form-group label {
@@ -130,37 +90,18 @@
             box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
         }
         
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border: none;
-            border-radius: 12px;
-            padding: 12px 30px;
-            font-weight: 600;
-            width: 100%;
-            margin-top: 10px;
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            border: none;
-            border-radius: 12px;
-            padding: 12px 30px;
-            font-weight: 600;
-            width: 100%;
-            margin-top: 10px;
-        }
-        
         .camera-container {
             position: relative;
             background: #000;
             border-radius: 12px;
             overflow: hidden;
             margin: 20px 0;
+            height: 300px;
         }
         
         #cameraVideo {
             width: 100%;
-            height: 300px;
+            height: 100%;
             object-fit: cover;
         }
         
@@ -233,6 +174,7 @@
         }
         
         .captured-preview {
+            text-align: center;
             margin: 20px 0;
         }
         
@@ -244,9 +186,79 @@
             border: 3px solid #28a745;
         }
         
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 30px;
+            font-weight: 600;
+            margin: 5px;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 30px;
+            font-weight: 600;
+            margin: 5px;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 30px;
+            font-weight: 600;
+            margin: 5px;
+        }
+        
+        .submit-section {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #f8f9fa;
+        }
+        
+        .submit-requirements {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .requirement-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .requirement-item i {
+            margin-right: 10px;
+            width: 20px;
+        }
+        
+        .requirement-item.completed {
+            color: #28a745;
+        }
+        
+        .requirement-item.pending {
+            color: #6c757d;
+        }
+        
         .spinner-border-sm {
             width: 1rem;
             height: 1rem;
+        }
+        
+        .camera-controls {
+            text-align: center;
+            margin-top: 15px;
+        }
+        
+        .alert-sm {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
         }
     </style>
 </head>
@@ -258,42 +270,39 @@
                 <p>Employee Attendance Portal</p>
             </div>
             
-            <!-- Step Indicator -->
-            <div class="step-indicator">
-                <div class="step active" id="step1">1</div>
-                <div class="step" id="step2">2</div>
-                <div class="step" id="step3">3</div>
-                <div class="step" id="step4">4</div>
-            </div>
-            
-            <!-- Step 1: Employee ID -->
-            <div class="attendance-step active" id="stepEmployeeId">
-                <h4>Enter Employee ID</h4>
+            <!-- Employee ID Section -->
+            <div class="form-section">
+                <div class="section-header">
+                    <i class="bi bi-person-badge"></i>
+                    <h5>Employee Information</h5>
+                </div>
                 <div class="form-group">
                     <label for="employeeId">Employee ID</label>
                     <input type="text" id="employeeId" class="form-control" placeholder="Enter your Employee ID" autocomplete="off">
                 </div>
-                <button class="btn btn-primary" onclick="validateEmployee()">
-                    <i class="bi bi-arrow-right me-2"></i>Continue
-                </button>
             </div>
             
-            <!-- Step 2: Location Check -->
-            <div class="attendance-step" id="stepLocation">
-                <h4>Location Verification</h4>
-                <div class="status-message status-info" id="locationStatus">
-                    <i class="bi bi-geo-alt me-2"></i>Checking your location...
-                    <div class="spinner-border spinner-border-sm ms-2" role="status"></div>
+            <!-- Location Section -->
+            <div class="form-section">
+                <div class="section-header">
+                    <i class="bi bi-geo-alt"></i>
+                    <h5>Location Verification</h5>
                 </div>
-                <button class="btn btn-secondary" onclick="goBack(1)" style="display: none;" id="locationBackBtn">
-                    <i class="bi bi-arrow-left me-2"></i>Back
+                <div class="status-message status-info" id="locationStatus">
+                    <i class="bi bi-geo-alt me-2"></i>Click "Get Location" to verify your location
+                </div>
+                <button class="btn btn-primary" onclick="checkLocation()" id="locationBtn">
+                    <i class="bi bi-geo-alt me-2"></i>Get Location
                 </button>
             </div>
             
-            <!-- Step 3: Face Capture -->
-            <div class="attendance-step" id="stepFaceCapture">
-                <h4>Face Verification</h4>
-                <div class="camera-container">
+            <!-- Face Capture Section -->
+            <div class="form-section">
+                <div class="section-header">
+                    <i class="bi bi-camera"></i>
+                    <h5>Face Verification</h5>
+                </div>
+                <div class="camera-container" id="cameraContainer" style="display: none;">
                     <video id="cameraVideo" autoplay playsinline></video>
                     <canvas id="captureCanvas" style="display: none;"></canvas>
                     <div class="camera-overlay">
@@ -307,37 +316,52 @@
                     <h6>Captured Face:</h6>
                     <img id="previewImage" alt="Captured face">
                 </div>
-                <button class="btn btn-primary" id="captureBtn" onclick="capturePhoto()">
-                    <i class="bi bi-camera me-2"></i>Capture Face
-                </button>
-                <button class="btn btn-secondary" id="retakeBtn" onclick="retakePhoto()" style="display: none;">
-                    <i class="bi bi-arrow-clockwise me-2"></i>Retake
-                </button>
-                <button class="btn btn-primary" id="proceedBtn" onclick="markAttendance()" style="display: none;">
+                <div class="camera-controls">
+                    <button class="btn btn-primary" id="startCameraBtn" onclick="initializeCamera()">
+                        <i class="bi bi-camera me-2"></i>Start Camera
+                    </button>
+                    <button class="btn btn-success" id="captureBtn" onclick="capturePhoto()" style="display: none;">
+                        <i class="bi bi-camera me-2"></i>Capture Face
+                    </button>
+                    <button class="btn btn-secondary" id="retakeBtn" onclick="retakePhoto()" style="display: none;">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Retake
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Submit Section -->
+            <div class="submit-section">
+                <div class="submit-requirements">
+                    <h6 class="mb-3">Requirements Checklist:</h6>
+                    <div class="requirement-item pending" id="req-employee">
+                        <i class="bi bi-circle"></i>
+                        <span>Employee ID entered</span>
+                    </div>
+                    <div class="requirement-item pending" id="req-location">
+                        <i class="bi bi-circle"></i>
+                        <span>Location verified</span>
+                    </div>
+                    <div class="requirement-item pending" id="req-face">
+                        <i class="bi bi-circle"></i>
+                        <span>Face photo captured</span>
+                    </div>
+                </div>
+                
+                <button class="btn btn-success btn-lg" id="submitBtn" onclick="markAttendance()" disabled>
                     <i class="bi bi-check-lg me-2"></i>Mark Attendance
-                </button>
-                <button class="btn btn-secondary" onclick="testEndpoint()" style="margin-top: 10px;">
-                    <i class="bi bi-bug me-2"></i>Test Connection
                 </button>
             </div>
             
-            <!-- Step 4: Success -->
-            <div class="attendance-step" id="stepSuccess">
-                <h4>Attendance Marked!</h4>
-                <div class="status-message status-success" id="successMessage">
-                    <i class="bi bi-check-circle me-2"></i>
-                    <span id="successText">Attendance marked successfully!</span>
-                </div>
-                <button class="btn btn-primary" onclick="location.reload()">
-                    <i class="bi bi-arrow-clockwise me-2"></i>Mark Another Attendance
-                </button>
+            <!-- Success Message -->
+            <div class="status-message status-success" id="successMessage" style="display: none;">
+                <i class="bi bi-check-circle me-2"></i>
+                <span id="successText">Attendance marked successfully!</span>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let currentStep = 1;
         let employeeId = '';
         let userLocation = null;
         let stream = null;
@@ -345,52 +369,107 @@
         
         const companyId = {{ company_id }};
         
-        function validateEmployee() {
-            const inputEmployeeId = document.getElementById('employeeId').value.trim();
-            if (!inputEmployeeId) {
-                alert('Please enter your Employee ID');
-                return;
-            }
+        // Check requirements and enable/disable submit button
+        function checkRequirements() {
+            const hasEmployeeId = document.getElementById('employeeId').value.trim() !== '';
+            const hasLocation = userLocation !== null;
+            const hasFace = faceImageData !== null;
             
-            employeeId = inputEmployeeId;
-            console.log('Employee ID entered:', employeeId);
+            // Update requirement indicators
+            updateRequirement('req-employee', hasEmployeeId);
+            updateRequirement('req-location', hasLocation);
+            updateRequirement('req-face', hasFace);
             
-            // For now, we'll proceed without backend validation
-            // In a real implementation, you'd validate against the database here
-            nextStep();
-            checkLocation();
+            // Enable submit button if all requirements met
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = !(hasEmployeeId && hasLocation && hasFace);
         }
+        
+        function updateRequirement(reqId, completed) {
+            const reqElement = document.getElementById(reqId);
+            if (completed) {
+                reqElement.classList.remove('pending');
+                reqElement.classList.add('completed');
+                reqElement.querySelector('i').className = 'bi bi-check-circle-fill';
+            } else {
+                reqElement.classList.remove('completed');
+                reqElement.classList.add('pending');
+                reqElement.querySelector('i').className = 'bi bi-circle';
+            }
+        }
+        
+        // Employee ID input listener
+        document.getElementById('employeeId').addEventListener('input', function() {
+            employeeId = this.value.trim();
+            checkRequirements();
+        });
         
         function checkLocation() {
             const statusDiv = document.getElementById('locationStatus');
+            const locationBtn = document.getElementById('locationBtn');
+            
+            locationBtn.disabled = true;
+            locationBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Getting Location...';
             
             if (!navigator.geolocation) {
-                statusDiv.innerHTML = '<i class="bi bi-x-circle me-2"></i>Geolocation not supported';
+                statusDiv.innerHTML = '<i class="bi bi-x-circle me-2"></i>Geolocation not supported by this browser';
                 statusDiv.className = 'status-message status-error';
-                document.getElementById('locationBackBtn').style.display = 'block';
+                locationBtn.disabled = false;
+                locationBtn.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Get Location';
                 return;
             }
             
             navigator.geolocation.getCurrentPosition(
                 function(position) {
-                    userLocation = {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
-                    };
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
                     
-                    statusDiv.innerHTML = '<i class="bi bi-check-circle me-2"></i>Location verified successfully!';
-                    statusDiv.className = 'status-message status-success';
-                    
-                    setTimeout(() => {
-                        nextStep();
-                        initializeCamera();
-                    }, 1500);
+                    // Send location to backend for verification
+                    fetch('/attendance/verify-location', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            company_id: companyId,
+                            latitude: latitude,
+                            longitude: longitude
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            userLocation = {
+                                latitude: latitude,
+                                longitude: longitude
+                            };
+                            
+                            statusDiv.innerHTML = `<i class="bi bi-check-circle me-2"></i>${data.message}`;
+                            statusDiv.className = 'status-message status-success';
+                            locationBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Location Verified';
+                            locationBtn.disabled = true;
+                            
+                            checkRequirements();
+                        } else {
+                            statusDiv.innerHTML = `<i class="bi bi-x-circle me-2"></i>${data.message}`;
+                            statusDiv.className = 'status-message status-error';
+                            locationBtn.disabled = false;
+                            locationBtn.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Retry Location';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Location verification error:', error);
+                        statusDiv.innerHTML = '<i class="bi bi-x-circle me-2"></i>Failed to verify location. Please try again.';
+                        statusDiv.className = 'status-message status-error';
+                        locationBtn.disabled = false;
+                        locationBtn.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Retry Location';
+                    });
                 },
                 function(error) {
                     let errorMsg = 'Location access denied';
                     switch(error.code) {
                         case error.PERMISSION_DENIED:
-                            errorMsg = 'Location access denied. Please enable location services.';
+                            errorMsg = 'Location access denied. Please enable location services and try again.';
                             break;
                         case error.POSITION_UNAVAILABLE:
                             errorMsg = 'Location information unavailable.';
@@ -402,7 +481,8 @@
                     
                     statusDiv.innerHTML = `<i class="bi bi-x-circle me-2"></i>${errorMsg}`;
                     statusDiv.className = 'status-message status-error';
-                    document.getElementById('locationBackBtn').style.display = 'block';
+                    locationBtn.disabled = false;
+                    locationBtn.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Retry Location';
                 },
                 {
                     enableHighAccuracy: true,
@@ -414,6 +494,9 @@
         
         function initializeCamera() {
             const video = document.getElementById('cameraVideo');
+            const cameraContainer = document.getElementById('cameraContainer');
+            const startBtn = document.getElementById('startCameraBtn');
+            const captureBtn = document.getElementById('captureBtn');
             
             navigator.mediaDevices.getUserMedia({ 
                 video: { 
@@ -425,10 +508,14 @@
             .then(function(mediaStream) {
                 stream = mediaStream;
                 video.srcObject = stream;
+                
+                cameraContainer.style.display = 'block';
+                startBtn.style.display = 'none';
+                captureBtn.style.display = 'inline-block';
             })
             .catch(function(error) {
                 console.error('Camera access error:', error);
-                alert('Camera access denied. Please allow camera access.');
+                alert('Camera access denied. Please allow camera access and try again.');
             });
         }
         
@@ -450,79 +537,37 @@
             
             // Update UI
             document.getElementById('capturedPreview').style.display = 'block';
+            document.getElementById('cameraContainer').style.display = 'none';
             document.getElementById('captureBtn').style.display = 'none';
             document.getElementById('retakeBtn').style.display = 'inline-block';
-            document.getElementById('proceedBtn').style.display = 'inline-block';
             
             // Stop camera
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
-            video.style.display = 'none';
+            
+            checkRequirements();
         }
         
         function retakePhoto() {
             // Reset UI
             document.getElementById('capturedPreview').style.display = 'none';
-            document.getElementById('captureBtn').style.display = 'inline-block';
+            document.getElementById('startCameraBtn').style.display = 'inline-block';
             document.getElementById('retakeBtn').style.display = 'none';
-            document.getElementById('proceedBtn').style.display = 'none';
-            document.getElementById('cameraVideo').style.display = 'block';
             
             faceImageData = null;
-            initializeCamera();
-        }
-        
-        function testEndpoint() {
-            console.log('Testing endpoint...');
-            
-            fetch('/attendance/test', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    employee_id: employeeId || 'TEST001',
-                    company_id: companyId,
-                    latitude: userLocation ? userLocation.latitude : 18.469283,
-                    longitude: userLocation ? userLocation.longitude : 73.860551,
-                    face_image_data: faceImageData ? 'Present' : 'Missing'
-                })
-            })
-            .then(response => {
-                console.log('Test response status:', response.status);
-                console.log('Test response headers:', response.headers.get('content-type'));
-                
-                // Check if response is JSON
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    return response.json();
-                } else {
-                    // If not JSON, get text to see the HTML error
-                    return response.text().then(text => {
-                        throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}. Content: ${text.substring(0, 200)}...`);
-                    });
-                }
-            })
-            .then(data => {
-                console.log('Test response data:', data);
-                alert('Test result: ' + JSON.stringify(data, null, 2));
-            })
-            .catch(error => {
-                console.error('Test error:', error);
-                alert('Test failed: ' + error.message);
-            });
+            checkRequirements();
         }
         
         function markAttendance() {
             if (!employeeId || !userLocation || !faceImageData) {
-                alert('Missing required information');
+                alert('Please complete all requirements before submitting');
                 return;
             }
             
-            const proceedBtn = document.getElementById('proceedBtn');
-            proceedBtn.disabled = true;
-            proceedBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
             
             const attendanceData = {
                 employee_id: employeeId,
@@ -532,14 +577,6 @@
                 face_image_data: faceImageData
             };
             
-            console.log('Sending attendance data:', {
-                employee_id: employeeId,
-                company_id: companyId,
-                latitude: userLocation.latitude,
-                longitude: userLocation.longitude,
-                face_image_data: faceImageData ? 'Present' : 'Missing'
-            });
-            
             fetch('/attendance/mark', {
                 method: 'POST',
                 headers: {
@@ -548,64 +585,46 @@
                 body: JSON.stringify(attendanceData)
             })
             .then(response => {
-                console.log('Response status:', response.status);
-                console.log('Response content-type:', response.headers.get('content-type'));
-                
-                // Check if response is JSON
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
                     return response.json();
                 } else {
-                    // If not JSON, get text to see the HTML error
                     return response.text().then(text => {
-                        console.error('Server returned HTML:', text.substring(0, 500));
                         throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}...`);
                     });
                 }
             })
             .then(data => {
-                console.log('Response data:', data);
                 if (data.success) {
                     document.getElementById('successText').textContent = data.message;
-                    nextStep();
+                    document.getElementById('successMessage').style.display = 'block';
+                    
+                    // Hide form sections
+                    document.querySelectorAll('.form-section').forEach(section => {
+                        section.style.display = 'none';
+                    });
+                    document.querySelector('.submit-section').style.display = 'none';
+                    
+                    // Add reload button
+                    setTimeout(() => {
+                        const reloadBtn = document.createElement('button');
+                        reloadBtn.className = 'btn btn-primary btn-lg';
+                        reloadBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Mark Another Attendance';
+                        reloadBtn.onclick = () => location.reload();
+                        document.getElementById('successMessage').appendChild(reloadBtn);
+                    }, 2000);
                 } else {
                     alert(data.message || 'Failed to mark attendance');
-                    proceedBtn.disabled = false;
-                    proceedBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Mark Attendance';
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Mark Attendance';
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 alert('Error occurred: ' + error.message);
-                proceedBtn.disabled = false;
-                proceedBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Mark Attendance';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Mark Attendance';
             });
-        }
-        
-        function nextStep() {
-            // Hide current step
-            document.getElementById(`step${currentStep}`).classList.remove('active');
-            document.getElementById(`step${currentStep}`).classList.add('completed');
-            document.querySelectorAll('.attendance-step')[currentStep - 1].classList.remove('active');
-            
-            // Show next step
-            currentStep++;
-            if (currentStep <= 4) {
-                document.getElementById(`step${currentStep}`).classList.add('active');
-                document.querySelectorAll('.attendance-step')[currentStep - 1].classList.add('active');
-            }
-        }
-        
-        function goBack(step) {
-            // Hide current step
-            document.querySelectorAll('.attendance-step')[currentStep - 1].classList.remove('active');
-            document.getElementById(`step${currentStep}`).classList.remove('active');
-            
-            // Show target step
-            currentStep = step;
-            document.getElementById(`step${currentStep}`).classList.add('active');
-            document.getElementById(`step${currentStep}`).classList.remove('completed');
-            document.querySelectorAll('.attendance-step')[currentStep - 1].classList.add('active');
         }
         
         // Cleanup camera on page unload
@@ -614,6 +633,9 @@
                 stream.getTracks().forEach(track => track.stop());
             }
         });
+        
+        // Initialize requirements check
+        checkRequirements();
     </script>
 </body>
 </html>

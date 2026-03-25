@@ -18,72 +18,12 @@
 			<h4>View Employees</h4>
 			<p>Manage all registered employees.</p>
 		</a>
-		<div class="quick-link-card attendance-qr-card">
-			<i class="bi bi-qr-code fs-1 mb-3"></i>
-			<h4>Attendance QR</h4>
-			<p>QR code for employee attendance check-in.</p>
-			<button class="btn btn-primary mt-2" onclick="generateAttendanceQR()">
-				<i class="bi bi-qr-code me-2"></i>Show QR Code
-			</button>
-		</div>
 		<a href="/company/attendance-reports" class="quick-link-card">
 			<i class="bi bi-clipboard-data fs-1 mb-3"></i>
 			<h4>Attendance Reports</h4>
 			<p>View attendance records and reports.</p>
 		</a>
 	</div>
-</div>
-
-<!-- Attendance QR Modal -->
-<div class="modal fade" id="attendanceQRModal" tabindex="-1" aria-labelledby="attendanceQRModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="attendanceQRModalLabel">
-                    <i class="bi bi-qr-code me-2"></i>Employee Attendance QR Code
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center">
-                <div id="qrLoadingSpinner">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Generating QR Code...</span>
-                    </div>
-                    <p class="mt-2">Generating Attendance QR Code...</p>
-                </div>
-                <div id="qrContent" class="d-none">
-                    <div class="qr-container">
-                        <img id="qrImage" src="" alt="Attendance QR Code" class="qr-image">
-                    </div>
-                    <div class="qr-info mt-3">
-                        <h6>Employee Attendance Portal</h6>
-                        <div class="input-group mb-3">
-                            <input type="text" id="attendanceUrl" class="form-control" readonly>
-                            <button class="btn btn-outline-secondary" type="button" id="copyAttendanceUrlBtn" title="Copy Link">
-                                <i class="bi bi-clipboard"></i>
-                            </button>
-                        </div>
-                        <p class="text-muted small">
-                            <i class="bi bi-info-circle me-1"></i>
-                            Employees can scan this QR code to mark their attendance
-                        </p>
-                    </div>
-                </div>
-                <div id="qrError" class="d-none">
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        <span id="qrErrorMessage">Failed to generate QR code</span>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" id="downloadAttendanceQRBtn" class="btn btn-primary d-none">
-                    <i class="bi bi-download me-2"></i>Download QR Code
-                </button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
 </div>
 
 <style>
@@ -135,38 +75,6 @@
     line-height: 1.5;
 }
 
-.attendance-qr-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-}
-
-.attendance-qr-card i,
-.attendance-qr-card h4,
-.attendance-qr-card p {
-    color: white;
-}
-
-.attendance-qr-card:hover {
-    color: white;
-    transform: translateY(-4px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-}
-
-.qr-container {
-    padding: 20px;
-    background: white;
-    border-radius: 12px;
-    display: inline-block;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-
-.qr-image {
-    width: 250px;
-    height: 250px;
-    border-radius: 8px;
-}
-
 @media (max-width: 768px) {
     .quick-links-grid {
         grid-template-columns: 1fr;
@@ -176,92 +84,7 @@
     .quick-link-card {
         padding: 24px 20px;
     }
-    
-    .qr-image {
-        width: 200px;
-        height: 200px;
-    }
 }
 </style>
 
-<script>
-function generateAttendanceQR() {
-    const modal = new bootstrap.Modal(document.getElementById('attendanceQRModal'));
-    modal.show();
-    
-    // Reset states
-    document.getElementById('qrLoadingSpinner').classList.remove('d-none');
-    document.getElementById('qrContent').classList.add('d-none');
-    document.getElementById('qrError').classList.add('d-none');
-    document.getElementById('downloadAttendanceQRBtn').classList.add('d-none');
-
-    // Make AJAX request to generate attendance QR code
-    fetch('/company/attendance-qr', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        document.getElementById('qrLoadingSpinner').classList.add('d-none');
-        
-        if (data.success) {
-            // Show QR code
-            document.getElementById('qrImage').src = data.qr_image_path + '?t=' + new Date().getTime();
-            document.getElementById('attendanceUrl').value = data.attendance_url;
-            document.getElementById('qrContent').classList.remove('d-none');
-            document.getElementById('downloadAttendanceQRBtn').classList.remove('d-none');
-            
-            // Set up download functionality
-            document.getElementById('downloadAttendanceQRBtn').onclick = function() {
-                const link = document.createElement('a');
-                link.href = data.qr_image_path;
-                link.download = 'attendance_qr.png';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            };
-        } else {
-            // Show error
-            document.getElementById('qrErrorMessage').textContent = data.message || 'Failed to generate QR code';
-            document.getElementById('qrError').classList.remove('d-none');
-        }
-    })
-    .catch(error => {
-        console.error('Error generating QR code:', error);
-        document.getElementById('qrLoadingSpinner').classList.add('d-none');
-        document.getElementById('qrErrorMessage').textContent = 'Network error occurred while generating QR code';
-        document.getElementById('qrError').classList.remove('d-none');
-    });
-}
-
-// Copy URL functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const copyBtn = document.getElementById('copyAttendanceUrlBtn');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', function() {
-            const urlInput = document.getElementById('attendanceUrl');
-            urlInput.select();
-            urlInput.setSelectionRange(0, 99999);
-            
-            try {
-                document.execCommand('copy');
-                const originalIcon = copyBtn.innerHTML;
-                copyBtn.innerHTML = '<i class="bi bi-check"></i>';
-                copyBtn.classList.add('btn-success');
-                copyBtn.classList.remove('btn-outline-secondary');
-                
-                setTimeout(() => {
-                    copyBtn.innerHTML = originalIcon;
-                    copyBtn.classList.remove('btn-success');
-                    copyBtn.classList.add('btn-outline-secondary');
-                }, 2000);
-            } catch (err) {
-                console.error('Failed to copy URL:', err);
-            }
-        });
-    }
-});
-</script>
 {% endblock %}
