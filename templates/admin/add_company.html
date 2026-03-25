@@ -7,60 +7,71 @@
 	<h2>Add Company</h2>
 	<p>Create a new company and set credentials for company login.</p>
 
-	<form method="POST" enctype="multipart/form-data" class="add-company-form row g-4">
+	<form method="POST" enctype="multipart/form-data" class="add-company-form row g-4" id="addCompanyForm">
 		<div class="col-12 col-md-6">
 			<label class="form-label">Name</label>
-			<input type="text" name="company_name" class="form-control" placeholder="Enter company name" required>
+			<input type="text" name="company_name" class="form-control validate-field" placeholder="Enter company name" required>
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12 col-md-6">
 			<label class="form-label">Email</label>
-			<input type="email" name="email" class="form-control" placeholder="Enter company email" required>
+			<input type="email" name="email" class="form-control validate-field" placeholder="Enter company email" required>
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12">
 			<label class="form-label">Address</label>
-			<input type="text" name="address" class="form-control" placeholder="Enter address" required>
+			<input type="text" name="address" class="form-control validate-field" placeholder="Enter address" required>
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12 col-md-6">
 			<label class="form-label">Phone Number</label>
-			<input type="tel" name="phone" class="form-control" placeholder="Enter phone number">
+			<input type="tel" name="phone" class="form-control validate-field" placeholder="Enter phone number">
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12 col-md-6">
 			<label class="form-label">City</label>
-			<input type="text" name="city" class="form-control" placeholder="Enter city">
+			<input type="text" name="city" class="form-control validate-field" placeholder="Enter city">
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12 col-md-6">
 			<label class="form-label">State</label>
-			<input type="text" name="state" class="form-control" placeholder="Enter state">
+			<input type="text" name="state" class="form-control validate-field" placeholder="Enter state">
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12 col-md-6">
 			<label class="form-label">Pincode</label>
-			<input type="text" name="pincode" class="form-control" placeholder="Enter pincode">
+			<input type="text" name="pincode" class="form-control validate-field" placeholder="Enter pincode">
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12 col-md-6">
 			<label class="form-label">GST Number</label>
-			<input type="text" name="gst_number" class="form-control" placeholder="Enter GST number (optional)">
+			<input type="text" name="gst_number" class="form-control validate-field" placeholder="Enter GST number (optional)">
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12 col-md-6">
 			<label class="form-label">Password</label>
-			<input type="password" name="password" class="form-control" placeholder="Set company login password" required>
+			<input type="password" name="password" id="password" class="form-control validate-field" placeholder="Set company login password" required>
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12 col-md-6">
 			<label class="form-label">Confirm Password</label>
-			<input type="password" name="confirm_password" class="form-control" placeholder="Confirm company login password" required>
+			<input type="password" name="confirm_password" id="confirm_password" class="form-control validate-field" placeholder="Confirm company login password" required>
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12 col-md-6">
 			<label class="form-label">Company Logo</label>
-			<input type="file" name="logo" accept="image/*" class="form-control" required>
+			<input type="file" name="logo" accept="image/*" class="form-control validate-field" required>
+			<small class="field-hint"></small>
 		</div>
 
 		<div class="col-12">
@@ -69,11 +80,13 @@
 				<div class="row g-3 align-items-end">
 					<div class="col-12 col-md-4">
 						<label class="form-label">Latitude</label>
-						<input type="text" name="latitude" id="latitude" class="form-control" placeholder="Latitude" required>
+						<input type="text" name="latitude" id="latitude" class="form-control validate-field" placeholder="Latitude" required>
+						<small class="field-hint"></small>
 					</div>
 					<div class="col-12 col-md-4">
 						<label class="form-label">Longitude</label>
-						<input type="text" name="longitude" id="longitude" class="form-control" placeholder="Longitude" required>
+						<input type="text" name="longitude" id="longitude" class="form-control validate-field" placeholder="Longitude" required>
+						<small class="field-hint"></small>
 					</div>
 					<div class="col-12 col-md-4 d-grid">
 						<button type="button" class="btn location-btn" onclick="getLocation()">
@@ -84,7 +97,8 @@
 				<div class="row mt-1">
 					<div class="col-12 col-md-6">
 						<label class="form-label">Allowed Radius (meters)</label>
-						<input type="number" name="radius" class="form-control" placeholder="e.g. 100" min="1" required>
+						<input type="number" name="radius" class="form-control validate-field" placeholder="e.g. 100" min="1" required>
+						<small class="field-hint"></small>
 					</div>
 				</div>
 			</div>
@@ -110,6 +124,140 @@
 	</form>
 
 	<script>
+	// Relaxed validation rules for user-friendly experience
+	const validationRules = {
+		company_name: {
+			required: true,
+			message: 'Company name is required'
+		},
+		email: {
+			required: true,
+			validate: (val) => val.includes('@') && val.includes('.'),
+			message: 'Email should contain @ and .'
+		},
+		address: {
+			required: true,
+			message: 'Address is required'
+		},
+		phone: {
+			validate: (val) => val === '' || /^[0-9]{10}$/.test(val),
+			message: 'Phone number should be exactly 10 digits'
+		},
+		pincode: {
+			validate: (val) => val === '' || /^[0-9]{5,6}$/.test(val),
+			message: 'Pincode should be 5-6 digits'
+		},
+		gst_number: {
+			validate: (val) => val === '' || /^[0-9]{15}$|^[A-Z0-9]{15}$/.test(val),
+			message: 'Invalid GST format (optional)'
+		},
+		password: {
+			required: true,
+			minLength: 4,
+			message: 'Password must be at least 4 characters'
+		},
+		confirm_password: {
+			required: true,
+			message: 'Please confirm password'
+		},
+		latitude: {
+			required: true,
+			validate: (val) => val === '' || /^-?[0-9]{1,3}\.[0-9]{1,}$/.test(val),
+			message: 'Invalid latitude format'
+		},
+		longitude: {
+			required: true,
+			validate: (val) => val === '' || /^-?[0-9]{1,3}\.[0-9]{1,}$/.test(val),
+			message: 'Invalid longitude format'
+		},
+		radius: {
+			required: true,
+			message: 'Radius is required'
+		}
+	};
+
+	function validateField(input) {
+		const name = input.name;
+		const value = input.value.trim();
+		const rule = validationRules[name];
+		const hint = input.nextElementSibling;
+
+		if (!rule) return true;
+
+		// Check required
+		if (rule.required && value === '') {
+			showHint(input, hint, rule.message);
+			return false;
+		}
+
+		// Check minLength
+		if (rule.minLength && value && value.length < rule.minLength) {
+			showHint(input, hint, rule.message);
+			return false;
+		}
+
+		// Check custom validation
+		if (rule.validate && value && !rule.validate(value)) {
+			showHint(input, hint, rule.message);
+			return false;
+		}
+
+		// All good
+		clearHint(input, hint);
+		return true;
+	}
+
+	function showHint(input, hint, message) {
+		input.classList.add('has-warning');
+		if (hint && hint.classList.contains('field-hint')) {
+			hint.textContent = message;
+			hint.style.display = 'block';
+		}
+	}
+
+	function clearHint(input, hint) {
+		input.classList.remove('has-warning');
+		if (hint && hint.classList.contains('field-hint')) {
+			hint.textContent = '';
+			hint.style.display = 'none';
+		}
+	}
+
+	// Add blur validation to all fields
+	document.querySelectorAll('.validate-field').forEach(input => {
+		input.addEventListener('blur', function() {
+			validateField(this);
+		});
+
+		// Clear hint when user starts fixing the input
+		input.addEventListener('input', function() {
+			if (this.classList.contains('has-warning')) {
+				validateField(this);
+			}
+		});
+
+		input.addEventListener('change', function() {
+			if (this.classList.contains('has-warning')) {
+				validateField(this);
+			}
+		});
+	});
+
+	// Form submission - check critical fields only, allow submit even with warnings
+	document.getElementById('addCompanyForm').addEventListener('submit', function(e) {
+		const password = document.getElementById('password').value;
+		const confirmPassword = document.getElementById('confirm_password').value;
+
+		// Only block if passwords don't match
+		if (password && confirmPassword && password !== confirmPassword) {
+			e.preventDefault();
+			const confirmInput = document.getElementById('confirm_password');
+			const hint = confirmInput.nextElementSibling;
+			showHint(confirmInput, hint, 'Passwords do not match');
+			confirmInput.focus();
+		}
+	});
+
 	function getLocation() {
 		if (navigator.geolocation) {
 			navigator.geolocation.getCurrentPosition(function(position) {

@@ -190,10 +190,7 @@ def company_details(company_id):
 
 	cursor.execute(
 		"""
-		SELECT id, company_name, company_code, address, email, attendance_module_enabled,
-		       canteen_module_enabled, created_at
-		FROM companies
-		WHERE id = %s
+		SELECT * FROM companies WHERE id = %s
 		""",
 		(company_id,),
 	)
@@ -227,8 +224,16 @@ def edit_company(company_id):
 		company_name = request.form.get("company_name", "").strip()
 		address = request.form.get("address", "").strip()
 		email = request.form.get("email", "").strip()
+		phone = request.form.get("phone", "").strip()
+		city = request.form.get("city", "").strip()
+		state = request.form.get("state", "").strip()
+		pincode = request.form.get("pincode", "").strip()
+		gst_number = request.form.get("gst_number", "").strip()
 		password = request.form.get("password", "").strip()
 		confirm_password = request.form.get("confirm_password", "").strip()
+		latitude = request.form.get("latitude", "").strip()
+		longitude = request.form.get("longitude", "").strip()
+		radius = request.form.get("radius", "").strip()
 		attendance_module_enabled = 1 if request.form.get("attendance_module_enabled") else 0
 		canteen_module_enabled = 1 if request.form.get("canteen_module_enabled") else 0
 
@@ -260,12 +265,52 @@ def edit_company(company_id):
 					"company_name": company_name,
 					"address": address,
 					"email": email,
+					"phone": phone,
+					"city": city,
+					"state": state,
+					"pincode": pincode,
+					"gst_number": gst_number,
 					"password": password,
 					"attendance_module_enabled": attendance_module_enabled,
 					"canteen_module_enabled": canteen_module_enabled,
 				}
 			)
 			return render_template("admin/edit_company.html", company=company)
+
+		# Handle logo upload
+		logo_filename = company.get('logo')  # Keep existing logo
+		remove_logo_requested = request.form.get("remove_logo") == "1"
+		import os
+		from flask import current_app
+		upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'logos')
+		os.makedirs(upload_dir, exist_ok=True)
+
+		if remove_logo_requested and logo_filename:
+			old_logo_path = os.path.join(upload_dir, logo_filename)
+			if os.path.exists(old_logo_path):
+				os.remove(old_logo_path)
+			logo_filename = None
+
+		if 'logo' in request.files:
+			logo_file = request.files['logo']
+			if logo_file and logo_file.filename:
+				from werkzeug.utils import secure_filename
+				
+				# Delete old logo if it exists and was not already removed
+				if company.get('logo'):
+					old_logo_path = os.path.join(upload_dir, company['logo'])
+					if os.path.exists(old_logo_path):
+						os.remove(old_logo_path)
+				
+				# Generate secure filename
+				import time
+				filename = secure_filename(logo_file.filename)
+				timestamp = str(int(time.time()))
+				logo_filename = f"company_edit_{company_id}_{timestamp}_{filename}"
+				logo_path = os.path.join(upload_dir, logo_filename)
+				
+				# Save the file
+				logo_file.save(logo_path)
 
 		if password:
 			cursor.execute(
@@ -274,7 +319,16 @@ def edit_company(company_id):
 				SET company_name = %s,
 					address = %s,
 					email = %s,
+					phone = %s,
+					city = %s,
+					state = %s,
+					pincode = %s,
+					gst_number = %s,
+					logo = %s,
 					password = %s,
+					latitude = %s,
+					longitude = %s,
+					radius = %s,
 					attendance_module_enabled = %s,
 					canteen_module_enabled = %s
 				WHERE id = %s
@@ -283,7 +337,16 @@ def edit_company(company_id):
 					company_name,
 					address or None,
 					email,
+					phone or None,
+					city or None,
+					state or None,
+					pincode or None,
+					gst_number or None,
+					logo_filename,
 					password,
+					latitude or None,
+					longitude or None,
+					radius or 100,
 					attendance_module_enabled,
 					canteen_module_enabled,
 					company_id,
@@ -296,6 +359,15 @@ def edit_company(company_id):
 				SET company_name = %s,
 					address = %s,
 					email = %s,
+					phone = %s,
+					city = %s,
+					state = %s,
+					pincode = %s,
+					gst_number = %s,
+					logo = %s,
+					latitude = %s,
+					longitude = %s,
+					radius = %s,
 					attendance_module_enabled = %s,
 					canteen_module_enabled = %s
 				WHERE id = %s
@@ -304,6 +376,15 @@ def edit_company(company_id):
 					company_name,
 					address or None,
 					email,
+					phone or None,
+					city or None,
+					state or None,
+					pincode or None,
+					gst_number or None,
+					logo_filename,
+					latitude or None,
+					longitude or None,
+					radius or 100,
 					attendance_module_enabled,
 					canteen_module_enabled,
 					company_id,
@@ -314,7 +395,7 @@ def edit_company(company_id):
 		connection.close()
 
 		flash("Company updated successfully.", "success")
-		return redirect(url_for("admin.admin_dashboard"))
+		return redirect(url_for("admin.company_details", company_id=company_id))
 
 	cursor.close()
 	connection.close()

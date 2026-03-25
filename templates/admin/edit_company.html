@@ -3,43 +3,298 @@
 {% block title %}Edit Company{% endblock %}
 
 {% block content %}
-<div class="panel form-panel">
+<div class="panel form-panel add-company-panel">
 	<h2>Edit Company</h2>
 	<p>Update company details, enabled modules, and company login password.</p>
 
-	<form method="POST" class="form-grid">
-		<label>Name</label>
-		<input type="text" name="company_name" value="{{ company.company_name }}" required>
-
-		<label>Address</label>
-		<input type="text" name="address" value="{{ company.address or '' }}">
-
-		<label>Email</label>
-		<input type="email" name="email" value="{{ company.email }}" required>
-
-		<label>Company ID</label>
-		<input type="text" name="company_code" value="{{ company.company_code }}" readonly style="background-color: #f5f5f5; cursor: not-allowed;">
-		<small style="color: #666; font-size: 0.9em;">Company ID cannot be changed as it's used for employee identification.</small>
-
-		<label>New Password</label>
-		<input type="password" name="password" placeholder="Leave blank to keep current password">
-
-		<label>Confirm New Password</label>
-		<input type="password" name="confirm_password" placeholder="Leave blank to keep current password">
-
-		<label>Modules</label>
-		<div class="checkbox-group">
-			<label class="checkbox-item">
-				<input type="checkbox" name="attendance_module_enabled" value="1" {% if company.attendance_module_enabled %}checked{% endif %}>
-				Attendance
-			</label>
-			<label class="checkbox-item">
-				<input type="checkbox" name="canteen_module_enabled" value="1" {% if company.canteen_module_enabled %}checked{% endif %}>
-				Canteen Management
-			</label>
+	<form method="POST" enctype="multipart/form-data" class="add-company-form row g-4" id="editCompanyForm">
+		<div class="col-12 col-md-6">
+			<label class="form-label">Name</label>
+			<input type="text" name="company_name" value="{{ company.company_name }}" class="form-control validate-field" placeholder="Enter company name" required>
+			<small class="field-hint"></small>
 		</div>
 
-		<button class="btn" type="submit">Update Company</button>
+		<div class="col-12 col-md-6">
+			<label class="form-label">Email</label>
+			<input type="email" name="email" value="{{ company.email }}" class="form-control validate-field" placeholder="Enter company email" required>
+			<small class="field-hint"></small>
+		</div>
+
+		<div class="col-12">
+			<label class="form-label">Address</label>
+			<input type="text" name="address" value="{{ company.address or '' }}" class="form-control validate-field" placeholder="Enter address" required>
+			<small class="field-hint"></small>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label">Phone Number</label>
+			<input type="tel" name="phone" value="{{ company.phone or '' }}" class="form-control validate-field" placeholder="Enter phone number">
+			<small class="field-hint"></small>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label">City</label>
+			<input type="text" name="city" value="{{ company.city or '' }}" class="form-control validate-field" placeholder="Enter city">
+			<small class="field-hint"></small>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label">State</label>
+			<input type="text" name="state" value="{{ company.state or '' }}" class="form-control validate-field" placeholder="Enter state">
+			<small class="field-hint"></small>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label">Pincode</label>
+			<input type="text" name="pincode" value="{{ company.pincode or '' }}" class="form-control validate-field" placeholder="Enter pincode">
+			<small class="field-hint"></small>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label">GST Number</label>
+			<input type="text" name="gst_number" value="{{ company.gst_number or '' }}" class="form-control validate-field" placeholder="Enter GST number (optional)">
+			<small class="field-hint"></small>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label">Password</label>
+			<input type="password" name="password" id="password" class="form-control validate-field" placeholder="Leave blank to keep current password">
+			<small class="field-hint"></small>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label">Confirm Password</label>
+			<input type="password" name="confirm_password" id="confirm_password" class="form-control validate-field" placeholder="Leave blank to keep current password">
+			<small class="field-hint"></small>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label">Company Logo</label>
+			{% if company.logo %}
+				<div class="mb-2 position-relative d-inline-block" id="currentLogoWrapEditPage">
+					<img src="/static/uploads/logos/{{ company.logo }}" alt="Current logo" style="width: 90px; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;" id="currentLogoImgEditPage">
+					<button type="button" id="removeLogoBtnEditPage" aria-label="Remove logo" style="position:absolute; top:-8px; right:-8px; width:22px; height:22px; border:none; border-radius:50%; background:#dc3545; color:#fff; font-weight:700; line-height:1; cursor:pointer;">×</button>
+				</div>
+			{% endif %}
+			<input type="file" name="logo" accept="image/*" class="form-control validate-field">
+			<input class="form-check-input" type="checkbox" name="remove_logo" value="1" id="remove_logo_edit_page" style="display:none;">
+			<small class="field-hint"></small>
+		</div>
+
+		<div class="col-12">
+			<div class="location-section p-3 border rounded bg-light">
+				<h5 class="mb-3">Location Settings</h5>
+				<div class="row g-3 align-items-end">
+					<div class="col-12 col-md-4">
+						<label class="form-label">Latitude</label>
+						<input type="text" name="latitude" id="latitude" value="{{ company.latitude or '' }}" class="form-control validate-field" placeholder="Latitude" required>
+						<small class="field-hint"></small>
+					</div>
+					<div class="col-12 col-md-4">
+						<label class="form-label">Longitude</label>
+						<input type="text" name="longitude" id="longitude" value="{{ company.longitude or '' }}" class="form-control validate-field" placeholder="Longitude" required>
+						<small class="field-hint"></small>
+					</div>
+					<div class="col-12 col-md-4 d-grid">
+						<button type="button" class="btn location-btn" onclick="getLocation()">
+							<i class="bi bi-geo-alt"></i> Get Current Location
+						</button>
+					</div>
+				</div>
+				<div class="row mt-1">
+					<div class="col-12 col-md-6">
+						<label class="form-label">Allowed Radius (meters)</label>
+						<input type="number" name="radius" value="{{ company.radius or '100' }}" class="form-control validate-field" placeholder="e.g. 100" min="1" required>
+						<small class="field-hint"></small>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="col-12">
+			<label class="form-label">Modules</label>
+			<div class="checkbox-group">
+				<label class="checkbox-item">
+					<input type="checkbox" name="attendance_module_enabled" value="1" {% if company.attendance_module_enabled %}checked{% endif %}>
+					Attendance
+				</label>
+				<label class="checkbox-item">
+					<input type="checkbox" name="canteen_module_enabled" value="1" {% if company.canteen_module_enabled %}checked{% endif %}>
+					Canteen Management
+				</label>
+			</div>
+		</div>
+
+		<div class="col-12 mt-4 d-grid save-company-row">
+			<button class="btn save-company-btn" type="submit">Update Company</button>
+		</div>
 	</form>
+
+	<script>
+	// Relaxed validation rules for user-friendly experience
+	const validationRules = {
+		company_name: {
+			required: true,
+			message: 'Company name is required'
+		},
+		email: {
+			required: true,
+			validate: (val) => val.includes('@') && val.includes('.'),
+			message: 'Email should contain @ and .'
+		},
+		address: {
+			required: true,
+			message: 'Address is required'
+		},
+		phone: {
+			validate: (val) => val === '' || /^[0-9]{10}$/.test(val),
+			message: 'Phone number should be exactly 10 digits'
+		},
+		pincode: {
+			validate: (val) => val === '' || /^[0-9]{5,6}$/.test(val),
+			message: 'Pincode should be 5-6 digits'
+		},
+		gst_number: {
+			validate: (val) => val === '' || /^[0-9]{15}$|^[A-Z0-9]{15}$/.test(val),
+			message: 'Invalid GST format (optional)'
+		},
+		password: {
+			validate: (val) => val === '' || val.length >= 4,
+			message: 'Password must be at least 4 characters'
+		},
+		confirm_password: {
+			message: 'Please confirm password'
+		},
+		latitude: {
+			required: true,
+			validate: (val) => val === '' || /^-?[0-9]{1,3}\.[0-9]{1,}$/.test(val),
+			message: 'Invalid latitude format'
+		},
+		longitude: {
+			required: true,
+			validate: (val) => val === '' || /^-?[0-9]{1,3}\.[0-9]{1,}$/.test(val),
+			message: 'Invalid longitude format'
+		},
+		radius: {
+			required: true,
+			message: 'Radius is required'
+		}
+	};
+
+	function validateField(input) {
+		const name = input.name;
+		const value = input.value.trim();
+		const rule = validationRules[name];
+		const hint = input.nextElementSibling;
+
+		if (!rule) return true;
+
+		// Check required
+		if (rule.required && value === '') {
+			showHint(input, hint, rule.message);
+			return false;
+		}
+
+		// Check minLength
+		if (rule.minLength && value && value.length < rule.minLength) {
+			showHint(input, hint, rule.message);
+			return false;
+		}
+
+		// Check custom validation
+		if (rule.validate && value && !rule.validate(value)) {
+			showHint(input, hint, rule.message);
+			return false;
+		}
+
+		// All good
+		clearHint(input, hint);
+		return true;
+	}
+
+	function showHint(input, hint, message) {
+		input.classList.add('has-warning');
+		if (hint && hint.classList.contains('field-hint')) {
+			hint.textContent = message;
+			hint.style.display = 'block';
+		}
+	}
+
+	function clearHint(input, hint) {
+		input.classList.remove('has-warning');
+		if (hint && hint.classList.contains('field-hint')) {
+			hint.textContent = '';
+			hint.style.display = 'none';
+		}
+	}
+
+	// Add blur validation to all fields
+	document.querySelectorAll('.validate-field').forEach(input => {
+		input.addEventListener('blur', function() {
+			validateField(this);
+		});
+
+		// Clear hint when user starts fixing the input
+		input.addEventListener('input', function() {
+			if (this.classList.contains('has-warning')) {
+				validateField(this);
+			}
+		});
+
+		input.addEventListener('change', function() {
+			if (this.classList.contains('has-warning')) {
+				validateField(this);
+			}
+		});
+	});
+
+	// Form submission - check critical fields only, allow submit even with warnings
+	document.getElementById('editCompanyForm').addEventListener('submit', function(e) {
+		const password = document.getElementById('password').value;
+		const confirmPassword = document.getElementById('confirm_password').value;
+
+		// Only block if both are filled and don't match
+		if (password && confirmPassword && password !== confirmPassword) {
+			e.preventDefault();
+			const confirmInput = document.getElementById('confirm_password');
+			const hint = confirmInput.nextElementSibling;
+			showHint(confirmInput, hint, 'Passwords do not match');
+			confirmInput.focus();
+		}
+	});
+
+	const removeLogoBtnEditPage = document.getElementById('removeLogoBtnEditPage');
+	const removeLogoCheckboxEditPage = document.getElementById('remove_logo_edit_page');
+	const currentLogoWrapEditPage = document.getElementById('currentLogoWrapEditPage');
+	const logoInputEditPage = document.querySelector('input[name="logo"]');
+
+	if (removeLogoBtnEditPage && removeLogoCheckboxEditPage && currentLogoWrapEditPage) {
+		removeLogoBtnEditPage.addEventListener('click', function () {
+			removeLogoCheckboxEditPage.checked = true;
+			currentLogoWrapEditPage.style.display = 'none';
+		});
+	}
+
+	if (logoInputEditPage && removeLogoCheckboxEditPage) {
+		logoInputEditPage.addEventListener('change', function () {
+			if (this.files && this.files.length > 0) {
+				removeLogoCheckboxEditPage.checked = false;
+			}
+		});
+	}
+
+	function getLocation() {
+		if (navigator.geolocation) {
+			navigator.geolocation.getCurrentPosition(function(position) {
+				document.getElementById('latitude').value = position.coords.latitude;
+				document.getElementById('longitude').value = position.coords.longitude;
+			}, function(error) {
+				alert('Unable to retrieve your location.');
+			});
+		} else {
+			alert('Geolocation is not supported by this browser.');
+		}
+	}
+	</script>
 </div>
 {% endblock %}
