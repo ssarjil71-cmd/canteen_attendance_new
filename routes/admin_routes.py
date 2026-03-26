@@ -107,20 +107,8 @@ def add_company():
 				# Save the file
 				logo_file.save(logo_path)
 
-		# Auto-generate company code
-		# Get the next company ID to generate a unique code
-		cursor.execute("SELECT MAX(id) as max_id FROM companies")
-		result = cursor.fetchone()
-		next_id = (result['max_id'] or 0) + 1
-		company_code = f"CMP{next_id:03d}"  # Format: CMP001, CMP002, etc.
-		
-		# Ensure the generated code is unique (in case of gaps in IDs)
-		while True:
-			cursor.execute("SELECT id FROM companies WHERE company_code = %s", (company_code,))
-			if not cursor.fetchone():
-				break
-			next_id += 1
-			company_code = f"CMP{next_id:03d}"
+		# Set empty company code
+		company_code = ""
 
 		cursor.execute(
 			"""

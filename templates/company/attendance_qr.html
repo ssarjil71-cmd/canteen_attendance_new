@@ -3,7 +3,7 @@
 {% block title %}Attendance QR Code{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4 py-4">
+<div class="attendance-qr-page px-4 py-4">
     <!-- 1. Top Section: Title + Buttons -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -94,7 +94,7 @@
 
 <style>
 /* Modern QR Code Page Styling */
-.container-fluid {
+.attendance-qr-page {
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     min-height: calc(100vh - 68px);
 }
@@ -357,7 +357,7 @@
 }
 
 @media (max-width: 576px) {
-    .container-fluid {
+    .attendance-qr-page {
         padding: 15px !important;
     }
     

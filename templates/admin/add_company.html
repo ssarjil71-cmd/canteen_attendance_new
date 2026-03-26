@@ -270,6 +270,33 @@
 			alert('Geolocation is not supported by this browser.');
 		}
 	}
+
+	const companyNameInput = document.getElementById('company_name');
+	const companyCodeInput = document.getElementById('company_code');
+
+	async function generateCompanyId() {
+		const companyName = companyNameInput.value.trim();
+		if (!companyName) {
+			companyCodeInput.value = '';
+			return;
+		}
+
+		try {
+			const response = await fetch(`/admin/generate_company_id?company_name=${encodeURIComponent(companyName)}`);
+			if (!response.ok) return;
+			const data = await response.json();
+			companyCodeInput.value = data.company_id || '';
+		} catch (error) {
+			companyCodeInput.value = '';
+		}
+	}
+
+	companyNameInput.addEventListener('blur', generateCompanyId);
+	companyNameInput.addEventListener('input', function() {
+		if (!this.value.trim()) {
+			companyCodeInput.value = '';
+		}
+	});
 	</script>
 </div>
 {% endblock %}
