@@ -50,7 +50,12 @@
                                    placeholder="Enter your full name" 
                                    value="{{ request.form.get('name', '') }}" required>
                         </div>
-                        
+                        <div class="form-group">
+                            <label for="emp_id">Employee ID <span class="required">*</span></label>
+                            <input type="text" id="emp_id" name="emp_id" 
+                                   placeholder="EMP001" 
+                                   value="{{ request.form.get('emp_id', '') }}" required>
+                        </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="email">Email Address</label>
@@ -60,9 +65,12 @@
                             </div>
                             <div class="form-group">
                                 <label for="phone">Phone Number <span class="required">*</span></label>
-                                <input type="tel" id="phone" name="phone" 
-                                       placeholder="+1 (555) 123-4567" 
-                                       value="{{ request.form.get('phone', '') }}" required>
+                                    <input type="tel" id="phone" name="phone" 
+                                        placeholder="7722021558" 
+                                        maxlength="10"
+                                        pattern="\d{10}"
+                                        value="{{ request.form.get('phone', '') }}" required>
+                                    <small class="form-text text-muted">Enter 10-digit phone number (digits only, e.g. 7722021558)</small>
                             </div>
                         </div>
                         
@@ -491,18 +499,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     });
     
-    // Phone number formatting
-    const phoneField = document.getElementById('phone');
-    phoneField.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value.length >= 6) {
-            value = value.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
-        } else if (value.length >= 3) {
-            value = value.replace(/(\d{3})(\d{0,3})/, '($1) $2');
-        }
-        e.target.value = value;
-    });
-    
     // Age validation from DOB
     const dobField = document.getElementById('dob');
     dobField.addEventListener('change', function() {
@@ -533,6 +529,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize company data if pre-selected
     updateCompanyData();
+    
+    // Phone number: only allow 10 digits, no formatting
+    const phoneField = document.getElementById('phone');
+    if (phoneField) {
+        phoneField.addEventListener('input', function(e) {
+            // Remove all non-digit characters
+            let value = e.target.value.replace(/\D/g, '');
+            // Limit to 10 digits
+            if (value.length > 10) {
+                value = value.slice(0, 10);
+            }
+            e.target.value = value;
+        });
+        // Phone validation on blur
+        phoneField.addEventListener('blur', function(e) {
+            const value = e.target.value;
+            if (value.length > 0 && value.length < 10) {
+                e.target.setCustomValidity('Please enter a complete 10-digit phone number');
+            } else {
+                e.target.setCustomValidity('');
+            }
+        });
+    }
 });
 </script>
 

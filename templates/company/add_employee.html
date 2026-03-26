@@ -61,8 +61,11 @@
                 <div class="form-group">
                     <label for="phone">Phone Number</label>
                     <input type="tel" id="phone" name="phone" 
-                           placeholder="+1 (555) 123-4567" 
+                           placeholder="7722021558" 
+                           maxlength="10"
+                           pattern="[0-9]{10}"
                            value="{{ request.form.get('phone', '') }}">
+                    <small class="form-text text-muted">Enter 10-digit phone number (numbers only)</small>
                 </div>
             </div>
         </div>
@@ -106,28 +109,6 @@
                 <h4><i class="bi bi-briefcase me-2"></i>Work Details</h4>
                 <p class="section-desc">Employment and organizational information</p>
             </div>
-            
-            {% if companies and companies|length > 1 %}
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="company_id">Company <span class="required">*</span></label>
-                    <select id="company_id" name="company_id" required>
-                        <option value="">Select Company</option>
-                        {% for company in companies %}
-                        <option value="{{ company.id }}" 
-                                {{ 'selected' if request.form.get('company_id') == company.id|string }}>
-                            {{ company.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <!-- Empty space for alignment -->
-                </div>
-            </div>
-            {% elif companies and companies|length == 1 %}
-            <input type="hidden" name="company_id" value="{{ companies[0].id }}">
-            {% endif %}
             
             <div class="form-row">
                 <div class="form-group">
@@ -197,57 +178,56 @@
             </div>
         </div>
 
-        <!-- SECTION 4: Face Capture -->
+        <!-- SECTION 4: Selfie Capture -->
         <div class="form-section">
             <div class="section-header">
-                <h4><i class="bi bi-camera me-2"></i>Face Capture</h4>
-                <p class="section-desc">Capture employee face for attendance verification</p>
+                <h4><i class="bi bi-camera me-2"></i>Face Recognition Setup (Optional)</h4>
+                <p class="section-desc">Capture employee photo for attendance face verification (optional - can be added later)</p>
             </div>
             
-            <!-- Face Capture Section -->
-            <div class="face-capture-section" id="faceCaptureSection">
-                <div class="camera-container">
-                    <video id="cameraVideo" autoplay playsinline></video>
+            <div class="selfie-capture-container">
+                <div class="camera-preview-wrapper">
+                    <video id="cameraPreview" autoplay muted playsinline style="display: none;"></video>
                     <canvas id="captureCanvas" style="display: none;"></canvas>
-                    <div class="camera-overlay">
-                        <div class="face-guide">
-                            <div class="face-outline"></div>
-                            <p class="guide-text">Position your face within the circle</p>
-                        </div>
+                    <div id="faceGuideCircle" class="face-guide-circle"></div>
+                    <div id="cameraPlaceholder" class="camera-placeholder">
+                        <i class="bi bi-camera-fill"></i>
+                        <p>Click "Start Camera" to begin face capture</p>
                     </div>
                 </div>
                 
-                <div class="capture-controls">
-                    <button type="button" id="captureBtn" class="btn btn-primary">
-                        <i class="bi bi-camera me-2"></i>Capture Face
+                <div class="camera-controls">
+                    <button type="button" id="startCameraBtn" class="btn btn-primary">
+                        <i class="bi bi-camera-video me-2"></i>Start Camera
                     </button>
-                    <button type="button" id="retakeBtn" class="btn btn-outline-secondary" style="display: none;">
+                    <button type="button" id="captureBtn" class="btn btn-success" style="display: none;">
+                        <i class="bi bi-camera me-2"></i>Capture Photo
+                    </button>
+                    <button type="button" id="retakeBtn" class="btn btn-warning" style="display: none;">
                         <i class="bi bi-arrow-clockwise me-2"></i>Retake
                     </button>
                 </div>
                 
-                <div class="captured-preview" id="capturedPreview" style="display: none;">
-                    <h5>Captured Face:</h5>
-                    <img id="previewImage" alt="Captured face">
-                    <input type="hidden" id="faceImageData" name="face_image_data">
+                <div id="capturedImagePreview" class="captured-image-preview" style="display: none;">
+                    <img id="capturedImage" alt="Captured Photo">
+                    <div class="image-status">
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                        <span>Photo captured successfully</span>
+                    </div>
                 </div>
+                
+                <input type="hidden" id="faceImageData" name="face_image_data">
             </div>
         </div>
 
         <!-- Submit Button -->
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+            <button type="submit" class="btn btn-primary">
                 <i class="bi bi-person-plus me-2"></i>Add Employee
             </button>
             <a href="{{ url_for('company.view_employees') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-2"></i>Cancel
             </a>
-            <div class="submit-requirements" id="submitRequirements">
-                <small class="text-muted">
-                    <i class="bi bi-info-circle me-1"></i>
-                    Complete face capture to enable submission
-                </small>
-            </div>
         </div>
     </form>
 </div>
@@ -363,6 +343,25 @@
     background: var(--surface);
 }
 
+.form-group input:invalid {
+    border-color: #dc3545;
+}
+
+.form-group input:invalid:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+.form-text {
+    font-size: 0.8rem;
+    margin-top: 4px;
+    color: var(--muted);
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
 .form-group textarea {
     resize: vertical;
     min-height: 80px;
@@ -426,135 +425,110 @@
     }
 }
 
-/* Face Capture Styles */
-.location-status {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 16px;
-    border: 1px solid var(--border);
-}
-
-.status-item {
+/* Selfie Capture Styles */
+.selfie-capture-container {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    font-weight: 500;
+    gap: 20px;
 }
 
-.status-item.success {
-    color: #28a745;
-}
-
-.status-item.error {
-    color: #dc3545;
-}
-
-.face-capture-section {
-    text-align: center;
-}
-
-.camera-container {
+.camera-preview-wrapper {
     position: relative;
-    display: inline-block;
+    width: 320px;
+    height: 240px;
     border-radius: 12px;
     overflow: hidden;
-    background: #000;
-    margin-bottom: 20px;
+    background: #f8f9fa;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-#cameraVideo {
-    width: 400px;
-    height: 300px;
+#cameraPreview {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
+}
+
+.face-guide-circle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 180px;
+    height: 180px;
+    border: 3px solid rgba(13, 110, 253, 0.8);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10;
+    display: none;
+}
+
+.camera-placeholder {
+    text-align: center;
+    color: var(--muted);
+}
+
+.camera-placeholder i {
+    font-size: 3rem;
+    margin-bottom: 12px;
     display: block;
 }
 
-.camera-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
+.camera-placeholder p {
+    margin: 0;
+    font-size: 0.9rem;
 }
 
-.face-guide {
+.camera-controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.captured-image-preview {
     text-align: center;
 }
 
-.face-outline {
-    width: 200px;
-    height: 200px;
-    border: 3px solid rgba(255, 255, 255, 0.8);
-    border-radius: 50%;
-    margin: 0 auto 10px;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
-}
-
-.guide-text {
-    color: white;
-    font-size: 14px;
-    margin: 0;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
-}
-
-.capture-controls {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    margin-bottom: 20px;
-}
-
-.captured-preview {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 20px;
-    border: 1px solid var(--border);
-}
-
-.captured-preview h5 {
-    margin-bottom: 15px;
-    color: var(--text);
-}
-
-.captured-preview img {
+.captured-image-preview img {
     width: 200px;
     height: 150px;
     object-fit: cover;
     border-radius: 8px;
-    border: 2px solid #28a745;
+    border: 2px solid var(--success);
+    margin-bottom: 12px;
 }
 
-.location-blocked .alert {
-    margin: 0;
+.image-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--success);
+    font-weight: 500;
 }
 
-.submit-requirements {
-    margin-top: 10px;
-}
-
-@media (max-width: 768px) {
-    #cameraVideo {
-        width: 100%;
-        max-width: 350px;
-        height: 250px;
+@media (max-width: 480px) {
+    .camera-preview-wrapper {
+        width: 280px;
+        height: 210px;
     }
     
-    .face-outline {
+    .face-guide-circle {
         width: 150px;
         height: 150px;
     }
     
-    .capture-controls {
+    .camera-controls {
         flex-direction: column;
-        align-items: center;
+        width: 100%;
     }
     
-    .captured-preview img {
-        width: 150px;
-        height: 120px;
+    .camera-controls .btn {
+        width: 100%;
     }
 }
 </style>
@@ -562,141 +536,19 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('.employee-form');
-    const submitBtn = document.getElementById('submitBtn');
-    
-    // Face capture variables
-    let stream = null;
-    let faceCaptured = false;
-    
-    // Initialize camera immediately (no location check)
-    initializeCamera();
-    
-    function initializeCamera() {
-        const video = document.getElementById('cameraVideo');
-        const captureBtn = document.getElementById('captureBtn');
-        const retakeBtn = document.getElementById('retakeBtn');
-        
-        // Request camera access
-        navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                width: { ideal: 400 },
-                height: { ideal: 300 },
-                facingMode: 'user'
-            } 
-        })
-        .then(function(mediaStream) {
-            stream = mediaStream;
-            video.srcObject = stream;
-            captureBtn.disabled = false;
-        })
-        .catch(function(error) {
-            console.error('Camera access error:', error);
-            alert('Camera access denied. Please allow camera access to capture face.');
-        });
-        
-        // Capture button click
-        captureBtn.addEventListener('click', function() {
-            capturePhoto();
-        });
-        
-        // Retake button click
-        retakeBtn.addEventListener('click', function() {
-            retakePhoto();
-        });
-    }
-    
-    function capturePhoto() {
-        const video = document.getElementById('cameraVideo');
-        const canvas = document.getElementById('captureCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        
-        ctx.drawImage(video, 0, 0);
-        
-        // Convert to base64
-        const imageData = canvas.toDataURL('image/jpeg', 0.8);
-        
-        // Show preview
-        const previewImg = document.getElementById('previewImage');
-        previewImg.src = imageData;
-        
-        // Store image data
-        document.getElementById('faceImageData').value = imageData;
-        
-        // Update UI
-        document.getElementById('capturedPreview').style.display = 'block';
-        document.getElementById('captureBtn').style.display = 'none';
-        document.getElementById('retakeBtn').style.display = 'inline-block';
-        
-        // Stop camera
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
-        video.style.display = 'none';
-        
-        faceCaptured = true;
-        updateSubmitButton();
-    }
-    
-    function retakePhoto() {
-        // Reset UI
-        document.getElementById('capturedPreview').style.display = 'none';
-        document.getElementById('captureBtn').style.display = 'inline-block';
-        document.getElementById('retakeBtn').style.display = 'none';
-        document.getElementById('cameraVideo').style.display = 'block';
-        
-        // Clear image data
-        document.getElementById('faceImageData').value = '';
-        
-        faceCaptured = false;
-        updateSubmitButton();
-        
-        // Restart camera
-        initializeCamera();
-    }
-    
-    function updateSubmitButton() {
-        const submitBtn = document.getElementById('submitBtn');
-        const requirements = document.getElementById('submitRequirements');
-        
-        if (faceCaptured) {
-            submitBtn.disabled = false;
-            requirements.innerHTML = `
-                <small class="text-success">
-                    <i class="bi bi-check-circle me-1"></i>
-                    Ready to submit - Face captured successfully
-                </small>
-            `;
-        } else {
-            submitBtn.disabled = true;
-            requirements.innerHTML = `
-                <small class="text-muted">
-                    <i class="bi bi-info-circle me-1"></i>
-                    Please capture employee face to continue
-                </small>
-            `;
-        }
-    }
+    const submitBtn = form.querySelector('button[type="submit"]');
     
     // Form submission handling
     form.addEventListener('submit', function(e) {
-        if (!faceCaptured) {
-            e.preventDefault();
-            alert('Please capture employee face before submitting.');
-            return;
-        }
-        
         // Disable submit button to prevent double submission
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding Employee...';
         
-        // Re-enable button after 5 seconds in case of error
+        // Re-enable button after 3 seconds in case of error
         setTimeout(() => {
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="bi bi-person-plus me-2"></i>Add Employee';
-        }, 5000);
+        }, 3000);
     });
     
     // Auto-generate employee ID suggestion
@@ -712,16 +564,28 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Phone number formatting
+    // Phone number validation (digits only)
     const phoneField = document.getElementById('phone');
     phoneField.addEventListener('input', function(e) {
+        // Remove all non-digit characters
         let value = e.target.value.replace(/\D/g, '');
-        if (value.length >= 6) {
-            value = value.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
-        } else if (value.length >= 3) {
-            value = value.replace(/(\d{3})(\d{0,3})/, '($1) $2');
+        
+        // Limit to 10 digits
+        if (value.length > 10) {
+            value = value.substring(0, 10);
         }
+        
         e.target.value = value;
+    });
+    
+    // Phone validation on blur
+    phoneField.addEventListener('blur', function(e) {
+        const value = e.target.value.replace(/\D/g, '');
+        if (value.length > 0 && value.length < 10) {
+            e.target.setCustomValidity('Please enter exactly 10 digits');
+        } else {
+            e.target.setCustomValidity('');
+        }
     });
     
     // Age calculation from DOB
@@ -744,129 +608,87 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Cleanup camera on page unload
-    window.addEventListener('beforeunload', function() {
+    // Selfie Capture Functionality
+    let stream = null;
+    const video = document.getElementById('cameraPreview');
+    const canvas = document.getElementById('captureCanvas');
+    const ctx = canvas.getContext('2d');
+    const startCameraBtn = document.getElementById('startCameraBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const retakeBtn = document.getElementById('retakeBtn');
+    const faceGuideCircle = document.getElementById('faceGuideCircle');
+    const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+    const capturedImagePreview = document.getElementById('capturedImagePreview');
+    const capturedImage = document.getElementById('capturedImage');
+    const faceImageData = document.getElementById('faceImageData');
+    
+    // Start Camera
+    startCameraBtn.addEventListener('click', async function() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: 320, 
+                    height: 240,
+                    facingMode: 'user' 
+                } 
+            });
+            
+            video.srcObject = stream;
+            video.style.display = 'block';
+            cameraPlaceholder.style.display = 'none';
+            faceGuideCircle.style.display = 'block';
+            
+            startCameraBtn.style.display = 'none';
+            captureBtn.style.display = 'inline-block';
+            
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            alert('Unable to access camera. Please ensure camera permissions are granted.');
+        }
+    });
+    
+    // Capture Photo
+    captureBtn.addEventListener('click', function() {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        
+        // Convert to base64
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        faceImageData.value = imageDataUrl;
+        
+        // Show preview
+        capturedImage.src = imageDataUrl;
+        capturedImagePreview.style.display = 'block';
+        
+        // Hide camera, show retake button
+        video.style.display = 'none';
+        faceGuideCircle.style.display = 'none';
+        captureBtn.style.display = 'none';
+        retakeBtn.style.display = 'inline-block';
+        
+        // Stop camera stream
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
         }
     });
     
-    // QR Code Generation
-    const generateQrBtn = document.querySelector('.generate-qr-btn');
-    if (generateQrBtn) {
-        generateQrBtn.addEventListener('click', function() {
-            generateEmployeeRegistrationQR();
-        });
-    }
+    // Retake Photo
+    retakeBtn.addEventListener('click', function() {
+        // Reset to camera view
+        capturedImagePreview.style.display = 'none';
+        faceImageData.value = '';
+        
+        retakeBtn.style.display = 'none';
+        startCameraBtn.style.display = 'inline-block';
+        cameraPlaceholder.style.display = 'flex';
+    });
     
-    function generateEmployeeRegistrationQR() {
-        const btn = document.querySelector('.generate-qr-btn');
-        const originalText = btn.innerHTML;
-        
-        // Show loading state
-        btn.disabled = true;
-        btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Generating QR...';
-        
-        // Make AJAX request to generate QR
-        fetch('/company/employee/qr', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showQRModal(data.qr_image_path, data.registration_url);
-            } else {
-                alert('Failed to generate QR code: ' + (data.message || data.error));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Failed to generate QR code. Please try again.');
-        })
-        .finally(() => {
-            // Restore button state
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        });
-    }
-    
-    function showQRModal(qrImagePath, registrationUrl) {
-        // Create modal HTML
-        const modalHtml = `
-            <div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="qrModalLabel">
-                                <i class="bi bi-qr-code me-2"></i>Employee Registration QR Code
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body text-center">
-                            <p class="mb-3">Scan this QR code to access the employee registration form:</p>
-                            <div class="qr-container mb-3">
-                                <img src="${qrImagePath}" alt="Registration QR Code" class="img-fluid" style="max-width: 300px;">
-                            </div>
-                            <div class="url-container">
-                                <small class="text-muted">Or visit directly:</small>
-                                <div class="input-group mt-2">
-                                    <input type="text" class="form-control" value="${registrationUrl}" readonly id="registrationUrl">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard()">
-                                        <i class="bi bi-clipboard"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <a href="${qrImagePath}" download="employee_registration_qr.png" class="btn btn-primary">
-                                <i class="bi bi-download me-2"></i>Download QR
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Remove existing modal if any
-        const existingModal = document.getElementById('qrModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-        
-        // Add modal to body
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('qrModal'));
-        modal.show();
-        
-        // Clean up modal when hidden
-        document.getElementById('qrModal').addEventListener('hidden.bs.modal', function() {
-            this.remove();
-        });
-    }
-    
-    function copyToClipboard() {
-        const urlInput = document.getElementById('registrationUrl');
-        urlInput.select();
-        urlInput.setSelectionRange(0, 99999); // For mobile devices
-        
-        try {
-            document.execCommand('copy');
-            const btn = event.target.closest('button');
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="bi bi-check"></i>';
-            setTimeout(() => {
-                btn.innerHTML = originalHtml;
-            }, 2000);
-        } catch (err) {
-            console.error('Failed to copy: ', err);
-        }
-    }
+    // Form validation - selfie capture is optional
+    form.addEventListener('submit', function(e) {
+        // Selfie capture is optional - no validation needed
+        // The backend will handle cases where face recognition is not available
+    });
 });
 </script>
 {% endblock %}

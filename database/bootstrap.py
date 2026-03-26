@@ -239,6 +239,10 @@ def _apply_schema_updates(connection):
     # Add face capture and location fields to employees table
     if not _column_exists(cursor, "employees", "face_image"):
         cursor.execute("ALTER TABLE employees ADD COLUMN face_image VARCHAR(500) NULL")
+    if not _column_exists(cursor, "employees", "image_path"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN image_path VARCHAR(255) NULL")
+    if not _column_exists(cursor, "employees", "face_encoding"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN face_encoding TEXT NULL")
     if not _column_exists(cursor, "employees", "registration_latitude"):
         cursor.execute("ALTER TABLE employees ADD COLUMN registration_latitude DECIMAL(10, 8) NULL")
     if not _column_exists(cursor, "employees", "registration_longitude"):

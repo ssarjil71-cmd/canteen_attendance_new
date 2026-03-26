@@ -25,11 +25,25 @@
                 <div class="shift-info">
                     <h4>{{ shift.name }}</h4>
                     <p class="shift-schedule">
-                        {{ shift.start_time.strftime('%I:%M %p') }} - {{ shift.end_time.strftime('%I:%M %p') }}
+                        {% set start_time_str = shift.start_time|string %}
+                        {% if ':' in start_time_str %}
+                            {{ shift.start_time.strftime('%I:%M %p') }} - {{ shift.end_time.strftime('%I:%M %p') }}
+                        {% else %}
+                            {% set start_hours = (shift.start_time.total_seconds() // 3600) | int %}
+                            {% set start_minutes = ((shift.start_time.total_seconds() % 3600) // 60) | int %}
+                            {% set end_hours = (shift.end_time.total_seconds() // 3600) | int %}
+                            {% set end_minutes = ((shift.end_time.total_seconds() % 3600) // 60) | int %}
+                            {{ '%02d:%02d' | format(start_hours, start_minutes) }} - {{ '%02d:%02d' | format(end_hours, end_minutes) }}
+                        {% endif %}
                     </p>
                 </div>
                 <div class="shift-badge">
-                    {% set start_hour = shift.start_time.hour %}
+                    {% set start_time_str = shift.start_time|string %}
+                    {% if ':' in start_time_str %}
+                        {% set start_hour = shift.start_time.hour %}
+                    {% else %}
+                        {% set start_hour = (shift.start_time.total_seconds() // 3600) | int %}
+                    {% endif %}
                     {% if start_hour >= 6 and start_hour < 12 %}
                         <span class="badge badge-morning">Morning</span>
                     {% elif start_hour >= 12 and start_hour < 18 %}
@@ -63,7 +77,16 @@
             </div>
             
             <div class="shift-actions">
-                <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ shift.start_time.strftime('%H:%M') }}', '{{ shift.end_time.strftime('%H:%M') }}')">>>
+                {% set start_time_str = shift.start_time|string %}
+                {% if ':' in start_time_str %}
+                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ shift.start_time.strftime('%H:%M') }}', '{{ shift.end_time.strftime('%H:%M') }}')">
+                {% else %}
+                    {% set start_hours = (shift.start_time.total_seconds() // 3600) | int %}
+                    {% set start_minutes = ((shift.start_time.total_seconds() % 3600) // 60) | int %}
+                    {% set end_hours = (shift.end_time.total_seconds() // 3600) | int %}
+                    {% set end_minutes = ((shift.end_time.total_seconds() % 3600) // 60) | int %}
+                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ '%02d:%02d' | format(start_hours, start_minutes) }}', '{{ '%02d:%02d' | format(end_hours, end_minutes) }}')">
+                {% endif %}
                     <i class="bi bi-pencil me-1"></i>Edit
                 </button>
                 <form method="POST" action="{{ url_for('company.delete_shift', shift_id=shift.id) }}" 

@@ -53,8 +53,11 @@
                 <div class="form-group">
                     <label for="phone">Phone Number</label>
                     <input type="tel" id="phone" name="phone" 
-                           placeholder="+1 (555) 123-4567" 
+                           placeholder="7722021558" 
+                           maxlength="10"
+                           pattern="[0-9]{10}"
                            value="{{ request.form.get('phone', employee.phone or '') }}">
+                    <small class="form-text text-muted">Enter 10-digit phone number (digits only, e.g. 7722021558)</small>
                 </div>
             </div>
         </div>
@@ -147,7 +150,16 @@
                                 {{ 'selected' if request.form.get('shift_id', employee.shift_id)|string == shift.id|string }}>
                             {{ shift.name }}
                             {% if shift.start_time and shift.end_time %}
-                                ({{ shift.start_time.strftime('%I:%M %p') }} - {{ shift.end_time.strftime('%I:%M %p') }})
+                                {% set start_time_str = shift.start_time|string %}
+                                {% if ':' in start_time_str %}
+                                    ({{ shift.start_time.strftime('%I:%M %p') }} - {{ shift.end_time.strftime('%I:%M %p') }})
+                                {% else %}
+                                    {% set start_hours = (shift.start_time.total_seconds() // 3600) | int %}
+                                    {% set start_minutes = ((shift.start_time.total_seconds() % 3600) // 60) | int %}
+                                    {% set end_hours = (shift.end_time.total_seconds() // 3600) | int %}
+                                    {% set end_minutes = ((shift.end_time.total_seconds() % 3600) // 60) | int %}
+                                    ({{ '%02d:%02d' | format(start_hours, start_minutes) }} - {{ '%02d:%02d' | format(end_hours, end_minutes) }})
+                                {% endif %}
                             {% endif %}
                         </option>
                         {% endfor %}
@@ -382,17 +394,28 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 3000);
     });
     
-    // Phone number formatting
+    // Phone number: only allow 10 digits, no formatting
     const phoneField = document.getElementById('phone');
-    phoneField.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value.length >= 6) {
-            value = value.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
-        } else if (value.length >= 3) {
-            value = value.replace(/(\d{3})(\d{0,3})/, '($1) $2');
-        }
-        e.target.value = value;
-    });
+    if (phoneField) {
+        phoneField.addEventListener('input', function(e) {
+            // Remove all non-digit characters
+            let value = e.target.value.replace(/\D/g, '');
+            // Limit to 10 digits
+            if (value.length > 10) {
+                value = value.slice(0, 10);
+            }
+            e.target.value = value;
+        });
+        // Phone validation on blur
+        phoneField.addEventListener('blur', function(e) {
+            const value = e.target.value;
+            if (value.length > 0 && value.length < 10) {
+                e.target.setCustomValidity('Please enter a complete 10-digit phone number');
+            } else {
+                e.target.setCustomValidity('');
+            }
+        });
+    }
     
     // Age calculation from DOB
     const dobField = document.getElementById('dob');

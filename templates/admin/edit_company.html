@@ -28,8 +28,8 @@
 
 		<div class="col-12 col-md-6">
 			<label class="form-label">Phone Number</label>
-			<input type="tel" name="phone" value="{{ company.phone or '' }}" class="form-control validate-field" placeholder="Enter phone number">
-			<small class="field-hint"></small>
+			<input type="tel" name="phone" value="{{ company.phone or '' }}" class="form-control validate-field" placeholder="7722021558" maxlength="10" pattern="[0-9]{10}">
+			<small class="field-hint">Enter 10-digit phone number (digits only, e.g. 7722021558)</small>
 		</div>
 
 		<div class="col-12 col-md-6">
@@ -247,6 +247,20 @@
 			}
 		});
 	});
+
+	// Phone number: only allow 10 digits, no formatting
+	const phoneField = document.querySelector('input[name="phone"]');
+	if (phoneField) {
+		phoneField.addEventListener('input', function(e) {
+			// Remove all non-digit characters
+			let value = e.target.value.replace(/\D/g, '');
+			// Limit to 10 digits
+			if (value.length > 10) {
+				value = value.slice(0, 10);
+			}
+			e.target.value = value;
+		});
+	}
 
 	// Form submission - check critical fields only, allow submit even with warnings
 	document.getElementById('editCompanyForm').addEventListener('submit', function(e) {

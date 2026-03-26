@@ -86,6 +86,12 @@
                     </div>
                     <h5 class="card-title fw-bold">Mark Attendance</h5>
                     <p class="card-text text-muted">Employees enter their ID, verify location, capture face photo, and mark attendance.</p>
+                    <div class="mt-3">
+                        <a href="{{ url_for('attendance.employee_attendance') }}?company_id={{ company_id }}" 
+                           class="btn btn-warning btn-sm" target="_blank">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Open Portal
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
