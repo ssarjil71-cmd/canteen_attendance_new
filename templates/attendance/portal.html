@@ -333,7 +333,7 @@
                 </div>
                 <div class="alert alert-sm alert-info">
                     <i class="bi bi-info-circle me-1"></i>
-                    <small>Face verification enhances security. If unavailable, the system will proceed with basic verification.</small>
+                    <small><strong>Flexible Face Matching:</strong> The system uses tolerance-based verification to handle variations in lighting, angle, and expression for better real-world usability.</small>
                 </div>
                 <div class="camera-container" id="cameraContainer" style="display: none;">
                     <video id="cameraVideo" autoplay playsinline></video>
@@ -642,25 +642,13 @@
             .then(data => {
                 if (data.success) {
                     faceVerified = true;
+                    faceStatus.innerHTML = `<i class="bi bi-check-circle me-2"></i>${data.message}`;
+                    faceStatus.className = 'status-message status-success';
                     
-                    // Check if face verification was skipped
-                    if (data.skip_reason) {
-                        faceStatus.innerHTML = `<i class="bi bi-info-circle me-2"></i>${data.message}`;
-                        faceStatus.className = 'status-message status-info';
-                        
-                        verifyBtn.innerHTML = '<i class="bi bi-info-circle me-2"></i>Face Verification Skipped';
-                        verifyBtn.disabled = true;
-                        verifyBtn.classList.remove('btn-primary');
-                        verifyBtn.classList.add('btn-secondary');
-                    } else {
-                        faceStatus.innerHTML = `<i class="bi bi-check-circle me-2"></i>${data.message}`;
-                        faceStatus.className = 'status-message status-success';
-                        
-                        verifyBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Face Verified';
-                        verifyBtn.disabled = true;
-                        verifyBtn.classList.remove('btn-primary');
-                        verifyBtn.classList.add('btn-success');
-                    }
+                    verifyBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Face Verified';
+                    verifyBtn.disabled = true;
+                    verifyBtn.classList.remove('btn-primary');
+                    verifyBtn.classList.add('btn-success');
                     
                     checkRequirements();
                 } else {
@@ -676,16 +664,12 @@
             })
             .catch(error => {
                 console.error('Face verification error:', error);
+                faceVerified = false;
+                faceStatus.innerHTML = '<i class="bi bi-x-circle me-2"></i>Face verification failed. Please try again with better lighting.';
+                faceStatus.className = 'status-message status-error';
                 
-                // If it's a network error or server error, treat as skipped verification
-                faceVerified = true;
-                faceStatus.innerHTML = '<i class="bi bi-info-circle me-2"></i>Face verification skipped - System will proceed with basic verification';
-                faceStatus.className = 'status-message status-info';
-                
-                verifyBtn.innerHTML = '<i class="bi bi-info-circle me-2"></i>Face Verification Skipped';
-                verifyBtn.disabled = true;
-                verifyBtn.classList.remove('btn-primary');
-                verifyBtn.classList.add('btn-secondary');
+                verifyBtn.innerHTML = '<i class="bi bi-shield-check me-2"></i>Retry Verification';
+                verifyBtn.disabled = false;
                 
                 checkRequirements();
             });

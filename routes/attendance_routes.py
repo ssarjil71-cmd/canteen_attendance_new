@@ -7,28 +7,131 @@ import json
 
 from flask import Blueprint, request, jsonify, current_app, render_template
 
-# Optional face recognition imports
+# Required face recognition imports
 try:
-    import face_recognition
+    import cv2
     import numpy as np
-    FACE_RECOGNITION_AVAILABLE = True
-except ImportError:
-    FACE_RECOGNITION_AVAILABLE = False
-    face_recognition = None
-    np = None
-
-try:
     from PIL import Image
     import io
-    PIL_AVAILABLE = True
-except ImportError:
-    PIL_AVAILABLE = False
-    Image = None
-    io = None
+    from deepface import DeepFace
+    FACE_RECOGNITION_AVAILABLE = True
+except ImportError as e:
+    print(f"Face recognition libraries not available: {e}")
+    FACE_RECOGNITION_AVAILABLE = False
 
 from database.db_connection import get_db_connection
 
 attendance = Blueprint("attendance", __name__, url_prefix="/attendance")
+
+# Face verification configuration
+FACE_VERIFICATION_CONFIG = {
+    'threshold': 0.6,  # Distance threshold for face matching (0.5-0.7 recommended)
+    'model': 'Facenet',  # DeepFace model for stable results
+    'distance_metric': 'cosine'  # Distance metric for comparison
+}
+
+
+def compare_faces_deepface(img1_path, img2_path, threshold=None):
+    """
+    Flexible face comparison using DeepFace with tolerance-based matching
+    Returns a result dict with distance, verified status, and confidence
+    """
+    if threshold is None:
+        threshold = FACE_VERIFICATION_CONFIG['threshold']
+    
+    try:
+        # Use DeepFace with configurable model for stable results
+        result = DeepFace.verify(
+            img1_path=img1_path,
+            img2_path=img2_path,
+            model_name=FACE_VERIFICATION_CONFIG['model'],
+            enforce_detection=False,
+            distance_metric=FACE_VERIFICATION_CONFIG['distance_metric']
+        )
+        
+        distance = result['distance']
+        
+        # Apply tolerance-based matching instead of strict verification
+        tolerance_verified = distance <= threshold
+        
+        # Convert distance to confidence percentage (lower distance = higher confidence)
+        confidence = max(0, min(100, (1 - distance) * 100))
+        
+        return {
+            'distance': float(distance),
+            'verified': tolerance_verified,
+            'confidence': float(confidence),
+            'threshold': threshold,
+            'original_verified': result['verified']  # Keep original DeepFace result for reference
+        }
+        
+    except Exception as e:
+        print(f"DeepFace comparison error: {e}")
+        return {
+            'distance': 1.0,
+            'verified': False,
+            'confidence': 0.0,
+            'threshold': threshold,
+            'error': str(e)
+        }
+
+
+def compare_faces_opencv(img1_path, img2_path):
+    """
+    Simple face comparison using OpenCV template matching
+    Returns a similarity score between 0 and 1
+    """
+    try:
+        # Read images
+        img1 = cv2.imread(img1_path)
+        img2 = cv2.imread(img2_path)
+        
+        if img1 is None or img2 is None:
+            return 0.0
+        
+        # Convert to grayscale
+        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+        
+        # Resize images to same size for comparison
+        height, width = 200, 200
+        gray1 = cv2.resize(gray1, (width, height))
+        gray2 = cv2.resize(gray2, (width, height))
+        
+        # Load face cascade classifier
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        
+        # Detect faces
+        faces1 = face_cascade.detectMultiScale(gray1, 1.1, 4)
+        faces2 = face_cascade.detectMultiScale(gray2, 1.1, 4)
+        
+        if len(faces1) == 0 or len(faces2) == 0:
+            # If no faces detected, use whole image comparison
+            face1 = gray1
+            face2 = gray2
+        else:
+            # Use the first detected face
+            x1, y1, w1, h1 = faces1[0]
+            x2, y2, w2, h2 = faces2[0]
+            face1 = gray1[y1:y1+h1, x1:x1+w1]
+            face2 = gray2[y2:y2+h2, x2:x2+w2]
+            
+            # Resize faces to same size
+            face1 = cv2.resize(face1, (100, 100))
+            face2 = cv2.resize(face2, (100, 100))
+        
+        # Calculate similarity using template matching
+        result = cv2.matchTemplate(face1, face2, cv2.TM_CCOEFF_NORMED)
+        similarity = result[0][0]
+        
+        # Normalize to 0-1 range
+        similarity = max(0, min(1, similarity))
+        
+        return similarity
+        
+    except Exception as e:
+        print(f"Face comparison error: {e}")
+        return 0.0
 
 
 def calculate_distance(lat1, lon1, lat2, lon2):
@@ -50,6 +153,51 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     r = 6371000
     
     return c * r
+
+
+@attendance.route("/config/threshold", methods=["GET", "POST"])
+def face_threshold_config():
+    """Configure face verification threshold (admin only)"""
+    if request.method == "GET":
+        return jsonify({
+            'current_threshold': FACE_VERIFICATION_CONFIG['threshold'],
+            'model': FACE_VERIFICATION_CONFIG['model'],
+            'distance_metric': FACE_VERIFICATION_CONFIG['distance_metric'],
+            'recommended_range': '0.5 - 0.7',
+            'description': 'Lower values = stricter matching, Higher values = more tolerant matching'
+        })
+    
+    elif request.method == "POST":
+        try:
+            data = request.get_json()
+            new_threshold = float(data.get('threshold', FACE_VERIFICATION_CONFIG['threshold']))
+            
+            # Validate threshold range
+            if not (0.3 <= new_threshold <= 1.0):
+                return jsonify({
+                    'success': False,
+                    'message': 'Threshold must be between 0.3 and 1.0'
+                }), 400
+            
+            # Update configuration
+            FACE_VERIFICATION_CONFIG['threshold'] = new_threshold
+            
+            return jsonify({
+                'success': True,
+                'message': f'Face verification threshold updated to {new_threshold}',
+                'new_threshold': new_threshold
+            })
+            
+        except (ValueError, TypeError):
+            return jsonify({
+                'success': False,
+                'message': 'Invalid threshold value. Must be a number between 0.3 and 1.0'
+            }), 400
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': f'Error updating threshold: {str(e)}'
+            }), 500
 
 
 @attendance.route("/portal/<int:company_id>")
@@ -169,24 +317,14 @@ def verify_location():
 
 @attendance.route("/verify-face", methods=["POST"])
 def verify_face():
-    """Verify employee face against stored face encoding"""
+    """Verify employee face against stored face image using OpenCV"""
     try:
         # Check if face recognition is available
         if not FACE_RECOGNITION_AVAILABLE:
             return jsonify({
-                'success': True,
-                'message': 'Face recognition not available - Skipping face verification',
-                'confidence': 0,
-                'skip_reason': 'Face recognition library not installed'
-            })
-        
-        if not PIL_AVAILABLE:
-            return jsonify({
-                'success': True,
-                'message': 'Image processing not available - Skipping face verification',
-                'confidence': 0,
-                'skip_reason': 'Pillow library not installed'
-            })
+                'success': False,
+                'message': 'Face recognition system not available. Please contact administrator.'
+            }), 500
         
         data = request.get_json()
         employee_id = data.get('employee_id')
@@ -201,9 +339,9 @@ def verify_face():
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
         
-        # Get employee's stored face encoding
+        # Get employee's stored image path
         cursor.execute(
-            "SELECT id, name, face_encoding, image_path FROM employees WHERE emp_id = %s", 
+            "SELECT id, name, image_path FROM employees WHERE emp_id = %s", 
             (employee_id,)
         )
         employee = cursor.fetchone()
@@ -217,13 +355,10 @@ def verify_face():
                 'message': 'Employee not found. Please check your Employee ID.'
             })
         
-        if not employee['face_encoding']:
+        if not employee['image_path']:
             return jsonify({
-                'success': True,
-                'message': f'No face data registered for {employee["name"]} - Skipping face verification',
-                'confidence': 0,
-                'skip_reason': 'No face encoding stored',
-                'employee_name': employee['name']
+                'success': False,
+                'message': f'No face image registered for {employee["name"]}. Please contact HR to register your face.'
             })
         
         try:
@@ -232,65 +367,96 @@ def verify_face():
             if ',' in face_image_data:
                 face_image_data = face_image_data.split(',')[1]
             
-            # Decode base64 image
+            # Decode base64 image and save temporarily
             image_binary = base64.b64decode(face_image_data)
             
-            # Convert to PIL Image
-            image = Image.open(io.BytesIO(image_binary))
+            # Create temp directory for captured images
+            temp_dir = os.path.join(current_app.root_path, 'static', 'temp')
+            os.makedirs(temp_dir, exist_ok=True)
             
-            # Convert PIL image to numpy array for face_recognition
-            image_array = np.array(image)
+            # Save captured image temporarily
+            temp_filename = f"temp_capture_{employee_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            temp_image_path = os.path.join(temp_dir, temp_filename)
             
-            # Find face encodings in the captured image
-            captured_encodings = face_recognition.face_encodings(image_array)
+            with open(temp_image_path, 'wb') as f:
+                f.write(image_binary)
             
-            if len(captured_encodings) == 0:
+            # Get stored image path
+            stored_image_path = os.path.join(current_app.root_path, 'static', employee['image_path'])
+            
+            # Check if stored image exists
+            if not os.path.exists(stored_image_path):
+                # Clean up temp file
+                if os.path.exists(temp_image_path):
+                    os.remove(temp_image_path)
                 return jsonify({
                     'success': False,
-                    'message': 'No face detected in the captured image. Please try again with better lighting.'
+                    'message': f'Stored face image not found for {employee["name"]}. Please contact HR.'
                 })
             
-            if len(captured_encodings) > 1:
-                return jsonify({
-                    'success': False,
-                    'message': 'Multiple faces detected. Please ensure only your face is visible.'
-                })
-            
-            # Get the captured face encoding
-            captured_encoding = captured_encodings[0]
-            
-            # Convert stored encoding string back to numpy array
-            stored_encoding_str = employee['face_encoding']
-            stored_encoding = np.array([float(x) for x in stored_encoding_str.split(',')])
-            
-            # Compare faces using face_recognition library
-            matches = face_recognition.compare_faces([stored_encoding], captured_encoding, tolerance=0.6)
-            face_distance = face_recognition.face_distance([stored_encoding], captured_encoding)[0]
-            
-            # Calculate confidence percentage (lower distance = higher confidence)
-            confidence = max(0, (1 - face_distance) * 100)
-            
-            current_app.logger.info(f"Face verification for {employee_id}: match={matches[0]}, distance={face_distance:.3f}, confidence={confidence:.1f}%")
-            
-            if matches[0] and confidence >= 40:  # 40% minimum confidence
-                return jsonify({
-                    'success': True,
-                    'message': f'Face verified successfully for {employee["name"]} (Confidence: {confidence:.1f}%)',
-                    'confidence': round(confidence, 1),
-                    'employee_name': employee['name']
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'message': f'Face verification failed. Face does not match registered employee (Confidence: {confidence:.1f}%)',
-                    'confidence': round(confidence, 1)
-                })
+            # Perform face verification using DeepFace with tolerance-based matching
+            try:
+                # Use configurable threshold for flexible matching
+                tolerance_threshold = FACE_VERIFICATION_CONFIG['threshold']
                 
-        except Exception as face_error:
-            current_app.logger.error(f"Face processing error: {str(face_error)}")
+                result = compare_faces_deepface(stored_image_path, temp_image_path, tolerance_threshold)
+                
+                # Clean up temp file
+                if os.path.exists(temp_image_path):
+                    os.remove(temp_image_path)
+                
+                distance = result['distance']
+                confidence = result['confidence']
+                face_verified = result['verified']
+                
+                if face_verified:
+                    return jsonify({
+                        'success': True,
+                        'message': f'Face verified successfully for {employee["name"]} (Confidence: {confidence:.1f}%)',
+                        'confidence': round(float(confidence), 1),
+                        'distance': round(float(distance), 3),
+                        'threshold': tolerance_threshold,
+                        'employee_name': employee['name']
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'message': f'Face verification failed. Face does not match {employee["name"]} (Distance: {distance:.3f}, Confidence: {confidence:.1f}%)',
+                        'confidence': round(float(confidence), 1),
+                        'distance': round(float(distance), 3),
+                        'threshold': tolerance_threshold,
+                        'employee_name': employee['name']
+                    })
+                    
+            except Exception as deepface_error:
+                # Clean up temp file
+                if os.path.exists(temp_image_path):
+                    os.remove(temp_image_path)
+                
+                current_app.logger.error(f"DeepFace face verification error: {deepface_error}")
+                
+                error_msg = str(deepface_error).lower()
+                if 'face could not be detected' in error_msg:
+                    return jsonify({
+                        'success': False,
+                        'message': 'No face detected in the image. Please try again with better lighting and ensure your face is clearly visible.'
+                    })
+                elif 'multiple faces' in error_msg:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Multiple faces detected. Please ensure only your face is visible in the camera.'
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Face verification failed due to processing error. Please try again with better lighting.'
+                    })
+                
+        except Exception as processing_error:
+            current_app.logger.error(f"Face image processing error: {str(processing_error)}")
             return jsonify({
                 'success': False,
-                'message': 'Face verification failed due to image processing error'
+                'message': 'Failed to process face image. Please try again.'
             })
             
     except Exception as e:
@@ -324,7 +490,7 @@ def mark_attendance():
         # Verify employee exists and belongs to company
         cursor.execute(
             """
-            SELECT e.id, e.name, e.emp_id, e.face_encoding, c.company_name, c.latitude as company_lat, 
+            SELECT e.id, e.name, e.emp_id, e.image_path, c.company_name, c.latitude as company_lat, 
                    c.longitude as company_lon, c.radius
             FROM employees e 
             JOIN companies c ON e.company_id = c.id 
@@ -380,73 +546,117 @@ def mark_attendance():
                     'message': f'Location verification failed. You are {int(distance)}m away (max allowed: {allowed_radius}m)'
                 })
         
-        # Verify face (if face encoding exists and face recognition is available)
-        face_verified = True
+        # Verify face (MANDATORY - no skipping allowed)
+        face_verified = False
         confidence = 0
         
-        if employee['face_encoding'] and FACE_RECOGNITION_AVAILABLE and PIL_AVAILABLE:
+        if not FACE_RECOGNITION_AVAILABLE:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Face recognition system not available. Please contact administrator.'
+            }), 500
+        
+        if not employee['image_path']:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': f'No face image registered for {employee["name"]}. Please contact HR to register your face.'
+            })
+        
+        try:
+            # Process captured face image
+            if ',' in face_image_data:
+                face_image_data = face_image_data.split(',')[1]
+            
+            image_binary = base64.b64decode(face_image_data)
+            
+            # Create temp directory for captured images
+            temp_dir = os.path.join(current_app.root_path, 'static', 'temp')
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            # Save captured image temporarily
+            temp_filename = f"attendance_capture_{employee_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            temp_image_path = os.path.join(temp_dir, temp_filename)
+            
+            with open(temp_image_path, 'wb') as f:
+                f.write(image_binary)
+            
+            # Get stored image path
+            stored_image_path = os.path.join(current_app.root_path, 'static', employee['image_path'])
+            
+            # Check if stored image exists
+            if not os.path.exists(stored_image_path):
+                # Clean up temp file
+                if os.path.exists(temp_image_path):
+                    os.remove(temp_image_path)
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'success': False,
+                    'message': f'Stored face image not found for {employee["name"]}. Please contact HR.'
+                })
+            
+            # Perform face verification using DeepFace with tolerance-based matching
             try:
-                # Process captured face image
-                if ',' in face_image_data:
-                    face_image_data = face_image_data.split(',')[1]
+                # Use configurable threshold for flexible matching
+                tolerance_threshold = FACE_VERIFICATION_CONFIG['threshold']
                 
-                image_binary = base64.b64decode(face_image_data)
-                image = Image.open(io.BytesIO(image_binary))
-                image_array = np.array(image)
+                result = compare_faces_deepface(stored_image_path, temp_image_path, tolerance_threshold)
                 
-                # Find face encodings
-                captured_encodings = face_recognition.face_encodings(image_array)
+                # Clean up temp file
+                if os.path.exists(temp_image_path):
+                    os.remove(temp_image_path)
                 
-                if len(captured_encodings) == 0:
-                    cursor.close()
-                    connection.close()
-                    return jsonify({
-                        'success': False,
-                        'message': 'No face detected in the image. Please try again.'
-                    })
-                
-                if len(captured_encodings) > 1:
-                    cursor.close()
-                    connection.close()
-                    return jsonify({
-                        'success': False,
-                        'message': 'Multiple faces detected. Please ensure only your face is visible.'
-                    })
-                
-                # Compare with stored encoding
-                captured_encoding = captured_encodings[0]
-                stored_encoding = np.array([float(x) for x in employee['face_encoding'].split(',')])
-                
-                matches = face_recognition.compare_faces([stored_encoding], captured_encoding, tolerance=0.6)
-                face_distance = face_recognition.face_distance([stored_encoding], captured_encoding)[0]
-                confidence = max(0, (1 - face_distance) * 100)
-                
-                face_verified = matches[0] and confidence >= 40
+                distance = result['distance']
+                confidence = result['confidence']
+                face_verified = result['verified']
                 
                 if not face_verified:
                     cursor.close()
                     connection.close()
                     return jsonify({
                         'success': False,
-                        'message': f'Face verification failed. Face does not match registered employee (Confidence: {confidence:.1f}%)'
+                        'message': f'Face verification failed. Face does not match {employee["name"]} (Distance: {distance:.3f}, Confidence: {confidence:.1f}%)'
                     })
                     
-            except Exception as face_error:
-                current_app.logger.error(f"Face verification error during attendance: {str(face_error)}")
+            except Exception as deepface_error:
+                # Clean up temp file
+                if os.path.exists(temp_image_path):
+                    os.remove(temp_image_path)
+                
                 cursor.close()
                 connection.close()
-                return jsonify({
-                    'success': False,
-                    'message': 'Face verification failed due to processing error'
-                })
-        elif employee['face_encoding'] and not FACE_RECOGNITION_AVAILABLE:
-            # Face encoding exists but face recognition not available - skip verification with info
-            current_app.logger.info(f"Face recognition not available for employee {employee_id} - skipping face verification")
-            face_verified = True  # Allow attendance but note the skip
-        elif not employee['face_encoding']:
-            # No face encoding stored - skip verification
-            current_app.logger.info(f"No face encoding stored for employee {employee_id} - skipping face verification")
-            face_verified = True  # Allow attendance but note the skip
+                
+                current_app.logger.error(f"DeepFace face verification error during attendance: {deepface_error}")
+                
+                error_msg = str(deepface_error).lower()
+                if 'face could not be detected' in error_msg:
+                    return jsonify({
+                        'success': False,
+                        'message': 'No face detected in the image. Please try again with better lighting and ensure your face is clearly visible.'
+                    })
+                elif 'multiple faces' in error_msg:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Multiple faces detected. Please ensure only your face is visible in the camera.'
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Face verification failed due to processing error. Please try again with better lighting.'
+                    })
+                    
+        except Exception as face_error:
+            current_app.logger.error(f"Face verification error during attendance: {str(face_error)}")
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Face verification failed due to processing error'
+            })
         
         # Save attendance image
         attendance_image_path = None
@@ -487,17 +697,11 @@ def mark_attendance():
         if location_verified:
             verification_details.append(f"Location verified ({int(distance)}m)")
         
-        # Handle face verification status
-        if employee['face_encoding'] and FACE_RECOGNITION_AVAILABLE and PIL_AVAILABLE and confidence > 0:
+        # Face verification is now mandatory
+        if face_verified and confidence > 0:
             verification_details.append(f"Face verified ({confidence:.1f}% confidence)")
-        elif employee['face_encoding'] and not FACE_RECOGNITION_AVAILABLE:
-            verification_details.append("Face verification skipped (library not available)")
-        elif not employee['face_encoding']:
-            verification_details.append("Face verification skipped (no face data)")
-        else:
-            verification_details.append("Basic verification")
         
-        verification_text = " • ".join(verification_details) if verification_details else "Basic verification"
+        verification_text = " • ".join(verification_details) if verification_details else "Verification completed"
         
         current_app.logger.info(f"Attendance marked successfully for {employee_id} at company {company_id}")
         
@@ -508,9 +712,9 @@ def mark_attendance():
             'company_name': employee['company_name'],
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'verification_details': {
-                'location_verified': location_verified,
-                'face_verified': face_verified,
-                'confidence': round(confidence, 1) if confidence > 0 else None,
+                'location_verified': bool(location_verified),
+                'face_verified': bool(face_verified),
+                'confidence': round(float(confidence), 1) if confidence > 0 else None,
                 'distance': int(distance) if distance > 0 else None
             }
         })

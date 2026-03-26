@@ -6,8 +6,8 @@ qrcode[pil]==7.4.2
 Pillow==12.1.0
 python-dotenv==1.0.0
 
-# Face recognition dependencies (optional - system works without these)
-# If these are not installed, face verification will be skipped gracefully
-face-recognition==1.3.0
+# Face recognition dependencies (DeepFace-based for flexible matching)
+deepface==0.0.79
 opencv-python==4.8.1.78
 numpy==1.24.3
+tensorflow==2.13.0

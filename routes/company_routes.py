@@ -821,77 +821,49 @@ def add_employee():
             flash("Invalid date format.", "error")
             return render_template("company/add_employee.html", departments=departments, shifts=shifts, roles=roles)
 
-        # Process face image and generate encoding
-        face_encoding = None
+        # Process face image for DeepFace compatibility (MANDATORY)
         image_path = None
         face_image_data = request.form.get("face_image_data", "").strip()
         
-        if face_image_data:
-            try:
-                # Import face recognition libraries with fallback
-                import base64
-                import os
-                from flask import current_app
-                
-                try:
-                    import face_recognition
-                    import numpy as np
-                    from PIL import Image
-                    import io
-                    
-                    # Decode base64 image
-                    image_data = base64.b64decode(face_image_data.split(',')[1])
-                    image = Image.open(io.BytesIO(image_data))
-                    
-                    # Convert to RGB if needed
-                    if image.mode != 'RGB':
-                        image = image.convert('RGB')
-                    
-                    # Convert PIL image to numpy array
-                    image_array = np.array(image)
-                    
-                    # Generate face encoding
-                    face_encodings = face_recognition.face_encodings(image_array)
-                    
-                    if face_encodings:
-                        face_encoding = face_encodings[0].tolist()  # Convert to list for JSON storage
-                        
-                        # Save image file
-                        faces_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'faces')
-                        if not os.path.exists(faces_dir):
-                            os.makedirs(faces_dir)
-                        
-                        image_filename = f"{emp_id}_face.jpg"
-                        image_path = os.path.join(faces_dir, image_filename)
-                        image.save(image_path, 'JPEG', quality=85)
-                        
-                        # Store relative path for database
-                        image_path = f"uploads/faces/{image_filename}"
-                        
-                except ImportError:
-                    # Face recognition library not available, just save the image
-                    import base64
-                    
-                    # Decode and save image without face encoding
-                    image_data = base64.b64decode(face_image_data.split(',')[1])
-                    
-                    faces_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'faces')
-                    if not os.path.exists(faces_dir):
-                        os.makedirs(faces_dir)
-                    
-                    image_filename = f"{emp_id}_face.jpg"
-                    image_path = os.path.join(faces_dir, image_filename)
-                    
-                    with open(image_path, 'wb') as f:
-                        f.write(image_data)
-                    
-                    # Store relative path for database
-                    image_path = f"uploads/faces/{image_filename}"
-                    
-            except Exception as e:
-                flash(f"Error processing face image: {str(e)}", "error")
-                return render_template("company/add_employee.html", departments=departments, shifts=shifts, roles=roles)
+        if not face_image_data:
+            flash("Face image is required for employee registration.", "error")
+            return render_template("company/add_employee.html", departments=departments, shifts=shifts, roles=roles)
+        
+        try:
+            import base64
+            import os
+            from flask import current_app
+            from PIL import Image
+            import io
+            
+            # Decode base64 image
+            image_data = base64.b64decode(face_image_data.split(',')[1])
+            image = Image.open(io.BytesIO(image_data))
+            
+            # Convert to RGB if needed (required for DeepFace)
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Save image file for DeepFace
+            faces_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'faces')
+            if not os.path.exists(faces_dir):
+                os.makedirs(faces_dir)
+            
+            image_filename = f"{emp_id}_face.jpg"
+            full_image_path = os.path.join(faces_dir, image_filename)
+            image.save(full_image_path, 'JPEG', quality=90)  # Higher quality for better face matching
+            
+            # Store relative path for database
+            image_path = f"uploads/faces/{image_filename}"
+            
+        except Exception as e:
+            flash(f"Error processing face image: {str(e)}", "error")
+            return render_template("company/add_employee.html", departments=departments, shifts=shifts, roles=roles)
 
+        # Insert into database
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
         # Insert into database
         connection = get_db_connection()
         cursor = connection.cursor()
@@ -900,14 +872,14 @@ def add_employee():
             """
             INSERT INTO employees (
                 name, emp_id, email, gender, dob, phone, address, role, employee_role,
-                department, shift, joining_date, company, company_id, image_path, face_encoding
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                department, shift, joining_date, company, company_id, image_path
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 name, emp_id, email or None, gender, dob_obj, phone or None, 
                 address or None, role or 'General', employee_role, department_name or 'General', 
                 shift_name or 'General', joining_date_obj, company_name, company_id,
-                image_path, ','.join(map(str, face_encoding)) if face_encoding else None
+                image_path
             ),
         )
         
