@@ -33,13 +33,17 @@
 
     <div class="sidebar">
         {% if session.get('role') == 'admin' %}
-            <a href="/dashboard" class="sidebar-link">
+            <a href="/admin/dashboard" class="sidebar-link">
                 <i class="bi bi-speedometer2" style="margin-right: 12px;"></i>
                 Dashboard
             </a>
             <a href="/admin/add_company" class="sidebar-link">
                 <i class="bi bi-building-add" style="margin-right: 12px;"></i>
                 Add Company
+            </a>
+            <a href="/admin/add_company_type" class="sidebar-link">
+                <i class="bi bi-diagram-2" style="margin-right: 12px;"></i>
+                Add Company Type
             </a>
             <a href="/admin/companies" class="sidebar-link">
                 <i class="bi bi-buildings" style="margin-right: 12px;"></i>
@@ -129,11 +133,15 @@
     <div class="main-content">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="px-4 pt-3">
+                <div class="px-4 pt-3 flash-messages-wrap">
                     {% for category, message in messages %}
-                        <div class="alert {{ 'alert-error' if category == 'error' else 'alert-success' }}" data-autohide-ms="3000">
+                        <div class="alert {{ 'alert-error' if category == 'error' else 'alert-success' }}{% if session.get('role') == 'admin' and category == 'success' and 'Welcome back' in message %} admin-welcome-alert{% endif %}" data-autohide-ms="3000"{% if session.get('role') == 'admin' and category == 'success' and 'Welcome back' in message %} data-admin-welcome="true"{% endif %}>
                             <i class="bi {{ 'bi-exclamation-circle' if category == 'error' else 'bi-check-circle' }}"></i>
-                            <span>{{ message }}</span>
+                            {% if session.get('role') == 'admin' and category == 'success' and 'Welcome back' in message %}
+                                <strong class="admin-welcome-text">{{ message }}</strong>
+                            {% else %}
+                                <span>{{ message }}</span>
+                            {% endif %}
                         </div>
                     {% endfor %}
                 </div>
@@ -147,6 +155,25 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const hasDeleteSuccessMessage = Array.from(document.querySelectorAll('.alert-success')).some(function (alertEl) {
+        const messageText = (alertEl.textContent || '').toLowerCase();
+        return messageText.includes('deleted successfully');
+    });
+
+    if (hasDeleteSuccessMessage) {
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        window.requestAnimationFrame(function () {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        setTimeout(function () {
+            if ('scrollRestoration' in history) {
+                history.scrollRestoration = 'auto';
+            }
+        }, 700);
+    }
+
     const autoHideAlerts = document.querySelectorAll('[data-autohide-ms]');
     autoHideAlerts.forEach(function (alertEl) {
         const duration = Number(alertEl.getAttribute('data-autohide-ms')) || 3000;
@@ -154,7 +181,11 @@ document.addEventListener('DOMContentLoaded', function () {
             alertEl.style.opacity = '0';
             alertEl.style.transform = 'translateY(-12px)';
             setTimeout(function () {
+                const alertsContainer = alertEl.closest('.flash-messages-wrap');
                 alertEl.remove();
+                if (alertsContainer && !alertsContainer.querySelector('.alert')) {
+                    alertsContainer.remove();
+                }
             }, 300);
         }, duration);
     });

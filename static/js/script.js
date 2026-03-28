@@ -33,11 +33,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Add active class to current page link
-    const currentPath = window.location.pathname;
+    const normalizePath = function(path) {
+        if (!path) {
+            return '/';
+        }
+        return path.length > 1 ? path.replace(/\/$/, '') : path;
+    };
+
+    const currentPath = normalizePath(window.location.pathname);
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
     
     sidebarLinks.forEach(link => {
-        if (link.getAttribute('href') === currentPath) {
+        const linkPath = normalizePath(link.getAttribute('href'));
+        const isExactMatch = linkPath === currentPath;
+        const isAdminDashboardAlias = linkPath === '/admin/dashboard' && currentPath === '/dashboard';
+        const isAdminCompaniesSubRoute = linkPath === '/admin/companies' && (currentPath === '/admin/companies' || currentPath.startsWith('/admin/company/'));
+
+        if (isExactMatch || isAdminDashboardAlias || isAdminCompaniesSubRoute) {
             link.classList.add('active');
         }
     });

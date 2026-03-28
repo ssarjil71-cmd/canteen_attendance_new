@@ -71,6 +71,19 @@ def _ensure_core_tables(connection):
 
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS company_types (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            type_name VARCHAR(120) NOT NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_company_types_type_name (type_name)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS companies (
             id INT AUTO_INCREMENT PRIMARY KEY,
             company_name VARCHAR(255) NOT NULL,
@@ -214,6 +227,8 @@ def _apply_schema_updates(connection):
         cursor.execute("ALTER TABLE companies ADD COLUMN attendance_module_enabled TINYINT(1) NOT NULL DEFAULT 1")
     if not _column_exists(cursor, "companies", "canteen_module_enabled"):
         cursor.execute("ALTER TABLE companies ADD COLUMN canteen_module_enabled TINYINT(1) NOT NULL DEFAULT 1")
+    if not _column_exists(cursor, "companies", "salary_slip_module_enabled"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN salary_slip_module_enabled TINYINT(1) NOT NULL DEFAULT 0")
 
     # Add additional profile fields
     if not _column_exists(cursor, "companies", "phone"):
@@ -236,6 +251,48 @@ def _apply_schema_updates(connection):
         cursor.execute("ALTER TABLE companies ADD COLUMN longitude DECIMAL(11, 8) NULL")
     if not _column_exists(cursor, "companies", "radius"):
         cursor.execute("ALTER TABLE companies ADD COLUMN radius INT DEFAULT 100")
+    if not _column_exists(cursor, "companies", "company_type_id"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN company_type_id INT NULL")
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS company_types (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            type_name VARCHAR(120) NOT NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_company_types_type_name (type_name)
+        )
+        """
+    )
+
+    cursor.execute("SELECT COUNT(*) FROM company_types")
+    has_company_types = cursor.fetchone()[0] > 0
+    if not has_company_types:
+        default_company_types = ["Startup", "Partnership", "Private Limited", "Public Limited", "LLP"]
+        for company_type_name in default_company_types:
+            cursor.execute(
+                """
+                INSERT INTO company_types (type_name, is_active)
+                VALUES (%s, 1)
+                """,
+                (company_type_name,),
+            )
+
+    if not _index_exists(cursor, "companies", "idx_companies_company_type_id"):
+        cursor.execute("ALTER TABLE companies ADD INDEX idx_companies_company_type_id (company_type_id)")
+
+    if not _foreign_key_exists_for_column(cursor, "companies", "company_type_id"):
+        cursor.execute(
+            """
+            ALTER TABLE companies
+            ADD CONSTRAINT fk_companies_company_type
+            FOREIGN KEY (company_type_id) REFERENCES company_types(id)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE
+            """
+        )
     # Add face capture and location fields to employees table
     if not _column_exists(cursor, "employees", "face_image"):
         cursor.execute("ALTER TABLE employees ADD COLUMN face_image VARCHAR(500) NULL")
@@ -276,15 +333,14 @@ def _apply_schema_updates(connection):
     )
 
     cursor.execute("UPDATE companies SET company_name = CONCAT('Company ', id) WHERE company_name IS NULL OR company_name = ''")
-    cursor.execute("UPDATE companies SET company_code = CONCAT('CMP-', id) WHERE company_code IS NULL OR company_code = ''")
     cursor.execute("UPDATE companies SET email = CONCAT('company', id, '@example.com') WHERE email IS NULL OR email = ''")
-    cursor.execute("UPDATE companies SET password = company_code WHERE password IS NULL OR password = ''")
+    cursor.execute("UPDATE companies SET password = COALESCE(company_code, CONCAT('CMP-', id)) WHERE password IS NULL OR password = ''")
 
     cursor.execute(
         """
         ALTER TABLE companies
         MODIFY company_name VARCHAR(255) NOT NULL,
-        MODIFY company_code VARCHAR(80) NOT NULL,
+        MODIFY company_code VARCHAR(80) NULL,
         MODIFY email VARCHAR(150) NOT NULL,
         MODIFY password VARCHAR(255) NOT NULL
         """

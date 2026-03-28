@@ -8,7 +8,7 @@ auth = Blueprint('auth', __name__)
 
 
 ROLE_LOGIN_SELECT_MAP = {
-	"admin": "SELECT id, username, NULL AS company_id FROM admins WHERE (username = %s OR email = %s) AND password = %s",
+	"admin": "SELECT id, username, NULL AS company_id FROM admins WHERE username = %s AND password = %s",
 	"company": "SELECT id, email AS username, id AS company_id FROM companies WHERE email = %s AND password = %s",
 	"canteen": "SELECT id, username, company_id FROM canteen WHERE (username = %s OR email = %s) AND password = %s",
 }
@@ -49,7 +49,10 @@ def role_login(role):
 		return redirect(url_for("auth.landing_page"))
 
 	if request.method == "POST":
-		username = request.form.get("username", "").strip()
+		if role == "admin":
+			username = request.form.get("admin_username", "").strip()
+		else:
+			username = request.form.get("username", "").strip()
 		password = request.form.get("password", "").strip()
 
 		if not username or not password:
@@ -61,6 +64,8 @@ def role_login(role):
 
 		login_select = ROLE_LOGIN_SELECT_MAP[role]
 		if role == "company":
+			cursor.execute(login_select, (username, password))
+		elif role == "admin":
 			cursor.execute(login_select, (username, password))
 		else:
 			cursor.execute(login_select, (username, username, password))

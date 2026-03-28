@@ -15,32 +15,47 @@
     </div>
 
     {% if departments %}
-    <div class="departments-grid">
-        {% for department in departments %}
-        <div class="department-card">
-            <div class="department-header">
-                <div class="department-icon">
-                    <i class="bi bi-diagram-3"></i>
-                </div>
-                <div class="department-info">
-                    <h4>{{ department.name }}</h4>
-                    <p class="department-meta">Created: {{ department.created_at.strftime('%B %d, %Y') }}</p>
-                </div>
-            </div>
-            
-            <div class="department-actions">
-                <button class="btn btn-small btn-outline" onclick="editDepartment({{ department.id }}, '{{ department.name }}')">
-                    <i class="bi bi-pencil me-1"></i>Edit
-                </button>
-                <form method="POST" action="{{ url_for('company.delete_department', department_id=department.id) }}" 
-                      style="display: inline;" onsubmit="return confirmDelete('{{ department.name }}')">
-                    <button type="submit" class="btn btn-small btn-danger">
-                        <i class="bi bi-trash me-1"></i>Delete
-                    </button>
-                </form>
-            </div>
+    <div class="department-list-wrapper">
+        <div class="department-list-scroll">
+            <table class="department-table">
+                <thead>
+                    <tr>
+                        <th class="col-sr">Sr No</th>
+                        <th>Department Name</th>
+                        <th>Created On</th>
+                        <th class="col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for department in departments %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ department.name }}</td>
+                        <td>
+                            {% if department.created_at %}
+                                {{ department.created_at.strftime('%B %d, %Y') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="department-actions">
+                                <button class="btn btn-small btn-outline" onclick="editDepartment({{ department.id }}, '{{ department.name }}')">
+                                    <i class="bi bi-pencil me-1"></i>Edit
+                                </button>
+                                <form method="POST" action="{{ url_for('company.delete_department', department_id=department.id) }}"
+                                      style="display: inline;" onsubmit="return confirmDelete('{{ department.name }}')">
+                                    <button type="submit" class="btn btn-small btn-danger">
+                                        <i class="bi bi-trash me-1"></i>Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        {% endfor %}
     </div>
     {% else %}
     <div class="empty-state">
@@ -95,51 +110,53 @@
     gap: 12px;
 }
 
-.departments-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-}
-
-.department-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+.department-list-wrapper {
+    border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 20px;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
+    background: var(--surface-strong);
 }
 
-.department-card:hover {
-    border-color: rgba(95, 139, 255, 0.3);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+.department-list-scroll {
+    max-height: 460px;
+    overflow-y: auto;
+    overflow-x: auto;
 }
 
-.department-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.department-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 700px;
 }
 
-.department-icon {
-    font-size: 2rem;
-    color: var(--primary);
+.department-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #eef4ff;
+    color: #174ea6;
+    font-weight: 700;
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
 }
 
-.department-info h4 {
-    margin: 0 0 4px 0;
+.department-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
     color: var(--text);
-    font-size: 1.1rem;
+    vertical-align: middle;
 }
 
-.department-meta {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.85rem;
+.department-table tbody tr:hover {
+    background: var(--hover);
+}
+
+.department-table .col-sr {
+    width: 90px;
+}
+
+.department-table .col-actions {
+    width: 220px;
 }
 
 .department-actions {
@@ -149,24 +166,31 @@
 }
 
 .btn-outline {
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--surface);
+    border: 1px solid var(--border);
     color: var(--text);
+    transition: all 0.2s ease;
 }
 
 .btn-outline:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--hover);
     border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px var(--shadow);
 }
 
 .btn-danger {
-    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    background: #ef4444;
     border: none;
     color: white;
+    transition: all 0.2s ease;
 }
 
 .btn-danger:hover {
-    opacity: 0.9;
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
 }
 
 .empty-state {
@@ -228,17 +252,17 @@
 }
 
 @media (max-width: 768px) {
-    .departments-grid {
-        grid-template-columns: 1fr;
-    }
-    
     .panel-header {
         flex-direction: column;
         align-items: stretch;
     }
     
     .department-actions {
-        justify-content: center;
+        justify-content: flex-start;
+    }
+
+    .department-list-scroll {
+        max-height: 380px;
     }
 }
 </style>

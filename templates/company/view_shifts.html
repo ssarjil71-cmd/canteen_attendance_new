@@ -15,89 +15,98 @@
     </div>
 
     {% if shifts %}
-    <div class="shifts-grid">
-        {% for shift in shifts %}
-        <div class="shift-card">
-            <div class="shift-header">
-                <div class="shift-icon">
-                    <i class="bi bi-clock-history"></i>
-                </div>
-                <div class="shift-info">
-                    <h4>{{ shift.name }}</h4>
-                    <p class="shift-schedule">
-                        {% set start_time_str = shift.start_time|string %}
-                        {% if ':' in start_time_str %}
-                            {{ shift.start_time.strftime('%I:%M %p') }} - {{ shift.end_time.strftime('%I:%M %p') }}
-                        {% else %}
-                            {% set start_hours = (shift.start_time.total_seconds() // 3600) | int %}
-                            {% set start_minutes = ((shift.start_time.total_seconds() % 3600) // 60) | int %}
-                            {% set end_hours = (shift.end_time.total_seconds() // 3600) | int %}
-                            {% set end_minutes = ((shift.end_time.total_seconds() % 3600) // 60) | int %}
-                            {{ '%02d:%02d' | format(start_hours, start_minutes) }} - {{ '%02d:%02d' | format(end_hours, end_minutes) }}
-                        {% endif %}
-                    </p>
-                </div>
-                <div class="shift-badge">
-                    {% set start_time_str = shift.start_time|string %}
-                    {% if ':' in start_time_str %}
-                        {% set start_hour = shift.start_time.hour %}
-                    {% else %}
-                        {% set start_hour = (shift.start_time.total_seconds() // 3600) | int %}
-                    {% endif %}
-                    {% if start_hour >= 6 and start_hour < 12 %}
-                        <span class="badge badge-morning">Morning</span>
-                    {% elif start_hour >= 12 and start_hour < 18 %}
-                        <span class="badge badge-afternoon">Afternoon</span>
-                    {% elif start_hour >= 18 and start_hour < 22 %}
-                        <span class="badge badge-evening">Evening</span>
-                    {% else %}
-                        <span class="badge badge-night">Night</span>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <div class="shift-details">
-                <div class="detail-row">
-                    <span class="detail-label">Duration:</span>
-                    <span class="detail-value">
-                        {% set start_minutes = shift.start_time.hour * 60 + shift.start_time.minute %}
-                        {% set end_minutes = shift.end_time.hour * 60 + shift.end_time.minute %}
-                        {% if end_minutes < start_minutes %}
-                            {% set end_minutes = end_minutes + 24 * 60 %}
-                        {% endif %}
-                        {% set duration_hours = (end_minutes - start_minutes) // 60 %}
-                        {% set duration_mins = (end_minutes - start_minutes) % 60 %}
-                        {{ duration_hours }}h {{ duration_mins }}m
-                    </span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Created:</span>
-                    <span class="detail-value">{{ shift.created_at.strftime('%B %d, %Y') }}</span>
-                </div>
-            </div>
-            
-            <div class="shift-actions">
-                {% set start_time_str = shift.start_time|string %}
-                {% if ':' in start_time_str %}
-                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ shift.start_time.strftime('%H:%M') }}', '{{ shift.end_time.strftime('%H:%M') }}')">
-                {% else %}
-                    {% set start_hours = (shift.start_time.total_seconds() // 3600) | int %}
-                    {% set start_minutes = ((shift.start_time.total_seconds() % 3600) // 60) | int %}
-                    {% set end_hours = (shift.end_time.total_seconds() // 3600) | int %}
-                    {% set end_minutes = ((shift.end_time.total_seconds() % 3600) // 60) | int %}
-                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ '%02d:%02d' | format(start_hours, start_minutes) }}', '{{ '%02d:%02d' | format(end_hours, end_minutes) }}')">
-                {% endif %}
-                    <i class="bi bi-pencil me-1"></i>Edit
-                </button>
-                <form method="POST" action="{{ url_for('company.delete_shift', shift_id=shift.id) }}" 
-                      style="display: inline;" onsubmit="return confirmDelete('{{ shift.name }}')">
-                    <button type="submit" class="btn btn-small btn-danger">
-                        <i class="bi bi-trash me-1"></i>Delete
-                    </button>
-                </form>
-            </div>
+    <div class="shift-list-wrapper">
+        <div class="shift-list-scroll">
+            <table class="shift-table">
+                <thead>
+                    <tr>
+                        <th class="col-sr">Sr No</th>
+                        <th>Shift Name</th>
+                        <th>Schedule</th>
+                        <th>Duration</th>
+                        <th>Type</th>
+                        <th>Created On</th>
+                        <th class="col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for shift in shifts %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ shift.name }}</td>
+                        <td>
+                            {% set start_time_str = shift.start_time|string %}
+                            {% if ':' in start_time_str %}
+                                {{ shift.start_time.strftime('%I:%M %p') }} - {{ shift.end_time.strftime('%I:%M %p') }}
+                            {% else %}
+                                {% set start_hours = (shift.start_time.total_seconds() // 3600) | int %}
+                                {% set start_minutes = ((shift.start_time.total_seconds() % 3600) // 60) | int %}
+                                {% set end_hours = (shift.end_time.total_seconds() // 3600) | int %}
+                                {% set end_minutes = ((shift.end_time.total_seconds() % 3600) // 60) | int %}
+                                {{ '%02d:%02d' | format(start_hours, start_minutes) }} - {{ '%02d:%02d' | format(end_hours, end_minutes) }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set start_minutes = shift.start_time.hour * 60 + shift.start_time.minute %}
+                            {% set end_minutes = shift.end_time.hour * 60 + shift.end_time.minute %}
+                            {% if end_minutes < start_minutes %}
+                                {% set end_minutes = end_minutes + 24 * 60 %}
+                            {% endif %}
+                            {% set duration_hours = (end_minutes - start_minutes) // 60 %}
+                            {% set duration_mins = (end_minutes - start_minutes) % 60 %}
+                            {{ duration_hours }}h {{ duration_mins }}m
+                        </td>
+                        <td>
+                            {% set start_time_str = shift.start_time|string %}
+                            {% if ':' in start_time_str %}
+                                {% set start_hour = shift.start_time.hour %}
+                            {% else %}
+                                {% set start_hour = (shift.start_time.total_seconds() // 3600) | int %}
+                            {% endif %}
+                            {% if start_hour >= 6 and start_hour < 12 %}
+                                <span class="badge badge-morning">Morning</span>
+                            {% elif start_hour >= 12 and start_hour < 18 %}
+                                <span class="badge badge-afternoon">Afternoon</span>
+                            {% elif start_hour >= 18 and start_hour < 22 %}
+                                <span class="badge badge-evening">Evening</span>
+                            {% else %}
+                                <span class="badge badge-night">Night</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if shift.created_at %}
+                                {{ shift.created_at.strftime('%B %d, %Y') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="shift-actions">
+                                {% set start_time_str = shift.start_time|string %}
+                                {% if ':' in start_time_str %}
+                                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ shift.start_time.strftime('%H:%M') }}', '{{ shift.end_time.strftime('%H:%M') }}')">
+                                {% else %}
+                                    {% set start_hours = (shift.start_time.total_seconds() // 3600) | int %}
+                                    {% set start_minutes = ((shift.start_time.total_seconds() % 3600) // 60) | int %}
+                                    {% set end_hours = (shift.end_time.total_seconds() // 3600) | int %}
+                                    {% set end_minutes = ((shift.end_time.total_seconds() % 3600) // 60) | int %}
+                                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ '%02d:%02d' | format(start_hours, start_minutes) }}', '{{ '%02d:%02d' | format(end_hours, end_minutes) }}')">
+                                {% endif %}
+                                    <i class="bi bi-pencil me-1"></i>Edit
+                                </button>
+                                <form method="POST" action="{{ url_for('company.delete_shift', shift_id=shift.id) }}"
+                                      style="display: inline;" onsubmit="return confirmDelete('{{ shift.name }}')">
+                                    <button type="submit" class="btn btn-small btn-danger">
+                                        <i class="bi bi-trash me-1"></i>Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        {% endfor %}
     </div>
     {% else %}
     <div class="empty-state">
@@ -162,61 +171,53 @@
     gap: 12px;
 }
 
-.shifts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 20px;
-}
-
-.shift-card {
-    background: var(--surface);
+.shift-list-wrapper {
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 20px;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px var(--shadow);
+    background: var(--surface-strong);
 }
 
-.shift-card:hover {
-    border-color: var(--primary);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px var(--shadow);
+.shift-list-scroll {
+    max-height: 460px;
+    overflow-y: auto;
+    overflow-x: auto;
 }
 
-.shift-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 16px;
-    padding-bottom: 16px;
+.shift-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 980px;
+}
+
+.shift-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #eef4ff;
+    color: #174ea6;
+    font-weight: 700;
+    text-align: left;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--border);
 }
 
-.shift-icon {
-    font-size: 2rem;
-    color: var(--primary);
-    margin-top: 4px;
-}
-
-.shift-info {
-    flex: 1;
-}
-
-.shift-info h4 {
-    margin: 0 0 4px 0;
+.shift-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
     color: var(--text);
-    font-size: 1.1rem;
+    vertical-align: middle;
 }
 
-.shift-schedule {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.9rem;
-    font-weight: 500;
+.shift-table tbody tr:hover {
+    background: var(--hover);
 }
 
-.shift-badge {
-    margin-top: 4px;
+.shift-table .col-sr {
+    width: 90px;
+}
+
+.shift-table .col-actions {
+    width: 220px;
 }
 
 .badge {
@@ -248,34 +249,6 @@
     color: #3f51b5;
 }
 
-.shift-details {
-    margin-bottom: 16px;
-}
-
-.detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--border);
-}
-
-.detail-row:last-child {
-    border-bottom: none;
-}
-
-.detail-label {
-    color: var(--muted);
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.detail-value {
-    color: var(--text);
-    font-size: 0.9rem;
-    text-align: right;
-}
-
 .shift-actions {
     display: flex;
     gap: 8px;
@@ -286,22 +259,28 @@
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
+    transition: all 0.2s ease;
 }
 
 .btn-outline:hover {
     background: var(--hover);
     border-color: var(--primary);
     color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px var(--shadow);
 }
 
 .btn-danger {
     background: #ef4444;
     border: none;
     color: white;
+    transition: all 0.2s ease;
 }
 
 .btn-danger:hover {
     background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
 }
 
 .empty-state {
@@ -369,17 +348,17 @@
 }
 
 @media (max-width: 768px) {
-    .shifts-grid {
-        grid-template-columns: 1fr;
-    }
-    
     .panel-header {
         flex-direction: column;
         align-items: stretch;
     }
     
     .shift-actions {
-        justify-content: center;
+        justify-content: flex-start;
+    }
+
+    .shift-list-scroll {
+        max-height: 380px;
     }
     
     .form-row {

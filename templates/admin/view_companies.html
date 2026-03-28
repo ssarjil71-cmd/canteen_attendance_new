@@ -7,49 +7,73 @@
 	<h2>View Companies</h2>
 	<p>Browse all companies and open a company to view details.</p>
 
-	<div class="table-card">
+	<div class="table-card view-companies-table-wrap">
 		<table class="companies-table">
 			<colgroup>
-				<col style="width: 26%;">
-				<col style="width: 24%;">
+				<col style="width: 7%;">
+				<col style="width: 22%;">
+				<col style="width: 16%;">
+				<col style="width: 21%;">
 				<col style="width: 14%;">
-				<col style="width: 36%;">
+				<col style="width: 20%;">
 			</colgroup>
 			<thead>
 				<tr>
-					<th>Name</th>
+					<th>Sr No</th>
+					<th>Company Name</th>
+					<th>Type</th>
 					<th>Email</th>
 					<th>Modules</th>
-					<th>Action</th>
+					<th>Actions</th>
 				</tr>
 			</thead>
 			<tbody>
 				{% for company in companies %}
 				<tr>
+					<td>{{ loop.index }}</td>
 					<td>{{ company.company_name }}</td>
+					<td>{{ company.company_type_name or '-' }}</td>
 					<td>{{ company.email }}</td>
 					<td>
-						{% if company.attendance_module_enabled %}Attendance{% endif %}
-						{% if company.attendance_module_enabled and company.canteen_module_enabled %}, {% endif %}
-						{% if company.canteen_module_enabled %}Canteen{% endif %}
+						{% set modules = [] %}
+						{% if company.attendance_module_enabled %}{% set _ = modules.append('Attendance') %}{% endif %}
+						{% if company.canteen_module_enabled %}{% set _ = modules.append('Canteen') %}{% endif %}
+						{% if company.salary_slip_module_enabled %}{% set _ = modules.append('Salary Slip') %}{% endif %}
+						{{ modules|join(', ') if modules else '-' }}
 					</td>
 					<td>
 						<div class="action-row">
-							<a href="/admin/company/{{ company.id }}" class="btn btn-small btn-open-company">Open Company</a>
-							<a href="/admin/company/{{ company.id }}/edit" class="btn btn-small btn-edit-company">Edit Company</a>
+							<a href="/admin/company/{{ company.id }}" class="btn btn-small btn-open-company">Open</a>
+							<a href="/admin/company/{{ company.id }}/edit" class="btn btn-small btn-edit-company">Edit</a>
 							<form method="POST" action="/admin/company/{{ company.id }}/delete" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this company? This action cannot be undone.')">
-								<button type="submit" class="btn btn-small btn-danger btn-delete-company">Delete Company</button>
+								<button type="submit" class="btn btn-small btn-danger btn-delete-company">Delete</button>
 							</form>
 						</div>
 					</td>
 				</tr>
 				{% else %}
 				<tr>
-					<td colspan="4">No companies created yet.</td>
+					<td colspan="6">No companies created yet.</td>
 				</tr>
 				{% endfor %}
 			</tbody>
 		</table>
 	</div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+	var tableWrap = document.querySelector('.view-companies-table-wrap');
+	if (!tableWrap) {
+		return;
+	}
+
+	var toggleScrolledState = function () {
+		tableWrap.classList.toggle('is-scrolled', tableWrap.scrollTop > 0);
+	};
+
+	tableWrap.addEventListener('scroll', toggleScrolledState, { passive: true });
+	toggleScrolledState();
+});
+</script>
 {% endblock %}

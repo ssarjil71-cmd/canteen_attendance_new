@@ -23,18 +23,20 @@
             <table class="employees-table">
                 <thead>
                     <tr>
+                        <th class="col-sr"><i class="bi bi-hash me-2"></i>Sr No</th>
                         <th><i class="bi bi-person me-2"></i>Employee</th>
                         <th><i class="bi bi-card-text me-2"></i>ID</th>
                         <th><i class="bi bi-briefcase me-2"></i>Role</th>
                         <th><i class="bi bi-building me-2"></i>Department</th>
                         <th><i class="bi bi-clock me-2"></i>Shift</th>
                         <th><i class="bi bi-check-circle me-2"></i>Status</th>
-                        <th><i class="bi bi-gear me-2"></i>Actions</th>
+                        <th class="col-actions"><i class="bi bi-gear me-2"></i>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for employee in employees %}
                     <tr class="employee-row">
+                        <td>{{ loop.index }}</td>
                         <td class="employee-info-cell">
                             <div class="employee-info">
                                 <div class="employee-avatar">
@@ -203,6 +205,8 @@
 }
 
 .table-responsive {
+    max-height: 460px;
+    overflow-y: auto;
     overflow-x: auto;
 }
 
@@ -210,18 +214,23 @@
     width: 100%;
     border-collapse: collapse;
     background: var(--surface);
+    min-width: 1050px;
 }
 
 .employees-table thead {
-    background: var(--background);
-    border-bottom: 2px solid var(--border);
+    background: #eef4ff;
+    border-bottom: 1px solid var(--border);
 }
 
 .employees-table th {
-    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #eef4ff;
+    color: #174ea6;
+    padding: 12px 14px;
     text-align: left;
-    font-weight: 600;
-    color: var(--text);
+    font-weight: 700;
     font-size: 0.9rem;
     white-space: nowrap;
     border-bottom: 1px solid var(--border);
@@ -229,6 +238,14 @@
 
 .employees-table th i {
     color: var(--primary);
+}
+
+.employees-table .col-sr {
+    width: 90px;
+}
+
+.employees-table .col-actions {
+    width: 220px;
 }
 
 .employee-row {
@@ -245,7 +262,7 @@
 }
 
 .employees-table td {
-    padding: 16px 20px;
+    padding: 12px 14px;
     vertical-align: middle;
     color: var(--text);
 }
@@ -549,7 +566,7 @@
 @media (max-width: 1024px) {
     .employees-table th,
     .employees-table td {
-        padding: 12px 16px;
+        padding: 12px 14px;
     }
     
     .employee-meta {
@@ -569,7 +586,11 @@
     
     .employees-table th,
     .employees-table td {
-        padding: 10px 12px;
+        padding: 12px 14px;
+    }
+
+    .table-responsive {
+        max-height: 380px;
     }
     
     .employee-info {

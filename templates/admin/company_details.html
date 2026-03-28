@@ -41,10 +41,24 @@
 	}
 
 	.company-list {
+		display: grid;
+		gap: 14px;
+	}
+
+	.company-section {
 		background: #fff;
 		border: 1px solid #e5e7eb;
 		border-radius: 12px;
 		overflow: hidden;
+	}
+
+	.company-section-title {
+		padding: 12px 16px;
+		font-weight: 700;
+		font-size: 0.98rem;
+		color: #1f2937;
+		background: #f9fafb;
+		border-bottom: 1px solid #eef2f7;
 	}
 
 	.company-row {
@@ -67,6 +81,36 @@
 	.company-row .value {
 		color: #111827;
 		word-break: break-word;
+	}
+
+	.module-badges {
+		display: flex;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.module-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 6px 10px;
+		border-radius: 999px;
+		font-size: 0.82rem;
+		font-weight: 600;
+		border: 1px solid #d1d5db;
+		background: #f3f4f6;
+		color: #374151;
+	}
+
+	.module-badge.enabled {
+		background: #e8f6ee;
+		border-color: #b9e7ca;
+		color: #17663a;
+	}
+
+	.module-badge.disabled {
+		background: #f4f5f7;
+		border-color: #d7dbe2;
+		color: #6b7280;
 	}
 
 	@media (max-width: 768px) {
@@ -149,20 +193,39 @@
 	</div>
 
 	<div class="company-list">
-		<div class="company-row"><div class="label">Company Name</div><div class="value">{{ company.company_name or '-' }}</div></div>
-		<div class="company-row"><div class="label">Email</div><div class="value">{{ company.email or '-' }}</div></div>
-		<div class="company-row"><div class="label">Address</div><div class="value">{{ company.address or '-' }}</div></div>
-		<div class="company-row"><div class="label">Phone Number</div><div class="value">{{ company.phone or '-' }}</div></div>
-		<div class="company-row"><div class="label">City</div><div class="value">{{ company.city or '-' }}</div></div>
-		<div class="company-row"><div class="label">State</div><div class="value">{{ company.state or '-' }}</div></div>
-		<div class="company-row"><div class="label">Pincode</div><div class="value">{{ company.pincode or '-' }}</div></div>
-		<div class="company-row"><div class="label">GST Number</div><div class="value">{{ company.gst_number or '-' }}</div></div>
-		<div class="company-row"><div class="label">Latitude</div><div class="value">{{ company.latitude or '-' }}</div></div>
-		<div class="company-row"><div class="label">Longitude</div><div class="value">{{ company.longitude or '-' }}</div></div>
-		<div class="company-row"><div class="label">Allowed Radius (meters)</div><div class="value">{{ company.radius or 100 }}</div></div>
-		<div class="company-row"><div class="label">Attendance Module</div><div class="value">{{ 'Enabled' if company.attendance_module_enabled else 'Disabled' }}</div></div>
-		<div class="company-row"><div class="label">Canteen Module</div><div class="value">{{ 'Enabled' if company.canteen_module_enabled else 'Disabled' }}</div></div>
-		<div class="company-row"><div class="label">Created At</div><div class="value">{{ company.created_at or '-' }}</div></div>
+		<div class="company-section">
+			<div class="company-section-title">Basic Information</div>
+			<div class="company-row"><div class="label">Company Name</div><div class="value">{{ company.company_name or '-' }}</div></div>
+			<div class="company-row"><div class="label">Company Type</div><div class="value">{{ company.company_type_name or '-' }}</div></div>
+			<div class="company-row"><div class="label">Company ID</div><div class="value">{{ company.company_code or '-' }}</div></div>
+			<div class="company-row"><div class="label">Created At</div><div class="value">{{ company.created_at or '-' }}</div></div>
+		</div>
+
+		<div class="company-section">
+			<div class="company-section-title">Contact Details</div>
+			<div class="company-row"><div class="label">Email</div><div class="value">{{ company.email or '-' }}</div></div>
+			<div class="company-row"><div class="label">Phone Number</div><div class="value">{{ company.phone or '-' }}</div></div>
+			<div class="company-row"><div class="label">Address</div><div class="value">{{ company.address or '-' }}</div></div>
+		</div>
+
+		<div class="company-section">
+			<div class="company-section-title">Location Settings</div>
+			<div class="company-row"><div class="label">Latitude</div><div class="value">{{ company.latitude or '-' }}</div></div>
+			<div class="company-row"><div class="label">Longitude</div><div class="value">{{ company.longitude or '-' }}</div></div>
+			<div class="company-row"><div class="label">Allowed Radius (meters)</div><div class="value">{{ company.radius if company.radius is not none else '-' }}</div></div>
+		</div>
+
+		<div class="company-section">
+			<div class="company-section-title">Enabled Modules</div>
+			<div class="company-row">
+				<div class="label">Modules</div>
+				<div class="value module-badges">
+					<span class="module-badge {{ 'enabled' if company.attendance_module_enabled else 'disabled' }}">Attendance {{ 'Enabled' if company.attendance_module_enabled else 'Disabled' }}</span>
+					<span class="module-badge {{ 'enabled' if company.canteen_module_enabled else 'disabled' }}">Canteen {{ 'Enabled' if company.canteen_module_enabled else 'Disabled' }}</span>
+					<span class="module-badge {{ 'enabled' if company.salary_slip_module_enabled else 'disabled' }}">Salary Slip {{ 'Enabled' if company.salary_slip_module_enabled else 'Disabled' }}</span>
+				</div>
+			</div>
+		</div>
 	</div>
 
 	<div class="action-buttons">

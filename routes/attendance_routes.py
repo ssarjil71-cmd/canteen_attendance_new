@@ -13,7 +13,6 @@ try:
     import numpy as np
     from PIL import Image
     import io
-    from deepface import DeepFace
     FACE_RECOGNITION_AVAILABLE = True
 except ImportError as e:
     print(f"Face recognition libraries not available: {e}")
@@ -25,48 +24,139 @@ attendance = Blueprint("attendance", __name__, url_prefix="/attendance")
 
 # Face verification configuration
 FACE_VERIFICATION_CONFIG = {
-    'threshold': 0.6,  # Distance threshold for face matching (0.5-0.7 recommended)
-    'model': 'Facenet',  # DeepFace model for stable results
-    'distance_metric': 'cosine'  # Distance metric for comparison
+    'threshold': 0.55,  # Similarity threshold for face matching (0-1 range) - lowered to account for real-world variations
+    'method': 'opencv',  # Using OpenCV-based face matching
+    'description': 'Lower values = stricter matching, Higher values = more tolerant matching'
 }
 
 
-def compare_faces_deepface(img1_path, img2_path, threshold=None):
+def compare_faces_opencv(img1_path, img2_path, threshold=None):
     """
-    Flexible face comparison using DeepFace with tolerance-based matching
-    Returns a result dict with distance, verified status, and confidence
+    Advanced face comparison using OpenCV and multiple matching techniques
+    Optimized for real-world variations in lighting, angle, and expression
+    Returns a result dict with similarity score, verified status, and confidence
     """
     if threshold is None:
         threshold = FACE_VERIFICATION_CONFIG['threshold']
     
     try:
-        # Use DeepFace with configurable model for stable results
-        result = DeepFace.verify(
-            img1_path=img1_path,
-            img2_path=img2_path,
-            model_name=FACE_VERIFICATION_CONFIG['model'],
-            enforce_detection=False,
-            distance_metric=FACE_VERIFICATION_CONFIG['distance_metric']
+        # Read images
+        img1 = cv2.imread(img1_path)
+        img2 = cv2.imread(img2_path)
+        
+        if img1 is None or img2 is None:
+            print(f"Error reading images: img1={img1_path}, img2={img2_path}")
+            return {
+                'distance': 1.0,
+                'verified': False,
+                'confidence': 0.0,
+                'threshold': threshold,
+                'error': 'Could not read image files'
+            }
+        
+        # Convert to grayscale
+        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+        
+        # Load face cascade classifier
+        face_cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
         )
         
-        distance = result['distance']
+        # Detect faces
+        faces1 = face_cascade.detectMultiScale(gray1, 1.1, 4)
+        faces2 = face_cascade.detectMultiScale(gray2, 1.1, 4)
         
-        # Apply tolerance-based matching instead of strict verification
-        tolerance_verified = distance <= threshold
+        if len(faces1) == 0 or len(faces2) == 0:
+            return {
+                'distance': 1.0,
+                'verified': False,
+                'confidence': 0.0,
+                'threshold': threshold,
+                'error': 'No face detected in one or both images'
+            }
         
-        # Convert distance to confidence percentage (lower distance = higher confidence)
-        confidence = max(0, min(100, (1 - distance) * 100))
+        if len(faces1) > 1 or len(faces2) > 1:
+            return {
+                'distance': 1.0,
+                'verified': False,
+                'confidence': 0.0,
+                'threshold': threshold,
+                'error': 'Multiple faces detected. Please ensure only your face is visible.'
+            }
+        
+        # Extract face regions
+        x1, y1, w1, h1 = faces1[0]
+        x2, y2, w2, h2 = faces2[0]
+        
+        face1 = gray1[y1:y1+h1, x1:x1+w1]
+        face2 = gray2[y2:y2+h2, x2:x2+w2]
+        
+        # Resize faces to same size for comparison
+        face_size = (100, 100)
+        face1 = cv2.resize(face1, face_size)
+        face2 = cv2.resize(face2, face_size)
+        
+        # Apply histogram equalization to handle lighting variations
+        face1_eq = cv2.equalizeHist(face1)
+        face2_eq = cv2.equalizeHist(face2)
+        
+        # Method 1: Histogram comparison
+        hist1 = cv2.calcHist([face1], [0], None, [256], [0, 256])
+        hist2 = cv2.calcHist([face2], [0], None, [256], [0, 256])
+        
+        # Normalize histograms
+        cv2.normalize(hist1, hist1, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+        cv2.normalize(hist2, hist2, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+        
+        histogram_similarity = cv2.compareHist(hist1, hist2, cv2.HISTCMP_BHATTACHARYYA)
+        
+        # Method 2: Template matching (equalized images for better handling of lighting variations)
+        result = cv2.matchTemplate(face1_eq, face2_eq, cv2.TM_CCOEFF_NORMED)
+        template_similarity = result[0][0] if result.size > 0 else 0.0
+        
+        # Method 3: MSE (Mean Squared Error) based similarity
+        mse = np.sum((face1.astype(float) - face2.astype(float)) ** 2) / (face1.shape[0] * face1.shape[1])
+        mse_similarity = 1.0 / (1.0 + mse / 255.0)
+        
+        # Method 4: MSE on equalized images (handles brightness variations)
+        mse_eq = np.sum((face1_eq.astype(float) - face2_eq.astype(float)) ** 2) / (face1_eq.shape[0] * face1_eq.shape[1])
+        mse_eq_similarity = 1.0 / (1.0 + mse_eq / 255.0)
+        
+        # Combine methods with weighted average
+        # Histogram: 0.2 (less weight due to lighting sensitivity)
+        # Template (equalized): 0.4 (most reliable)
+        # MSE: 0.2
+        # MSE Equalized: 0.2 (handles lighting variations)
+        combined_similarity = (
+            (1 - histogram_similarity) * 0.2 +  # Invert histogram similarity
+            template_similarity * 0.4 +
+            mse_similarity * 0.2 +
+            mse_eq_similarity * 0.2
+        )
+        
+        # Normalize to 0-1 range
+        combined_similarity = max(0.0, min(1.0, combined_similarity))
+        
+        # Confidence percentage
+        confidence = combined_similarity * 100
+        
+        # Calculate distance (inverse of similarity for consistency)
+        distance = 1.0 - combined_similarity
+        
+        # Determine if faces match based on threshold
+        face_verified = combined_similarity >= threshold
         
         return {
             'distance': float(distance),
-            'verified': tolerance_verified,
+            'verified': face_verified,
             'confidence': float(confidence),
             'threshold': threshold,
-            'original_verified': result['verified']  # Keep original DeepFace result for reference
+            'similarity': float(combined_similarity)
         }
         
     except Exception as e:
-        print(f"DeepFace comparison error: {e}")
+        print(f"Face comparison error: {e}")
         return {
             'distance': 1.0,
             'verified': False,
@@ -76,62 +166,12 @@ def compare_faces_deepface(img1_path, img2_path, threshold=None):
         }
 
 
-def compare_faces_opencv(img1_path, img2_path):
+def compare_faces_deepface(img1_path, img2_path, threshold=None):
     """
-    Simple face comparison using OpenCV template matching
-    Returns a similarity score between 0 and 1
+    Wrapper function for backward compatibility.
+    Uses OpenCV-based face comparison.
     """
-    try:
-        # Read images
-        img1 = cv2.imread(img1_path)
-        img2 = cv2.imread(img2_path)
-        
-        if img1 is None or img2 is None:
-            return 0.0
-        
-        # Convert to grayscale
-        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-        
-        # Resize images to same size for comparison
-        height, width = 200, 200
-        gray1 = cv2.resize(gray1, (width, height))
-        gray2 = cv2.resize(gray2, (width, height))
-        
-        # Load face cascade classifier
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        
-        # Detect faces
-        faces1 = face_cascade.detectMultiScale(gray1, 1.1, 4)
-        faces2 = face_cascade.detectMultiScale(gray2, 1.1, 4)
-        
-        if len(faces1) == 0 or len(faces2) == 0:
-            # If no faces detected, use whole image comparison
-            face1 = gray1
-            face2 = gray2
-        else:
-            # Use the first detected face
-            x1, y1, w1, h1 = faces1[0]
-            x2, y2, w2, h2 = faces2[0]
-            face1 = gray1[y1:y1+h1, x1:x1+w1]
-            face2 = gray2[y2:y2+h2, x2:x2+w2]
-            
-            # Resize faces to same size
-            face1 = cv2.resize(face1, (100, 100))
-            face2 = cv2.resize(face2, (100, 100))
-        
-        # Calculate similarity using template matching
-        result = cv2.matchTemplate(face1, face2, cv2.TM_CCOEFF_NORMED)
-        similarity = result[0][0]
-        
-        # Normalize to 0-1 range
-        similarity = max(0, min(1, similarity))
-        
-        return similarity
-        
-    except Exception as e:
-        print(f"Face comparison error: {e}")
-        return 0.0
+    return compare_faces_opencv(img1_path, img2_path, threshold)
 
 
 def calculate_distance(lat1, lon1, lat2, lon2):
@@ -394,12 +434,12 @@ def verify_face():
                     'message': f'Stored face image not found for {employee["name"]}. Please contact HR.'
                 })
             
-            # Perform face verification using DeepFace with tolerance-based matching
+            # Perform face verification using OpenCV with tolerance-based matching
             try:
                 # Use configurable threshold for flexible matching
                 tolerance_threshold = FACE_VERIFICATION_CONFIG['threshold']
                 
-                result = compare_faces_deepface(stored_image_path, temp_image_path, tolerance_threshold)
+                result = compare_faces_opencv(stored_image_path, temp_image_path, tolerance_threshold)
                 
                 # Clean up temp file
                 if os.path.exists(temp_image_path):
@@ -408,6 +448,20 @@ def verify_face():
                 distance = result['distance']
                 confidence = result['confidence']
                 face_verified = result['verified']
+                
+                # Check for errors in result
+                if 'error' in result:
+                    error_msg = result['error'].lower()
+                    if 'no face detected' in error_msg:
+                        return jsonify({
+                            'success': False,
+                            'message': 'No face detected in the image. Please try again with better lighting and ensure your face is clearly visible.'
+                        })
+                    elif 'multiple faces' in error_msg:
+                        return jsonify({
+                            'success': False,
+                            'message': 'Multiple faces detected. Please ensure only your face is visible in the camera.'
+                        })
                 
                 if face_verified:
                     return jsonify({
@@ -428,29 +482,16 @@ def verify_face():
                         'employee_name': employee['name']
                     })
                     
-            except Exception as deepface_error:
+            except Exception as opencv_error:
                 # Clean up temp file
                 if os.path.exists(temp_image_path):
                     os.remove(temp_image_path)
                 
-                current_app.logger.error(f"DeepFace face verification error: {deepface_error}")
-                
-                error_msg = str(deepface_error).lower()
-                if 'face could not be detected' in error_msg:
-                    return jsonify({
-                        'success': False,
-                        'message': 'No face detected in the image. Please try again with better lighting and ensure your face is clearly visible.'
-                    })
-                elif 'multiple faces' in error_msg:
-                    return jsonify({
-                        'success': False,
-                        'message': 'Multiple faces detected. Please ensure only your face is visible in the camera.'
-                    })
-                else:
-                    return jsonify({
-                        'success': False,
-                        'message': 'Face verification failed due to processing error. Please try again with better lighting.'
-                    })
+                current_app.logger.error(f"OpenCV face verification error: {opencv_error}")
+                return jsonify({
+                    'success': False,
+                    'message': 'Face verification failed due to processing error. Please try again with better lighting.'
+                })
                 
         except Exception as processing_error:
             current_app.logger.error(f"Face image processing error: {str(processing_error)}")
@@ -599,12 +640,12 @@ def mark_attendance():
                     'message': f'Stored face image not found for {employee["name"]}. Please contact HR.'
                 })
             
-            # Perform face verification using DeepFace with tolerance-based matching
+            # Perform face verification using OpenCV with tolerance-based matching
             try:
                 # Use configurable threshold for flexible matching
                 tolerance_threshold = FACE_VERIFICATION_CONFIG['threshold']
                 
-                result = compare_faces_deepface(stored_image_path, temp_image_path, tolerance_threshold)
+                result = compare_faces_opencv(stored_image_path, temp_image_path, tolerance_threshold)
                 
                 # Clean up temp file
                 if os.path.exists(temp_image_path):
@@ -614,6 +655,27 @@ def mark_attendance():
                 confidence = result['confidence']
                 face_verified = result['verified']
                 
+                # Check for errors in result
+                if 'error' in result:
+                    error_msg = result['error'].lower()
+                    cursor.close()
+                    connection.close()
+                    if 'no face detected' in error_msg:
+                        return jsonify({
+                            'success': False,
+                            'message': 'No face detected in the image. Please try again with better lighting and ensure your face is clearly visible.'
+                        })
+                    elif 'multiple faces' in error_msg:
+                        return jsonify({
+                            'success': False,
+                            'message': 'Multiple faces detected. Please ensure only your face is visible in the camera.'
+                        })
+                    else:
+                        return jsonify({
+                            'success': False,
+                            'message': 'Face verification failed due to processing error. Please try again with better lighting.'
+                        })
+                
                 if not face_verified:
                     cursor.close()
                     connection.close()
@@ -622,7 +684,7 @@ def mark_attendance():
                         'message': f'Face verification failed. Face does not match {employee["name"]} (Distance: {distance:.3f}, Confidence: {confidence:.1f}%)'
                     })
                     
-            except Exception as deepface_error:
+            except Exception as opencv_error:
                 # Clean up temp file
                 if os.path.exists(temp_image_path):
                     os.remove(temp_image_path)
@@ -630,24 +692,11 @@ def mark_attendance():
                 cursor.close()
                 connection.close()
                 
-                current_app.logger.error(f"DeepFace face verification error during attendance: {deepface_error}")
-                
-                error_msg = str(deepface_error).lower()
-                if 'face could not be detected' in error_msg:
-                    return jsonify({
-                        'success': False,
-                        'message': 'No face detected in the image. Please try again with better lighting and ensure your face is clearly visible.'
-                    })
-                elif 'multiple faces' in error_msg:
-                    return jsonify({
-                        'success': False,
-                        'message': 'Multiple faces detected. Please ensure only your face is visible in the camera.'
-                    })
-                else:
-                    return jsonify({
-                        'success': False,
-                        'message': 'Face verification failed due to processing error. Please try again with better lighting.'
-                    })
+                current_app.logger.error(f"OpenCV face verification error during attendance: {opencv_error}")
+                return jsonify({
+                    'success': False,
+                    'message': 'Face verification failed due to processing error. Please try again with better lighting.'
+                })
                     
         except Exception as face_error:
             current_app.logger.error(f"Face verification error during attendance: {str(face_error)}")

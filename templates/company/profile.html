@@ -40,16 +40,6 @@
                             </div>
                             <div class="col">
                                 <h2 class="company-name">{{ company.company_name }}</h2>
-                                <div class="company-meta">
-                                    <span class="meta-item">
-                                        <i class="bi bi-envelope me-1"></i>{{ company.email }}
-                                    </span>
-                                    {% if company.phone %}
-                                    <span class="meta-item">
-                                        <i class="bi bi-telephone me-1"></i>{{ company.phone }}
-                                    </span>
-                                    {% endif %}
-                                </div>
                                 <div class="company-status mt-2">
                                     <span class="status-badge status-{{ (company.status or 'active') }}">
                                         <i class="bi bi-{{ 'check-circle-fill' if (company.status or 'active') == 'active' else 'x-circle-fill' }}"></i>
@@ -81,19 +71,30 @@
                                     <div class="info-value">{{ company.company_name or '-' }}</div>
                                 </div>
                                 <div class="info-item">
-                                    <label class="info-label">Email Address</label>
-                                    <div class="info-value">{{ company.email or '-' }}</div>
+                                    <label class="info-label">Company Type</label>
+                                    <div class="info-value">{{ company.company_type_name or '-' }}</div>
                                 </div>
                             </div>
                             
                             <div class="info-row">
                                 <div class="info-item">
+                                    <label class="info-label">Email Address</label>
+                                    <div class="info-value">{{ company.email or '-' }}</div>
+                                </div>
+                                <div class="info-item">
                                     <label class="info-label">Phone Number</label>
                                     <div class="info-value">{{ company.phone or '-' }}</div>
                                 </div>
+                            </div>
+
+                            <div class="info-row">
                                 <div class="info-item">
                                     <label class="info-label">GST Number</label>
                                     <div class="info-value">{{ company.gst_number or '-' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label class="info-label">Company ID</label>
+                                    <div class="info-value">{{ company.company_code if company.company_code else '-' }}</div>
                                 </div>
                             </div>
                             
@@ -105,22 +106,7 @@
                             </div>
                             
                             <div class="info-row">
-                                <div class="info-item">
-                                    <label class="info-label">City</label>
-                                    <div class="info-value">{{ company.city or '-' }}</div>
-                                </div>
-                                <div class="info-item">
-                                    <label class="info-label">State</label>
-                                    <div class="info-value">{{ company.state or '-' }}</div>
-                                </div>
-                                <div class="info-item">
-                                    <label class="info-label">Pincode</label>
-                                    <div class="info-value">{{ company.pincode or '-' }}</div>
-                                </div>
-                            </div>
-                            
-                            <div class="info-row">
-                                <div class="info-item">
+                                <div class="info-item full-width">
                                     <label class="info-label">Registration Date</label>
                                     <div class="info-value">
                                         {% if company.created_at %}
@@ -129,10 +115,6 @@
                                             -
                                         {% endif %}
                                     </div>
-                                </div>
-                                <div class="info-item">
-                                    <label class="info-label">Company Code</label>
-                                    <div class="info-value">{{ company.company_code or '-' }}</div>
                                 </div>
                             </div>
                         </div>
@@ -190,6 +172,36 @@
                             <i class="bi bi-geo-alt me-2"></i>
                             {% if company.latitude and company.longitude %}Update Location{% else %}Set Location{% endif %}
                         </button>
+                    </div>
+                </div>
+
+                <div class="card location-card mt-4">
+                    <div class="card-header">
+                        <h5 class="card-title">
+                            <i class="bi bi-grid me-2"></i>Enabled Modules
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="location-details">
+                            <div class="detail-row">
+                                <span class="detail-label">Attendance</span>
+                                <span class="module-chip {{ 'enabled' if company.attendance_module_enabled else 'disabled' }}">
+                                    {{ 'Enabled' if company.attendance_module_enabled else 'Disabled' }}
+                                </span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Canteen</span>
+                                <span class="module-chip {{ 'enabled' if company.canteen_module_enabled else 'disabled' }}">
+                                    {{ 'Enabled' if company.canteen_module_enabled else 'Disabled' }}
+                                </span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Salary Slip</span>
+                                <span class="module-chip {{ 'enabled' if company.salary_slip_module_enabled else 'disabled' }}">
+                                    {{ 'Enabled' if company.salary_slip_module_enabled else 'Disabled' }}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -284,7 +296,7 @@
 
 <!-- Edit Profile Modal -->
 <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="editProfileModalLabel">
@@ -292,56 +304,25 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="{{ url_for('company.update_profile') }}" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('company.update_profile') }}">
                 <div class="modal-body">
-                    <div class="row g-3">
+                    <div class="row g-2">
                         <div class="col-12">
-                            <label for="logo" class="form-label">Company Logo</label>
-                            <input type="file" class="form-control" id="logo" name="logo" accept="image/*">
-                            <div class="form-text">Upload a new logo (optional). Recommended size: 200x200px</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="company_name" class="form-label">Company Name *</label>
-                            <input type="text" class="form-control" id="company_name" name="company_name" 
-                                   value="{{ company.company_name }}" required>
-                        </div>
-                        <div class="col-md-6">
                             <label for="email" class="form-label">Email Address *</label>
-                            <input type="email" class="form-control" id="email" name="email" 
+                            <input type="email" class="form-control" id="email" name="email"
                                    value="{{ company.email }}" required>
+                            <div class="form-text">This email is used for company login and is visible in admin company details.</div>
                         </div>
                         <div class="col-md-6">
-                            <label for="phone" class="form-label">Phone Number</label>
-                            <input type="tel" class="form-control" id="phone" name="phone" 
-                                   placeholder="7722021558" 
-                                   maxlength="10"
-                                   pattern="[0-9]{10}"
-                                   value="{{ company.phone or '' }}">
-                            <div class="form-text">Enter 10-digit phone number (digits only, e.g. 7722021558)</div>
+                            <label for="new_password" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password"
+                                   minlength="6" autocomplete="new-password">
+                            <div class="form-text">Leave blank if you do not want to change password.</div>
                         </div>
                         <div class="col-md-6">
-                            <label for="gst_number" class="form-label">GST Number</label>
-                            <input type="text" class="form-control" id="gst_number" name="gst_number" 
-                                   value="{{ company.gst_number or '' }}">
-                        </div>
-                        <div class="col-12">
-                            <label for="address" class="form-label">Address</label>
-                            <textarea class="form-control" id="address" name="address" rows="2">{{ company.address or '' }}</textarea>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="city" class="form-label">City</label>
-                            <input type="text" class="form-control" id="city" name="city" 
-                                   value="{{ company.city or '' }}">
-                        </div>
-                        <div class="col-md-4">
-                            <label for="state" class="form-label">State</label>
-                            <input type="text" class="form-control" id="state" name="state" 
-                                   value="{{ company.state or '' }}">
-                        </div>
-                        <div class="col-md-4">
-                            <label for="pincode" class="form-label">Pincode</label>
-                            <input type="text" class="form-control" id="pincode" name="pincode" 
-                                   value="{{ company.pincode or '' }}">
+                            <label for="confirm_password" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                                   minlength="6" autocomplete="new-password">
                         </div>
                     </div>
                 </div>
@@ -362,23 +343,83 @@
     width: 100%;
 }
 
+.panel-header h2 {
+    color: #111827;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+.panel-header p {
+    color: #6b7280;
+}
+
+#editProfileModal .modal-content {
+    background: #ffffff;
+    opacity: 1;
+    backdrop-filter: none;
+    border-radius: 14px;
+}
+
+#editProfileModal .modal-dialog {
+    max-width: 640px;
+}
+
+#editProfileModal .modal-header,
+#editProfileModal .modal-body,
+#editProfileModal .modal-footer {
+    background: #ffffff;
+}
+
+#editProfileModal .modal-header {
+    padding: 1rem 1.25rem;
+}
+
+#editProfileModal .modal-body {
+    padding: 1rem 1.25rem;
+}
+
+#editProfileModal .modal-footer {
+    padding: 0.85rem 1.25rem;
+}
+
+#editProfileModal .form-control {
+    padding: 0.6rem 0.85rem;
+}
+
+#editProfileModal .form-text {
+    margin-top: 0.3rem;
+    font-size: 0.875rem;
+}
+
+#editProfileModal .btn {
+    padding: 0.5rem 1rem;
+}
+
 /* Company Header Card */
 .company-header-card {
-    border: none;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
     overflow: hidden;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    margin-bottom: 2rem;
+    background: #ffffff;
+    color: #111827;
+    margin-bottom: 1.5rem;
+}
+
+.company-header-card .card-body {
+    padding: 0.95rem 1.15rem;
+}
+
+.company-header-card .row {
+    --bs-gutter-x: 0.9rem;
 }
 
 .company-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 12px;
+    width: 68px;
+    height: 68px;
+    border-radius: 10px;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.2);
+    background: #eff6ff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -391,29 +432,34 @@
 }
 
 .avatar-placeholder {
-    color: white;
-    font-size: 2rem;
+    color: #2563eb;
+    font-size: 1.8rem;
 }
 
 .company-name {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin: 0 0 0.5rem 0;
-    color: white;
+    font-size: 1.3rem;
+    font-weight: 800;
+    margin: 0 0 0.35rem 0;
+    color: #111827;
 }
 
 .company-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
+    gap: 0.85rem;
+    margin-bottom: 0.35rem;
+    row-gap: 0.4rem;
 }
 
 .meta-item {
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 0.9rem;
+    color: #4b5563;
+    font-size: 0.86rem;
     display: flex;
     align-items: center;
+}
+
+.meta-item i {
+    color: #6b7280;
 }
 
 .company-status {
@@ -428,9 +474,10 @@
     padding: 0.25rem 0.75rem;
     border-radius: 20px;
     font-size: 0.8rem;
-    font-weight: 500;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+    font-weight: 600;
+    background: #ecfdf3;
+    color: #166534;
+    border: 1px solid #bbf7d0;
 }
 
 /* Info Card */
@@ -451,8 +498,8 @@
 .card-title {
     margin: 0;
     font-size: 1.1rem;
-    font-weight: 600;
-    color: #2c3e50;
+    font-weight: 700;
+    color: #1f2937;
     display: flex;
     align-items: center;
 }
@@ -461,41 +508,43 @@
 .info-grid {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 0.9rem;
 }
 
 .info-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
+    background: #f8fafc;
+    border: 1px solid #edf1f6;
+    border-radius: 10px;
+    padding: 0.95rem 1rem;
 }
 
 .info-row .info-item.full-width {
     grid-column: 1 / -1;
 }
 
-.info-row:has(.info-item:nth-child(3)) {
-    grid-template-columns: 1fr 1fr 1fr;
-}
-
 .info-item {
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .info-label {
     font-size: 0.8rem;
-    font-weight: 600;
-    color: #6c757d;
+    font-weight: 700;
+    color: #6b7280;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 0.5rem;
 }
 
 .info-value {
-    font-size: 0.95rem;
-    color: #2c3e50;
+    font-size: 0.94rem;
+    color: #334155;
     font-weight: 500;
+    line-height: 1.35;
     word-break: break-word;
 }
 
@@ -585,6 +634,28 @@
     font-family: 'Courier New', monospace;
 }
 
+.module-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.module-chip.enabled {
+    background: #e8f6ee;
+    border-color: #b9e7ca;
+    color: #17663a;
+}
+
+.module-chip.disabled {
+    background: #f4f5f7;
+    border-color: #d7dbe2;
+    color: #6b7280;
+}
+
 /* Button Styles */
 .btn {
     border-radius: 8px;
@@ -607,11 +678,7 @@
 @media (max-width: 992px) {
     .info-row {
         grid-template-columns: 1fr;
-        gap: 1rem;
-    }
-    
-    .info-row:has(.info-item:nth-child(3)) {
-        grid-template-columns: 1fr;
+        gap: 0.85rem;
     }
     
     .company-meta {
@@ -622,12 +689,12 @@
 
 @media (max-width: 768px) {
     .company-name {
-        font-size: 1.25rem;
+        font-size: 1.15rem;
     }
     
     .company-avatar {
-        width: 60px;
-        height: 60px;
+        width: 56px;
+        height: 56px;
     }
     
     .avatar-placeholder {
@@ -765,4 +832,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{% endblock %}dblock %}
+{% endblock %}

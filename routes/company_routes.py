@@ -249,7 +249,15 @@ def company_profile():
     
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM companies WHERE id = %s", (company_id,))
+    cursor.execute(
+        """
+        SELECT companies.*, company_types.type_name AS company_type_name
+        FROM companies
+        LEFT JOIN company_types ON company_types.id = companies.company_type_id
+        WHERE companies.id = %s
+        """,
+        (company_id,),
+    )
     company_data = cursor.fetchone()
     cursor.close()
     connection.close()
@@ -268,32 +276,60 @@ def update_profile():
     company_id = session.get("company_id")
     
     # Get form data
-    company_name = request.form.get("company_name", "").strip()
     email = request.form.get("email", "").strip()
-    phone = request.form.get("phone", "").strip()
-    gst_number = request.form.get("gst_number", "").strip()
-    address = request.form.get("address", "").strip()
-    city = request.form.get("city", "").strip()
-    state = request.form.get("state", "").strip()
-    pincode = request.form.get("pincode", "").strip()
+    new_password = request.form.get("new_password", "").strip()
+    confirm_password = request.form.get("confirm_password", "").strip()
     
     # Validation
-    if not company_name or not email:
-        flash("Company name and email are required.", "error")
+    if not email:
+        flash("Email is required.", "error")
         return redirect(url_for("company.company_profile"))
+
+    if new_password or confirm_password:
+        if new_password != confirm_password:
+            flash("New password and confirm password must match.", "error")
+            return redirect(url_for("company.company_profile"))
+
+        if len(new_password) < 6:
+            flash("Password must be at least 6 characters long.", "error")
+            return redirect(url_for("company.company_profile"))
     
     connection = get_db_connection()
     cursor = connection.cursor()
     
     try:
-        # Update company profile
-        cursor.execute("""
-            UPDATE companies SET 
-                company_name = %s, email = %s, phone = %s, gst_number = %s,
-                address = %s, city = %s, state = %s, pincode = %s,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s
-        """, (company_name, email, phone, gst_number, address, city, state, pincode, company_id))
+        # Prevent duplicate company login email
+        cursor.execute(
+            "SELECT id FROM companies WHERE email = %s AND id <> %s",
+            (email, company_id),
+        )
+        existing_company = cursor.fetchone()
+        if existing_company:
+            flash("Email is already in use by another company.", "error")
+            return redirect(url_for("company.company_profile"))
+
+        # Update only the fields allowed for company self-service edits
+        if new_password:
+            cursor.execute(
+                """
+                UPDATE companies SET
+                    email = %s,
+                    password = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (email, new_password, company_id),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE companies SET
+                    email = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (email, company_id),
+            )
         
         connection.commit()
         flash("Profile updated successfully!", "success")
