@@ -43,7 +43,7 @@
             </a>
             <a href="/admin/add_company_type" class="sidebar-link">
                 <i class="bi bi-diagram-2" style="margin-right: 12px;"></i>
-                Add Company Type
+                Add & View Company Type
             </a>
             <a href="/admin/companies" class="sidebar-link">
                 <i class="bi bi-buildings" style="margin-right: 12px;"></i>
@@ -69,11 +69,7 @@
                 <div class="sidebar-title">Department Management</div>
                 <a href="/company/add_department" class="sidebar-link">
                     <i class="bi bi-diagram-3" style="margin-right: 12px;"></i>
-                    Add Department
-                </a>
-                <a href="/company/departments" class="sidebar-link">
-                    <i class="bi bi-diagram-2" style="margin-right: 12px;"></i>
-                    View Departments
+                    Add & View Department
                 </a>
             </div>
             <div class="sidebar-section">
@@ -194,15 +190,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <!-- QR Code Modal -->
 <div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="qrModalLabel">
-                    <i class="bi bi-qr-code me-2"></i>Employee Registration QR Code
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+        <div class="modal-content" style="border-radius: 16px;">
+            <div class="modal-header" style="padding: 18px 20px; border-bottom: 1px solid #e9ecef;">
+                <h5 class="modal-title" id="qrModalLabel" style="font-size: 1.1rem; font-weight: 700;">
+                    <i class="bi bi-qr-code me-2"></i>Employee Registration QR
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="qr-modal-close btn-close" style="width: 32px; height: 32px; background: #dc3545; border-radius: 8px; padding: 0; border: none; display: flex; align-items: center; justify-content: center; opacity: 1; filter: none;" data-bs-dismiss="modal" aria-label="Close">
+                    <span style="color: white; font-size: 1.8rem; line-height: 1; font-weight: 300; transform: translateY(-2px);">×</span>
+                </button>
             </div>
-            <div class="modal-body text-center">
+            <div class="modal-body text-center" style="padding: 24px; background: #ffffff;">
                 <div id="qrLoadingSpinner" class="d-none">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Generating QR Code...</span>
@@ -210,20 +208,20 @@ document.addEventListener('DOMContentLoaded', function () {
                     <p class="mt-2">Generating QR Code...</p>
                 </div>
                 <div id="qrContent" class="d-none">
-                    <div class="qr-container">
-                        <img id="qrImage" src="" alt="Registration QR Code" class="qr-image">
+                    <div class="qr-container" style="background: #f8f9fa; padding: 16px; border-radius: 12px; border: 1px solid #e9ecef;">
+                        <img id="qrImage" src="" alt="Registration QR Code" class="qr-image" style="max-width: 280px; width: 100%; height: auto;">
                     </div>
-                    <div class="qr-info mt-3">
-                        <h6>Employee Registration Link</h6>
-                        <div class="input-group mb-3">
-                            <input type="text" id="registrationUrl" class="form-control" readonly>
-                            <button class="btn btn-outline-secondary" type="button" id="copyUrlBtn" title="Copy Link">
+                    <div class="qr-info mt-4">
+                        <h6 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 12px;">Registration Link</h6>
+                        <div class="input-group mb-2" style="font-size: 0.9rem;">
+                            <input type="text" id="registrationUrl" class="form-control" style="font-size: 0.88rem; padding: 8px 10px;" readonly>
+                            <button class="btn btn-outline-secondary" style="padding: 8px 10px; font-size: 0.88rem;" type="button" id="copyUrlBtn" title="Copy Link">
                                 <i class="bi bi-clipboard"></i>
                             </button>
                         </div>
-                        <p class="text-muted small">
+                        <p class="text-muted" style="font-size: 0.82rem; margin-top: 10px; line-height: 1.4;">
                             <i class="bi bi-info-circle me-1"></i>
-                            Employees can scan this QR code or use the link to register themselves
+                            Scan or share the link for employee registration
                         </p>
                     </div>
                 </div>
@@ -234,11 +232,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" id="downloadQRBtn" class="btn btn-primary d-none">
-                    <i class="bi bi-download me-2"></i>Download QR Code
+            <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid #e9ecef; background: #f8f9fa; justify-content: center;">
+                <button type="button" id="downloadQRBtn" class="btn btn-primary d-none" style="padding: 10px 16px; font-size: 0.9rem;">
+                    <i class="bi bi-download me-2"></i>Download
                 </button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -292,7 +289,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (data.success) {
                 // Show QR code
-                qrImage.src = data.qr_image_path + '?t=' + new Date().getTime(); // Cache busting
+                qrImage.src = data.qr_image_path;
                 registrationUrl.value = data.registration_url;
                 qrContent.classList.remove('d-none');
                 downloadQRBtn.classList.remove('d-none');

@@ -5,15 +5,9 @@
 {% block content %}
 <div class="panel">
     <div class="panel-header">
-        <h2><i class="bi bi-people me-2"></i>Employees</h2>
-        <p>Manage all employees in your company workforce.</p>
-        <div class="panel-actions">
-            <button class="btn btn-outline-primary generate-qr-btn" title="Generate Registration QR Code">
-                <i class="bi bi-qr-code me-2"></i>Generate QR
-            </button>
-            <a href="{{ url_for('company.add_employee') }}" class="btn btn-primary">
-                <i class="bi bi-person-plus me-2"></i>Add New Employee
-            </a>
+        <div class="panel-title">
+            <h2><i class="bi bi-people me-2"></i>Employees</h2>
+            <p>Manage all employees in your company workforce.</p>
         </div>
     </div>
 
@@ -105,10 +99,18 @@
                                    class="btn btn-sm btn-outline" title="View Employee Details">
                                     <i class="bi bi-eye"></i>
                                 </a>
+                                {% if employee.status == 'pending' %}
+                                <a href="{{ url_for('company.edit_employee', employee_id=employee.id) }}"
+                                   class="btn btn-sm btn-complete-work" title="Complete Work Details">
+                                    <i class="bi bi-clipboard-check me-1"></i>
+                                    Complete Work Details
+                                </a>
+                                {% else %}
                                 <a href="{{ url_for('company.edit_employee', employee_id=employee.id) }}" 
                                    class="btn btn-sm btn-outline" title="Edit Employee">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                {% endif %}
                                 <form method="POST" action="{{ url_for('company.delete_employee', employee_id=employee.id) }}" 
                                       style="display: inline;" onsubmit="return confirmDelete('{{ employee.name }}')">
                                     <button type="submit" class="btn btn-sm btn-danger" title="Delete Employee">
@@ -182,16 +184,25 @@
 <style>
 .panel-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: flex-start;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-    gap: 16px;
+    margin-bottom: 20px;
 }
 
-.panel-actions {
+.panel-title {
     display: flex;
-    gap: 12px;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.panel-title h2 {
+    margin: 0;
+}
+
+.panel-title p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 1rem;
 }
 
 /* Table Layout Styles */
@@ -480,6 +491,25 @@
     box-shadow: 0 2px 4px var(--shadow);
 }
 
+.btn-complete-work {
+    background: #f59e0b;
+    border: 1px solid #d97706;
+    color: #ffffff;
+    padding: 8px 10px;
+    min-width: unset;
+    height: 36px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.btn-complete-work:hover {
+    background: #d97706;
+    border-color: #b45309;
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(217, 119, 6, 0.35);
+}
+
 .btn-danger {
     background: #ef4444;
     color: white;
@@ -576,8 +606,7 @@
 
 @media (max-width: 768px) {
     .panel-header {
-        flex-direction: column;
-        align-items: stretch;
+        margin-bottom: 16px;
     }
     
     .employees-table-container {

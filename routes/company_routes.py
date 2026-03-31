@@ -1,7 +1,7 @@
 from functools import wraps
 from datetime import datetime, time
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import generate_password_hash
 
 from database.db_connection import get_db_connection
@@ -75,7 +75,104 @@ def attendance_qr_page():
 @company.route("/dashboard")
 @company_required
 def company_dashboard():
-    return render_template("company/dashboard.html")
+    company_id = session.get("company_id")
+    dashboard_stats = _get_company_dashboard_stats(company_id)
+    return render_template("company/dashboard.html", dashboard_stats=dashboard_stats)
+
+
+@company.route("/dashboard/stats")
+@company_required
+def company_dashboard_stats():
+    company_id = session.get("company_id")
+    return jsonify(_get_company_dashboard_stats(company_id))
+
+
+def _get_company_dashboard_stats(company_id):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    cursor.execute(
+        "SELECT COUNT(*) AS count FROM employees WHERE company_id = %s",
+        (company_id,),
+    )
+    total_employees = cursor.fetchone()["count"]
+
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM employees
+        WHERE company_id = %s
+          AND (
+              LOWER(COALESCE(employee_role, '')) = 'manager'
+              OR LOWER(COALESCE(role, '')) LIKE '%%manager%%'
+          )
+        """,
+        (company_id,),
+    )
+    total_managers = cursor.fetchone()["count"]
+
+    cursor.execute(
+        "SELECT COUNT(*) AS count FROM departments WHERE company_id = %s",
+        (company_id,),
+    )
+    total_departments = cursor.fetchone()["count"]
+
+    cursor.execute(
+        "SELECT COUNT(*) AS count FROM roles WHERE company_id = %s",
+        (company_id,),
+    )
+    total_roles = cursor.fetchone()["count"]
+
+    today = datetime.now().date()
+    cursor.execute(
+        """
+        SELECT status, COUNT(*) AS count
+        FROM attendance
+        WHERE company_id = %s AND date = %s
+        GROUP BY status
+        """,
+        (company_id, today),
+    )
+    attendance_rows = cursor.fetchall()
+
+    cursor.close()
+    connection.close()
+
+    status_counts = {"present": 0, "late": 0, "absent": 0}
+    for row in attendance_rows:
+        status = (row.get("status") or "").lower()
+        if status in status_counts:
+            status_counts[status] = row.get("count", 0)
+
+    present_count = int(status_counts["present"])
+    late_count = int(status_counts["late"])
+    explicit_absent_count = int(status_counts["absent"])
+    inferred_absent_count = max(total_employees - (present_count + late_count + explicit_absent_count), 0)
+    absent_count = explicit_absent_count + inferred_absent_count
+
+    attendance_marked_count = present_count + late_count + explicit_absent_count
+    attendance_rate = round((attendance_marked_count / total_employees) * 100, 1) if total_employees else 0
+    manager_coverage = round((total_managers / total_employees) * 100, 1) if total_employees else 0
+
+    return {
+        "totals": {
+            "employees": total_employees,
+            "managers": total_managers,
+            "departments": total_departments,
+            "roles": total_roles,
+        },
+        "attendance": {
+            "present": present_count,
+            "late": late_count,
+            "absent": absent_count,
+            "rate": attendance_rate,
+            "date": today.isoformat(),
+        },
+        "insights": {
+            "manager_coverage": manager_coverage,
+        },
+        "generated_at": datetime.now().isoformat(),
+    }
 
 
 # Attendance Reports Route
@@ -406,12 +503,29 @@ def update_location():
 def add_department():
     company_id = session.get("company_id")
 
+    def _get_departments():
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id, name, created_at
+            FROM departments
+            WHERE company_id = %s
+            ORDER BY name ASC
+            """,
+            (company_id,),
+        )
+        departments = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return departments
+
     if request.method == "POST":
         department_name = request.form.get("department_name", "").strip()
 
         if not department_name:
             flash("Department name is required.", "error")
-            return render_template("company/add_department.html")
+            return render_template("company/add_department.html", departments=_get_departments())
 
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
@@ -425,7 +539,7 @@ def add_department():
             cursor.close()
             connection.close()
             flash("A department with this name already exists.", "error")
-            return render_template("company/add_department.html")
+            return render_template("company/add_department.html", departments=_get_departments())
 
         # Insert new department
         cursor.execute(
@@ -437,9 +551,9 @@ def add_department():
         connection.close()
 
         flash("Department added successfully!", "success")
-        return redirect(url_for("company.view_departments"))
+        return redirect(url_for("company.add_department"))
 
-    return render_template("company/add_department.html")
+    return render_template("company/add_department.html", departments=_get_departments())
 
 
 @company.route("/departments")
@@ -488,7 +602,7 @@ def delete_department(department_id):
     cursor.close()
     connection.close()
 
-    return redirect(url_for("company.view_departments"))
+    return redirect(url_for("company.add_department"))
 
 
 # Shift Management Routes
@@ -780,8 +894,18 @@ def add_employee():
             errors.append("Gender is required.")
         if not dob:
             errors.append("Date of birth is required.")
+        if not phone:
+            errors.append("Phone number is required.")
+        if not address:
+            errors.append("Address is required.")
+        if not role:
+            errors.append("Job position is required.")
         if not employee_role:
             errors.append("Employee Role is required.")
+        if not department_id:
+            errors.append("Department is required.")
+        if not shift_id:
+            errors.append("Shift is required.")
         if not joining_date:
             errors.append("Joining date is required.")
             
@@ -829,25 +953,24 @@ def add_employee():
             flash("Company information not found. Please contact administrator.", "error")
             return render_template("company/add_employee.html", departments=departments, shifts=shifts, roles=roles)
         
-        if department_id:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT name FROM departments WHERE id = %s AND company_id = %s", (department_id, company_id))
-            dept_result = cursor.fetchone()
-            if dept_result:
-                department_name = dept_result['name']
-            cursor.close()
-            connection.close()
-            
-        if shift_id:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT name FROM shifts WHERE id = %s AND company_id = %s", (shift_id, company_id))
-            shift_result = cursor.fetchone()
-            if shift_result:
-                shift_name = shift_result['name']
-            cursor.close()
-            connection.close()
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT name FROM departments WHERE id = %s AND company_id = %s", (department_id, company_id))
+        dept_result = cursor.fetchone()
+        cursor.execute("SELECT name FROM shifts WHERE id = %s AND company_id = %s", (shift_id, company_id))
+        shift_result = cursor.fetchone()
+        cursor.close()
+        connection.close()
+
+        if not dept_result:
+            flash("Selected department is invalid.", "error")
+            return render_template("company/add_employee.html", departments=departments, shifts=shifts, roles=roles)
+        if not shift_result:
+            flash("Selected shift is invalid.", "error")
+            return render_template("company/add_employee.html", departments=departments, shifts=shifts, roles=roles)
+
+        department_name = dept_result['name']
+        shift_name = shift_result['name']
 
         # Convert dates to proper format
         try:
@@ -908,14 +1031,14 @@ def add_employee():
             """
             INSERT INTO employees (
                 name, emp_id, email, gender, dob, phone, address, role, employee_role,
-                department, shift, joining_date, company, company_id, image_path
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                department, shift, joining_date, company, company_id, image_path, status
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
-                name, emp_id, email or None, gender, dob_obj, phone or None, 
-                address or None, role or 'General', employee_role, department_name or 'General', 
-                shift_name or 'General', joining_date_obj, company_name, company_id,
-                image_path
+                name, emp_id, email or None, gender, dob_obj, phone,
+                address, role, employee_role, department_name,
+                shift_name, joining_date_obj, company_name, company_id,
+                image_path, 'active'
             ),
         )
         
@@ -1099,8 +1222,14 @@ def edit_employee(employee_id):
             errors.append("Gender is required.")
         if not dob:
             errors.append("Date of birth is required.")
+        if not role:
+            errors.append("Job position is required.")
         if not employee_role:
             errors.append("Employee Role is required.")
+        if not department_id:
+            errors.append("Department is required.")
+        if not shift_id:
+            errors.append("Shift is required.")
         if not joining_date:
             errors.append("Joining date is required.")
             
@@ -1142,17 +1271,27 @@ def edit_employee(employee_id):
             connection.close()
             return render_template("company/edit_employee.html", employee=employee, departments=departments, shifts=shifts, roles=roles)
         
-        if department_id:
-            cursor.execute("SELECT name FROM departments WHERE id = %s AND company_id = %s", (department_id, company_id))
-            dept_result = cursor.fetchone()
-            if dept_result:
-                department_name = dept_result['name']
-            
-        if shift_id:
-            cursor.execute("SELECT name FROM shifts WHERE id = %s AND company_id = %s", (shift_id, company_id))
-            shift_result = cursor.fetchone()
-            if shift_result:
-                shift_name = shift_result['name']
+        cursor.execute("SELECT name FROM departments WHERE id = %s AND company_id = %s", (department_id, company_id))
+        dept_result = cursor.fetchone()
+        cursor.execute("SELECT name FROM shifts WHERE id = %s AND company_id = %s", (shift_id, company_id))
+        shift_result = cursor.fetchone()
+
+        if not dept_result:
+            errors.append("Selected department is invalid.")
+        else:
+            department_name = dept_result['name']
+
+        if not shift_result:
+            errors.append("Selected shift is invalid.")
+        else:
+            shift_name = shift_result['name']
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            cursor.close()
+            connection.close()
+            return render_template("company/edit_employee.html", employee=employee, departments=departments, shifts=shifts, roles=roles)
 
         # Convert dates to proper format
         try:
@@ -1170,13 +1309,15 @@ def edit_employee(employee_id):
             UPDATE employees SET
                 name = %s, emp_id = %s, email = %s, gender = %s, dob = %s, phone = %s, 
                 address = %s, role = %s, employee_role = %s, department = %s, 
-                shift = %s, joining_date = %s, company = %s, updated_at = CURRENT_TIMESTAMP
+                shift = %s, joining_date = %s, company = %s,
+                status = CASE WHEN status = 'pending' THEN 'active' ELSE status END,
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = %s AND company_id = %s
             """,
             (
-                name, emp_id, email or None, gender, dob_obj, phone or None, 
-                address or None, role or 'General', employee_role, department_name or 'General', 
-                shift_name or 'General', joining_date_obj, company_name, employee_id, company_id
+                name, emp_id, email or None, gender, dob_obj, phone or None,
+                address or None, role, employee_role, department_name,
+                shift_name, joining_date_obj, company_name, employee_id, company_id
             ),
         )
         
@@ -1202,21 +1343,13 @@ def generate_common_qr():
     from flask import jsonify, current_app
     
     try:
-        # Generate common registration URL
-        registration_url = url_for('employee_registration.common_employee_registration', _external=True)
-        
-        # Create QR code with optimal settings
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=10,
-            border=4,
+        # Generate company-scoped registration URL so employee registration is tied to the correct company.
+        company_id = session.get("company_id")
+        registration_url = url_for(
+            'employee_registration.common_employee_registration',
+            _external=True,
+            company_id=company_id,
         )
-        qr.add_data(registration_url)
-        qr.make(fit=True)
-        
-        # Create QR code image with high quality
-        qr_img = qr.make_image(fill_color="black", back_color="white")
         
         # Ensure static/qr directory exists
         static_dir = os.path.join(current_app.root_path, 'static')
@@ -1225,10 +1358,23 @@ def generate_common_qr():
         if not os.path.exists(qr_dir):
             os.makedirs(qr_dir)
         
-        # Save QR code image
+        # Use one stable QR image filename for employee registration.
         qr_filename = 'common_qr.png'
         qr_path = os.path.join(qr_dir, qr_filename)
-        qr_img.save(qr_path)
+
+        # Reuse existing QR if already generated; only create once.
+        if not os.path.exists(qr_path):
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_H,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(registration_url)
+            qr.make(fit=True)
+
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            qr_img.save(qr_path)
         
         # Verify file was created
         if not os.path.exists(qr_path):
@@ -1266,332 +1412,170 @@ employee_registration_bp = Blueprint("employee_registration", __name__)
 
 @employee_registration_bp.route("/employee/register", methods=["GET", "POST"])
 def common_employee_registration():
-    """Public common employee registration form accessible via QR code"""
-    
-    if request.method == "GET":
-        # Get all companies with their departments and shifts for the form
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Get company info for new registration
-        cursor.execute(
-            """
-            SELECT c.id as company_id, c.company_name as company_name,
-                   d.id as dept_id, d.name as dept_name,
-                   s.id as shift_id, s.name as shift_name,
-                   r.id as role_id, r.name as role_name
-            FROM companies c
-            LEFT JOIN departments d ON c.id = d.company_id
-            LEFT JOIN shifts s ON c.id = s.company_id
-            LEFT JOIN roles r ON c.id = r.company_id
-            ORDER BY c.company_name, d.name, s.name, r.name
-            """
-        )
-        company_data = cursor.fetchall()
-        
-        # Group data by company
-        companies = {}
-        for row in company_data:
-            company_id = row['company_id']
-            if company_id not in companies:
-                companies[company_id] = {
-                    'id': company_id,
-                    'name': row['company_name'],
-                    'departments': [],
-                    'shifts': [],
-                    'roles': []
-                }
-            
-            if row['dept_id'] and row['dept_name']:
-                dept = {'id': row['dept_id'], 'name': row['dept_name']}
-                if dept not in companies[company_id]['departments']:
-                    companies[company_id]['departments'].append(dept)
-            
-            if row['shift_id'] and row['shift_name']:
-                shift = {'id': row['shift_id'], 'name': row['shift_name']}
-                if shift not in companies[company_id]['shifts']:
-                    companies[company_id]['shifts'].append(shift)
-            
-            if row['role_id'] and row['role_name']:
-                role = {'id': row['role_id'], 'name': row['role_name']}
-                if role not in companies[company_id]['roles']:
-                    companies[company_id]['roles'].append(role)
-        
+    """Public employee self-registration from company QR flow."""
+
+    company_id = request.args.get("company_id", type=int) or request.form.get("company_id", type=int)
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    if not company_id:
         cursor.close()
         connection.close()
-        
-        # Fetch company info for the current session/company
-        company_id = None
-        if len(companies) == 1:
-            company_id = companies[0]['id']
-        # Fetch departments, shifts, and roles for the company
-        departments, shifts, roles = [], [], []
-        if company_id:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT id, name FROM departments WHERE company_id = %s ORDER BY name", (company_id,))
-            departments = cursor.fetchall()
-            cursor.execute("SELECT id, name, start_time, end_time FROM shifts WHERE company_id = %s ORDER BY name", (company_id,))
-            shifts = cursor.fetchall()
-            cursor.execute("SELECT id, name FROM roles WHERE company_id = %s ORDER BY name", (company_id,))
-            roles = cursor.fetchall()
-            cursor.close()
-            connection.close()
+        return render_template(
+            "employee/common_registration_form.html",
+            error_message="Missing company information in the registration link.",
+        )
+
+    cursor.execute("SELECT id, company_name FROM companies WHERE id = %s", (company_id,))
+    company = cursor.fetchone()
+    cursor.close()
+    connection.close()
+
+    if not company:
+        return render_template(
+            "employee/common_registration_form.html",
+            error_message="Invalid company registration link.",
+        )
+
+    if request.method == "GET":
         return render_template(
             "company/add_employee.html",
-            departments=departments,
-            shifts=shifts,
-            roles=roles,
+            departments=[],
+            shifts=[],
+            roles=[],
             minimal=True,
-            company_name=companies[0]['name'] if len(companies) == 1 else None
+            company_name=company["company_name"],
+            company_id=company_id,
         )
-    
-    elif request.method == "POST":
-        # Use the same logic as add_employee for processing
-        from flask import session, redirect, url_for, flash
-        # Map form fields to match add_employee
-        name = request.form.get("name", "").strip()
-        emp_id = request.form.get("emp_id", "").strip()
-        email = request.form.get("email", "").strip()
-        gender = request.form.get("gender", "").strip()
-        dob = request.form.get("dob", "").strip()
-        phone = request.form.get("phone", "").strip()
-        address = request.form.get("address", "").strip()
-        role = request.form.get("role", "").strip()
-        employee_role = request.form.get("employee_role", "").strip()
-        department_id = request.form.get("department_id", "").strip()
-        shift_id = request.form.get("shift_id", "").strip()
-        joining_date = request.form.get("joining_date", "").strip()
 
-        errors = []
-        if not name:
-            errors.append("Employee name is required.")
-        if not emp_id:
-            errors.append("Employee ID is required.")
-        if not gender:
-            errors.append("Gender is required.")
-        if not dob:
-            errors.append("Date of birth is required.")
-        if not employee_role:
-            errors.append("Employee Role is required.")
-        if not joining_date:
-            errors.append("Joining date is required.")
+    name = request.form.get("name", "").strip()
+    emp_id = request.form.get("emp_id", "").strip()
+    email = request.form.get("email", "").strip()
+    gender = request.form.get("gender", "").strip()
+    dob = request.form.get("dob", "").strip()
+    phone = request.form.get("phone", "").strip()
+    address = request.form.get("address", "").strip()
+    face_image_data = request.form.get("face_image_data", "").strip()
 
-        # Database validation
-        if not errors:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT id FROM employees WHERE emp_id = %s", (emp_id,))
-            if cursor.fetchone():
-                errors.append("An employee with this Employee ID already exists.")
-            if email:
-                cursor.execute("SELECT id FROM employees WHERE email = %s", (email,))
-                if cursor.fetchone():
-                    errors.append("An employee with this email already exists.")
-            cursor.close()
-            connection.close()
+    errors = []
+    if not name:
+        errors.append("Employee name is required.")
+    if not emp_id:
+        errors.append("Employee ID is required.")
+    if not gender:
+        errors.append("Gender is required.")
+    if not dob:
+        errors.append("Date of birth is required.")
+    if not phone:
+        errors.append("Phone number is required.")
+    if not address:
+        errors.append("Address is required.")
+    if not face_image_data:
+        errors.append("Face image is required for self-registration.")
 
-        if errors:
-            for error in errors:
-                flash(error, "error")
-            # Re-render the form with the same UI
-            # (rebuild companies, departments, shifts, roles as in GET)
-            # ...existing code for GET...
-            # For brevity, redirect to GET
-            return redirect(url_for("employee_registration.common_employee_registration"))
-
-        # Get company, department, shift names
-        company_name = None
-        department_name = None
-        shift_name = None
-        company_id = request.form.get("company_id", "").strip()
-        if company_id:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT company_name FROM companies WHERE id = %s", (company_id,))
-            company_result = cursor.fetchone()
-            if company_result:
-                company_name = company_result['company_name']
-            cursor.close()
-            connection.close()
-        if department_id:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT name FROM departments WHERE id = %s AND company_id = %s", (department_id, company_id))
-            dept_result = cursor.fetchone()
-            if dept_result:
-                department_name = dept_result['name']
-            cursor.close()
-            connection.close()
-        if shift_id:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT name FROM shifts WHERE id = %s AND company_id = %s", (shift_id, company_id))
-            shift_result = cursor.fetchone()
-            if shift_result:
-                shift_name = shift_result['name']
-            cursor.close()
-            connection.close()
-
-        # Convert dates
-        from datetime import datetime
-        try:
-            dob_obj = datetime.strptime(dob, '%Y-%m-%d').date()
-            joining_date_obj = datetime.strptime(joining_date, '%Y-%m-%d').date()
-        except ValueError:
-            flash("Invalid date format.", "error")
-            return redirect(url_for("employee_registration.common_employee_registration"))
-
-        # Insert into database
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        cursor.execute(
-            """
-            INSERT INTO employees (
-                name, emp_id, email, gender, dob, phone, address, role, employee_role,
-                department, shift, joining_date, company, company_id
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                name, emp_id, email or None, gender, dob_obj, phone or None,
-                address or None, role or 'General', employee_role, department_name or 'General',
-                shift_name or 'General', joining_date_obj, company_name, company_id
-            ),
-        )
-        connection.commit()
-        cursor.close()
-        connection.close()
-
-        flash("Employee added successfully!", "success")
-        return redirect(url_for("company.view_employees"))
-        joining_date = request.form.get("joining_date", "").strip()
-        
-        # Validation
-        errors = []
-        if not name:
-            errors.append("Name is required.")
-        if not phone:
-            errors.append("Phone number is required.")
-        if not company_id:
-            errors.append("Company selection is required.")
-        if not employee_role:
-            errors.append("Employee Role is required.")
-        
-        if errors:
-            for error in errors:
-                flash(error, "error")
-            return redirect(url_for('employee_registration.common_employee_registration'))
-        
-        # Auto-generate Employee ID
+    if not errors:
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
-        
-        # Generate unique employee ID
-        cursor.execute("SELECT COUNT(*) as count FROM employees WHERE company_id = %s", (company_id,))
-        count_result = cursor.fetchone()
-        employee_count = count_result['count'] + 1
-        
-        # Get company code for employee ID
-        cursor.execute("SELECT company_code FROM companies WHERE id = %s", (company_id,))
-        company_result = cursor.fetchone()
-        company_code = company_result['company_code'] if company_result else 'EMP'
-        
-        # Generate employee ID: COMPANY_CODE + sequential number
-        emp_id = f"{company_code}{employee_count:03d}"
-        
-        # Check if employee ID already exists, if so increment
-        while True:
-            cursor.execute("SELECT id FROM employees WHERE emp_id = %s", (emp_id,))
-            if not cursor.fetchone():
-                break
-            employee_count += 1
-            emp_id = f"{company_code}{employee_count:03d}"
-        
-        # Check for duplicate phone/email
+        cursor.execute("SELECT id FROM employees WHERE emp_id = %s", (emp_id,))
+        if cursor.fetchone():
+            errors.append("An employee with this Employee ID already exists.")
+
         if phone:
             cursor.execute("SELECT id FROM employees WHERE phone = %s", (phone,))
             if cursor.fetchone():
-                flash("An employee with this phone number already exists.", "error")
-                cursor.close()
-                connection.close()
-                return redirect(url_for('employee_registration.common_employee_registration'))
-        
+                errors.append("An employee with this phone number already exists.")
+
         if email:
             cursor.execute("SELECT id FROM employees WHERE email = %s", (email,))
             if cursor.fetchone():
-                flash("An employee with this email already exists.", "error")
-                cursor.close()
-                connection.close()
-                return redirect(url_for('employee_registration.common_employee_registration'))
-        
-        # Get department and shift names
-        department_name = None
-        shift_name = None
-        company_name = None
-        
-        # Get company name
-        cursor.execute("SELECT company_name FROM companies WHERE id = %s", (company_id,))
-        company_result = cursor.fetchone()
-        if company_result:
-            company_name = company_result['company_name']
-        
-        if department_id:
-            cursor.execute("SELECT name FROM departments WHERE id = %s", (department_id,))
-            dept_result = cursor.fetchone()
-            if dept_result:
-                department_name = dept_result['name']
-        
-        if shift_id:
-            cursor.execute("SELECT name FROM shifts WHERE id = %s", (shift_id,))
-            shift_result = cursor.fetchone()
-            if shift_result:
-                shift_name = shift_result['name']
-        
-        # Convert dates
-        dob_obj = None
-        joining_date_obj = None
-        
-        if dob:
-            try:
-                dob_obj = datetime.strptime(dob, '%Y-%m-%d').date()
-            except ValueError:
-                flash("Invalid date of birth format.", "error")
-                cursor.close()
-                connection.close()
-                return redirect(url_for('employee_registration.common_employee_registration'))
-        
-        if joining_date:
-            try:
-                joining_date_obj = datetime.strptime(joining_date, '%Y-%m-%d').date()
-            except ValueError:
-                flash("Invalid joining date format.", "error")
-                cursor.close()
-                connection.close()
-                return redirect(url_for('employee_registration.common_employee_registration'))
-        else:
-            # Default to today if not provided
-            joining_date_obj = datetime.now().date()
-        
-        # Insert new employee
-        cursor.execute(
-            """
-            INSERT INTO employees (
-                name, emp_id, email, phone, gender, dob, address, role, employee_role,
-                company, department, shift, joining_date, status, company_id
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (name, emp_id, email or None, phone, gender or None, dob_obj, 
-             address or None, role or None, employee_role, company_name or 'Unknown Company',
-             department_name or 'General', shift_name or 'General', 
-             joining_date_obj, 'active', company_id)
-        )
-        
-        connection.commit()
+                errors.append("An employee with this email already exists.")
+
         cursor.close()
         connection.close()
-        
-        return render_template("employee/registration_success.html", 
-                             employee_id=emp_id, name=name)
+
+    try:
+        dob_obj = datetime.strptime(dob, "%Y-%m-%d").date() if dob else None
+    except ValueError:
+        errors.append("Invalid date format for date of birth.")
+        dob_obj = None
+
+    image_path = None
+    if face_image_data and not errors:
+        try:
+            import base64
+            import io
+            import os
+            from flask import current_app
+            from PIL import Image
+
+            image_data = base64.b64decode(face_image_data.split(",")[1])
+            image = Image.open(io.BytesIO(image_data))
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+
+            faces_dir = os.path.join(current_app.root_path, "static", "uploads", "faces")
+            if not os.path.exists(faces_dir):
+                os.makedirs(faces_dir)
+
+            image_filename = f"{emp_id}_pending_face.jpg"
+            full_image_path = os.path.join(faces_dir, image_filename)
+            image.save(full_image_path, "JPEG", quality=90)
+            image_path = f"uploads/faces/{image_filename}"
+        except Exception as e:
+            errors.append(f"Error processing face image: {str(e)}")
+
+    if errors:
+        for error in errors:
+            flash(error, "error")
+        return render_template(
+            "company/add_employee.html",
+            departments=[],
+            shifts=[],
+            roles=[],
+            minimal=True,
+            company_name=company["company_name"],
+            company_id=company_id,
+        )
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute(
+        """
+        INSERT INTO employees (
+            name, emp_id, email, gender, dob, phone, address, role, employee_role,
+            department, shift, joining_date, company, company_id, image_path, status
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            name,
+            emp_id,
+            email or None,
+            gender,
+            dob_obj,
+            phone,
+            address,
+            "Pending Assignment",
+            None,
+            "General",
+            "General",
+            datetime.now().date(),
+            company["company_name"],
+            company_id,
+            image_path,
+            "pending",
+        ),
+    )
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+    return render_template(
+        "employee/registration_success.html",
+        employee_id=emp_id,
+        name=name,
+        company_name=company["company_name"],
+        company_id=company_id,
+    )
 
 
 # Role Management Routes

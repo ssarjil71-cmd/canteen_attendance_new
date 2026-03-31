@@ -695,9 +695,64 @@ select option {
     justify-content: center;
     margin-right: 12px;
     border-radius: 8px;
-    background: linear-gradient(135deg, #1f6feb, #0ea5e9);
+    background: var(--sidebar-icon-bg, linear-gradient(135deg, #1f6feb, #0ea5e9));
     color: #ffffff;
-    box-shadow: 0 4px 10px rgba(31, 111, 235, 0.28);
+    box-shadow: var(--sidebar-icon-shadow, 0 4px 10px rgba(31, 111, 235, 0.28));
+}
+
+/* Company sidebar icon colors */
+.sidebar-link[href="/company/dashboard"] {
+    --sidebar-icon-bg: linear-gradient(135deg, #0ea5e9, #2563eb);
+    --sidebar-icon-bg-hover: linear-gradient(135deg, #0284c7, #1d4ed8);
+    --sidebar-icon-shadow: 0 4px 10px rgba(37, 99, 235, 0.28);
+    --sidebar-icon-shadow-hover: 0 6px 12px rgba(29, 78, 216, 0.32);
+}
+
+.sidebar-link[href="/company/add_employee"],
+.sidebar-link[href="/company/employees"] {
+    --sidebar-icon-bg: linear-gradient(135deg, #14b8a6, #10b981);
+    --sidebar-icon-bg-hover: linear-gradient(135deg, #0f766e, #059669);
+    --sidebar-icon-shadow: 0 4px 10px rgba(16, 185, 129, 0.26);
+    --sidebar-icon-shadow-hover: 0 6px 12px rgba(5, 150, 105, 0.32);
+}
+
+.sidebar-link[href="/company/add_department"],
+.sidebar-link[href="/company/departments"] {
+    --sidebar-icon-bg: linear-gradient(135deg, #f59e0b, #f97316);
+    --sidebar-icon-bg-hover: linear-gradient(135deg, #d97706, #ea580c);
+    --sidebar-icon-shadow: 0 4px 10px rgba(249, 115, 22, 0.26);
+    --sidebar-icon-shadow-hover: 0 6px 12px rgba(234, 88, 12, 0.32);
+}
+
+.sidebar-link[href="/company/add_shift"],
+.sidebar-link[href="/company/shifts"] {
+    --sidebar-icon-bg: linear-gradient(135deg, #8b5cf6, #6366f1);
+    --sidebar-icon-bg-hover: linear-gradient(135deg, #7c3aed, #4f46e5);
+    --sidebar-icon-shadow: 0 4px 10px rgba(99, 102, 241, 0.26);
+    --sidebar-icon-shadow-hover: 0 6px 12px rgba(79, 70, 229, 0.32);
+}
+
+.sidebar-link[href="/company/add_role"],
+.sidebar-link[href="/company/roles"] {
+    --sidebar-icon-bg: linear-gradient(135deg, #ec4899, #db2777);
+    --sidebar-icon-bg-hover: linear-gradient(135deg, #be185d, #a21caf);
+    --sidebar-icon-shadow: 0 4px 10px rgba(219, 39, 119, 0.26);
+    --sidebar-icon-shadow-hover: 0 6px 12px rgba(162, 28, 175, 0.3);
+}
+
+.sidebar-link[href="/company/attendance/qr"],
+.sidebar-link[href="/company/attendance/reports"] {
+    --sidebar-icon-bg: linear-gradient(135deg, #ef4444, #dc2626);
+    --sidebar-icon-bg-hover: linear-gradient(135deg, #dc2626, #b91c1c);
+    --sidebar-icon-shadow: 0 4px 10px rgba(220, 38, 38, 0.26);
+    --sidebar-icon-shadow-hover: 0 6px 12px rgba(185, 28, 28, 0.32);
+}
+
+.sidebar-link[href="/company/profile"] {
+    --sidebar-icon-bg: linear-gradient(135deg, #22c55e, #16a34a);
+    --sidebar-icon-bg-hover: linear-gradient(135deg, #16a34a, #15803d);
+    --sidebar-icon-shadow: 0 4px 10px rgba(22, 163, 74, 0.26);
+    --sidebar-icon-shadow-hover: 0 6px 12px rgba(21, 128, 61, 0.32);
 }
 
 .sidebar-link::before {
@@ -733,8 +788,8 @@ select option {
 
 .sidebar-link:hover i,
 .sidebar-link.active i {
-    background: linear-gradient(135deg, #174ea6, #0d6efd);
-    box-shadow: 0 6px 12px rgba(13, 110, 253, 0.32);
+    background: var(--sidebar-icon-bg-hover, linear-gradient(135deg, #174ea6, #0d6efd));
+    box-shadow: var(--sidebar-icon-shadow-hover, 0 6px 12px rgba(13, 110, 253, 0.32));
 }
 
 .sidebar-section {

@@ -4,17 +4,15 @@
 
 {% block content %}
 <div class="attendance-reports-page px-4 py-4">
+    <div class="attendance-reports-shell">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
         <div>
             <h1 class="h3 mb-1 fw-bold">Attendance Reports</h1>
-            <p class="text-muted mb-0">Employee attendance analytics and insights</p>
+            <p class="text-muted mb-0">Employee attendance overview</p>
         </div>
         <div class="d-flex gap-2 reports-actions">
-            <button class="btn btn-outline-primary btn-sm" onclick="refreshData()">
-                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
-            </button>
             <button class="btn btn-success btn-sm" onclick="exportAttendance()">
-                <i class="bi bi-download me-1"></i>Export Data
+                <i class="bi bi-download me-1"></i>Export
             </button>
         </div>
     </div>
@@ -48,20 +46,21 @@
 
     <div class="card mb-4">
         <div class="card-body py-3">
+            <h6 class="reports-filter-heading mb-3">Filters</h6>
             <div class="row g-3 align-items-end">
-                <div class="col-12 col-md-3 col-lg-2">
+                <div class="col-12 col-md-6 col-lg-3">
                     <label class="form-label small mb-1">From Date</label>
                     <input type="date" id="dateFrom" class="form-control form-control-sm">
                 </div>
-                <div class="col-12 col-md-3 col-lg-2">
+                <div class="col-12 col-md-6 col-lg-3">
                     <label class="form-label small mb-1">To Date</label>
                     <input type="date" id="dateTo" class="form-control form-control-sm">
                 </div>
-                <div class="col-12 col-md-3 col-lg-3">
+                <div class="col-12 col-md-6 col-lg-3">
                     <label class="form-label small mb-1">Employee ID</label>
                     <input type="text" id="employeeFilter" class="form-control form-control-sm" placeholder="Enter ID">
                 </div>
-                <div class="col-12 col-md-3 col-lg-2">
+                <div class="col-12 col-md-6 col-lg-3">
                     <label class="form-label small mb-1">Status</label>
                     <select id="statusFilter" class="form-select form-select-sm">
                         <option value="">All</option>
@@ -70,11 +69,11 @@
                         <option value="late">Late</option>
                     </select>
                 </div>
-                <div class="col-12 col-lg-3 d-flex justify-content-lg-end gap-2">
-                    <button class="btn btn-primary btn-sm" onclick="applyFilters()">
+                <div class="col-12 d-flex justify-content-lg-end gap-2">
+                    <button class="btn btn-primary btn-sm reports-filter-btn" onclick="applyFilters()">
                         <i class="bi bi-funnel me-1"></i>Apply
                     </button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
+                    <button class="btn btn-outline-secondary btn-sm reports-filter-btn" onclick="clearFilters()">
                         <i class="bi bi-x-circle me-1"></i>Clear
                     </button>
                 </div>
@@ -82,8 +81,8 @@
         </div>
     </div>
 
-    <div class="row g-4">
-        <div class="col-12 col-lg-8">
+    <div class="row g-3">
+        <div class="col-12">
             <div class="card h-100">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-table me-2"></i>Attendance Table</h5>
@@ -120,7 +119,7 @@
                     <div class="text-center py-5">
                         <i class="bi bi-inbox display-1 text-muted opacity-25"></i>
                         <h5 class="text-muted mt-3">No attendance data available</h5>
-                        <p class="text-muted">Records will appear here once employees mark attendance</p>
+                        <p class="text-muted">No records found for the selected filters.</p>
                         {% if total_employees == 0 %}
                         <a href="{{ url_for('company.add_employee') }}" class="btn btn-primary">
                             <i class="bi bi-plus-circle me-2"></i>Add Employee
@@ -131,39 +130,7 @@
                 </div>
             </div>
         </div>
-
-        <div class="col-12 col-lg-4">
-            <div class="card h-100">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Records</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row text-center g-0">
-                        <div class="col-6 pe-2 border-end">
-                            <h3 class="text-success mb-1">{{ today_count }}</h3>
-                            <p class="text-muted small mb-0">Present</p>
-                        </div>
-                        <div class="col-6 ps-2">
-                            <h3 class="text-danger mb-1">{{ (total_employees - today_count) if total_employees >= today_count else 0 }}</h3>
-                            <p class="text-muted small mb-0">Absent</p>
-                        </div>
-                    </div>
-
-                    {% if total_employees > 0 %}
-                    <div class="mt-4">
-                        <div class="d-flex justify-content-between small text-muted mb-2">
-                            <span>Attendance Rate</span>
-                            <span>{{ "%.1f"|format((today_count / total_employees * 100) if total_employees > 0 else 0) }}%</span>
-                        </div>
-                        {% set progress_width = (today_count / total_employees * 100) if total_employees > 0 else 0 %}
-                        <div class="progress" style="height: 6px;">
-                            <div class="progress-bar bg-primary attendance-progress-bar" data-progress="{{ progress_width }}"></div>
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+    </div>
     </div>
 </div>
 
@@ -171,6 +138,11 @@
 .attendance-reports-page {
     background-color: #f8f9fa;
     min-height: calc(100vh - 68px);
+}
+
+.attendance-reports-shell {
+    max-width: 1120px;
+    margin: 0 auto;
 }
 
 .attendance-reports-page .summary-card {
@@ -218,6 +190,26 @@
 
 .attendance-reports-page .reports-actions .btn {
     white-space: nowrap;
+}
+
+.attendance-reports-page .reports-filter-heading {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #374151;
+}
+
+.attendance-reports-page .reports-filter-btn {
+    padding: 6px 12px;
+    font-size: 0.82rem;
+}
+
+.attendance-reports-page .form-control-sm,
+.attendance-reports-page .form-select-sm {
+    min-height: 38px;
+}
+
+.attendance-reports-page .table-responsive {
+    max-height: 520px;
 }
 
 @media (max-width: 768px) {

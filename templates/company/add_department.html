@@ -3,161 +3,66 @@
 {% block title %}Add Department{% endblock %}
 
 {% block content %}
-<div class="panel form-panel">
-    <h2><i class="bi bi-diagram-3 me-2"></i>Add Department</h2>
-    <p>Create a new department for your company to organize your workforce effectively.</p>
+<div class="panel form-panel add-company-panel">
+    <h2>Add Department</h2>
+    <p>Create and manage department options for your company.</p>
 
-    <form method="POST" class="department-form">
-        <div class="form-section">
-            <div class="section-header">
-                <h4><i class="bi bi-building me-2"></i>Department Information</h4>
-                <p class="section-desc">Enter the department details below</p>
+    <form method="POST" class="add-company-form row g-2 add-company-type-form">
+        <div class="col-12 col-lg-8">
+            <label class="form-label required-label" for="department_name">Department Name</label>
+            <div class="company-type-input-row">
+                <input
+                    type="text"
+                    id="department_name"
+                    name="department_name"
+                    class="form-control"
+                    placeholder="e.g. Human Resources, Operations, Finance, IT"
+                    value="{{ request.form.get('department_name', '') }}"
+                    required
+                >
+                <button class="btn btn-small" type="submit">Add Department</button>
             </div>
-            
-            <div class="form-row">
-                <div class="form-group full-width">
-                    <label for="department_name">Department Name <span class="required">*</span></label>
-                    <input type="text" id="department_name" name="department_name" 
-                           placeholder="e.g., Human Resources, Operations, Finance, IT" 
-                           value="{{ request.form.get('department_name', '') }}" required>
-                    <small class="form-help">Enter a unique department name for your company</small>
-                </div>
-            </div>
-        </div>
-
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-2"></i>Add Department
-            </button>
-            <a href="{{ url_for('company.view_departments') }}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-2"></i>Cancel
-            </a>
         </div>
     </form>
+
+    <div class="table-card mt-4 company-types-list-card">
+        <div class="company-types-list-scroll">
+            <table class="companies-table company-types-table">
+                <thead>
+                    <tr>
+                        <th style="width: 90px;">ID</th>
+                        <th>Department</th>
+                        <th style="width: 140px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for department in departments %}
+                    <tr>
+                        <td>{{ department.id }}</td>
+                        <td>{{ department.name }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('company.delete_department', department_id=department.id) }}" onsubmit="return confirm('Delete this department?');">
+                                <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3">No departments added yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
-<style>
-.department-form {
-    width: 100%;
-    max-width: none;
-}
-
-.form-section {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-    backdrop-filter: blur(10px);
-}
-
-.section-header {
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.section-header h4 {
-    margin: 0 0 4px 0;
-    color: var(--primary);
-    font-size: 1.1rem;
-    display: flex;
-    align-items: center;
-}
-
-.section-desc {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.9rem;
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 20px;
-    margin-bottom: 16px;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-}
-
-.form-group.full-width {
-    grid-column: 1 / -1;
-}
-
-.form-group label {
-    margin-bottom: 6px;
-    color: var(--text);
-    font-weight: 500;
-    font-size: 0.9rem;
-}
-
-.required {
-    color: #ff6b6b;
-}
-
-.form-group input {
-    padding: 12px 14px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(0, 0, 0, 0.2);
-    color: var(--text);
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
-}
-
-.form-group input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(95, 139, 255, 0.1);
-    background: rgba(0, 0, 0, 0.3);
-}
-
-.form-help {
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 0.8rem;
-}
-
-.form-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-start;
-    margin-top: 32px;
-    padding-top: 24px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, var(--primary), var(--primary-2));
-    padding: 12px 24px;
-    font-weight: 600;
-}
-
-.btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: var(--text);
-    padding: 12px 24px;
-    text-decoration: none;
-    border-radius: 10px;
-    transition: all 0.3s ease;
-    display: inline-flex;
-    align-items: center;
-}
-
-.btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: var(--text);
-    text-decoration: none;
-}
-
-@media (max-width: 768px) {
-    .form-actions {
-        flex-direction: column;
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        mainContent.classList.add('company-types-only-scroll');
     }
-}
-</style>
+});
+</script>
 {% endblock %}

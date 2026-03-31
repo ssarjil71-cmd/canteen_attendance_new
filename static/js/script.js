@@ -3,6 +3,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const menuToggle = document.getElementById('menuToggle');
     const sidebar = document.querySelector('.sidebar');
     const container = document.querySelector('.container-fluid');
+    const sidebarScrollKey = 'sidebarScrollTop';
+
+    if (sidebar) {
+        // Restore last sidebar scroll position on each page load.
+        const savedSidebarScroll = sessionStorage.getItem(sidebarScrollKey);
+        if (savedSidebarScroll !== null) {
+            sidebar.scrollTop = parseInt(savedSidebarScroll, 10) || 0;
+        }
+
+        // Persist sidebar scroll as the user scrolls.
+        sidebar.addEventListener('scroll', function() {
+            sessionStorage.setItem(sidebarScrollKey, String(sidebar.scrollTop));
+        });
+    }
     
     // Create overlay for mobile
     const overlay = document.createElement('div');
@@ -42,6 +56,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const currentPath = normalizePath(window.location.pathname);
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
+
+    // Save current sidebar position right before navigating via sidebar links.
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            if (sidebar) {
+                sessionStorage.setItem(sidebarScrollKey, String(sidebar.scrollTop));
+            }
+        });
+    });
     
     sidebarLinks.forEach(link => {
         const linkPath = normalizePath(link.getAttribute('href'));

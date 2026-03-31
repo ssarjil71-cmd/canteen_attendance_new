@@ -3,7 +3,7 @@ from database.db_connection import get_db_connection
 
 employee_bp = Blueprint("employee", __name__, url_prefix="/employee")
 
-@employee_bp.route("/register", methods=["GET", "POST"])
+@employee_bp.route("/self-register", methods=["GET", "POST"])
 def employee_register():
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)

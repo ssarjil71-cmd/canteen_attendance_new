@@ -7,11 +7,11 @@
 {% block title %}Add Employee{% endblock %}
 
 {% block content %}
-<div class="panel form-panel add-employee-panel">
+<div class="panel form-panel add-employee-panel {% if minimal %}minimal-registration-panel{% endif %}">
     <div class="panel-header">
         <div class="panel-title">
-            <h2><i class="bi bi-person-plus me-2"></i>Add Employee</h2>
-            <p>Create a comprehensive employee profile for your company workforce management.</p>
+            <h2><i class="bi bi-person-plus me-2"></i>{% if minimal %}Employee Self Registration{% else %}Add Employee{% endif %}</h2>
+            <p>{% if minimal %}Fill your basic and personal details to submit your registration request.{% else %}Create a comprehensive employee profile for your company workforce management.{% endif %}</p>
             {% if minimal and company_name %}
                 <div class="company-name mb-2 mt-2 text-center">
                     <span class="fw-bold fs-5">{{ company_name }}</span>
@@ -20,14 +20,17 @@
         </div>
         {% if not minimal %}
         <div class="panel-actions">
-            <button class="btn btn-outline-primary generate-qr-btn" title="Generate Registration QR Code">
-                <i class="bi bi-qr-code me-2"></i>Generate Registration QR
+            <button class="btn btn-outline-primary generate-qr-btn" title="Employee Registration QR Code">
+                <i class="bi bi-qr-code me-2"></i>Employee Registration QR
             </button>
         </div>
         {% endif %}
     </div>
 
     <form method="POST" class="employee-form">
+        {% if minimal and company_id %}
+        <input type="hidden" name="company_id" value="{{ company_id }}">
+        {% endif %}
         
         <!-- SECTION 1: Basic Information -->
         <div class="form-section">
@@ -40,13 +43,13 @@
                 <div class="form-group">
                     <label for="name">Full Name <span class="required">*</span></label>
                     <input type="text" id="name" name="name" 
-                           placeholder="Enter employee's full name" 
+                           placeholder="Enter full name" 
                            value="{{ request.form.get('name', '') }}" required>
                 </div>
                 <div class="form-group">
                     <label for="emp_id">Employee ID <span class="required">*</span></label>
                     <input type="text" id="emp_id" name="emp_id" 
-                           placeholder="EMP001" 
+                           placeholder="Enter employee ID" 
                            value="{{ request.form.get('emp_id', '') }}" required>
                 </div>
             </div>
@@ -55,16 +58,16 @@
                 <div class="form-group">
                     <label for="email">Email Address</label>
                     <input type="email" id="email" name="email" 
-                           placeholder="employee@company.com" 
+                           placeholder="Enter email address" 
                            value="{{ request.form.get('email', '') }}">
                 </div>
                 <div class="form-group">
-                    <label for="phone">Phone Number</label>
+                    <label for="phone">Phone Number <span class="required">*</span></label>
                     <input type="tel" id="phone" name="phone" 
-                           placeholder="7722021558" 
+                           placeholder="Enter mobile number" 
                            maxlength="10"
                            pattern="[0-9]{10}"
-                           value="{{ request.form.get('phone', '') }}">
+                           value="{{ request.form.get('phone', '') }}" required>
                     <small class="form-text text-muted">Enter 10-digit phone number (numbers only)</small>
                 </div>
             </div>
@@ -90,19 +93,21 @@
                 <div class="form-group">
                     <label for="dob">Date of Birth <span class="required">*</span></label>
                     <input type="date" id="dob" name="dob" 
+                           placeholder="Select date of birth"
                            value="{{ request.form.get('dob', '') }}" required>
                 </div>
             </div>
             
             <div class="form-row">
                 <div class="form-group full-width">
-                    <label for="address">Address</label>
+                    <label for="address">Address <span class="required">*</span></label>
                     <textarea id="address" name="address" rows="3" 
-                              placeholder="Enter complete address">{{ request.form.get('address', '') }}</textarea>
+                              placeholder="Enter address" required>{{ request.form.get('address', '') }}</textarea>
                 </div>
             </div>
         </div>
 
+        {% if not minimal %}
         <!-- SECTION 3: Work Details -->
         <div class="form-section">
             <div class="section-header">
@@ -129,17 +134,17 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="role">Job Position</label>
+                    <label for="role">Job Position <span class="required">*</span></label>
                     <input type="text" id="role" name="role" 
-                           placeholder="e.g., Software Engineer, Sales Executive" 
-                           value="{{ request.form.get('role', '') }}">
+                           placeholder="Enter job position" 
+                           value="{{ request.form.get('role', '') }}" required>
                 </div>
             </div>
             
             <div class="form-row">
                 <div class="form-group">
-                    <label for="department_id">Department</label>
-                    <select id="department_id" name="department_id">
+                    <label for="department_id">Department <span class="required">*</span></label>
+                    <select id="department_id" name="department_id" required>
                         <option value="">Select Department</option>
                         {% for department in departments %}
                         <option value="{{ department.id }}" 
@@ -150,8 +155,8 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="shift_id">Shift</label>
-                    <select id="shift_id" name="shift_id">
+                    <label for="shift_id">Shift <span class="required">*</span></label>
+                    <select id="shift_id" name="shift_id" required>
                         <option value="">Select Shift</option>
                         {% for shift in shifts %}
                         <option value="{{ shift.id }}" 
@@ -167,22 +172,27 @@
             </div>
             
             <div class="form-row">
-                <div class="form-group">
+                <div class="form-group joining-date-group">
                     <label for="joining_date">Joining Date <span class="required">*</span></label>
                     <input type="date" id="joining_date" name="joining_date" 
+                           placeholder="Select joining date"
                            value="{{ request.form.get('joining_date', '') }}" required>
-                </div>
-                <div class="form-group">
-                    <!-- Empty space for alignment -->
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- SECTION 4: Selfie Capture -->
         <div class="form-section">
             <div class="section-header">
-                <h4><i class="bi bi-camera me-2"></i>Face Recognition Setup (Optional)</h4>
-                <p class="section-desc">Capture employee photo for attendance face verification (optional - can be added later)</p>
+                <h4><i class="bi bi-camera me-2"></i>Face Recognition Setup {% if minimal %}<span class="required">*</span>{% endif %}</h4>
+                <p class="section-desc">
+                    {% if minimal %}
+                    Capture your face photo to complete self-registration.
+                    {% else %}
+                    Capture employee photo for attendance face verification (optional - can be added later).
+                    {% endif %}
+                </p>
             </div>
             
             <div class="selfie-capture-container">
@@ -192,19 +202,19 @@
                     <div id="faceGuideCircle" class="face-guide-circle"></div>
                     <div id="cameraPlaceholder" class="camera-placeholder">
                         <i class="bi bi-camera-fill"></i>
-                        <p>Click "Start Camera" to begin face capture</p>
+                        <p>Tap "Start Face Camera" to begin face capture</p>
                     </div>
                 </div>
                 
                 <div class="camera-controls">
                     <button type="button" id="startCameraBtn" class="btn btn-primary">
-                        <i class="bi bi-camera-video me-2"></i>Start Camera
+                        <i class="bi bi-camera-video me-2"></i>{% if minimal %}Start Face Camera{% else %}Start Camera{% endif %}
                     </button>
                     <button type="button" id="captureBtn" class="btn btn-success" style="display: none;">
-                        <i class="bi bi-camera me-2"></i>Capture Photo
+                        <i class="bi bi-camera me-2"></i>{% if minimal %}Capture Face Photo{% else %}Capture Photo{% endif %}
                     </button>
                     <button type="button" id="retakeBtn" class="btn btn-warning" style="display: none;">
-                        <i class="bi bi-arrow-clockwise me-2"></i>Retake
+                        <i class="bi bi-arrow-clockwise me-2"></i>{% if minimal %}Retake Photo{% else %}Retake{% endif %}
                     </button>
                 </div>
                 
@@ -223,11 +233,13 @@
         <!-- Submit Button -->
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">
-                <i class="bi bi-person-plus me-2"></i>Add Employee
+                <i class="bi bi-person-plus me-2"></i>{% if minimal %}Complete Registration{% else %}Add Employee{% endif %}
             </button>
+            {% if not minimal %}
             <a href="{{ url_for('company.view_employees') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-2"></i>Cancel
             </a>
+            {% endif %}
         </div>
     </form>
 </div>
@@ -235,9 +247,36 @@
 <style>
 .add-employee-panel {
     width: 100%;
-    margin-left: 0;
-    margin-right: auto;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 26px;
+    background: #ffffff;
+    border: 1px solid #d7e0ee;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(17, 44, 82, 0.08);
+}
+
+.minimal-registration-panel {
+    max-width: 760px;
+    border: 1.5px solid #c7d7eb;
+}
+
+.minimal-registration-panel .panel-title {
+    width: 100%;
+    text-align: center;
+}
+
+.minimal-registration-panel .panel-title p {
     max-width: 100%;
+    font-size: 0.95rem;
+}
+
+.minimal-registration-panel .form-actions {
+    justify-content: center;
+}
+
+.minimal-registration-panel .form-actions .btn-primary {
+    min-width: 240px;
 }
 
 .employee-form {
@@ -249,15 +288,16 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
     border-bottom: 1px solid var(--border);
 }
 
 .panel-title h2 {
     margin: 0 0 8px 0;
-    color: var(--text);
+    color: #000;
     font-size: 1.5rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
 }
@@ -265,29 +305,31 @@
 .panel-title p {
     margin: 0;
     color: var(--muted);
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+    max-width: 700px;
 }
 
 .form-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 2px 8px var(--shadow);
+    background: #f9fbff;
+    border: 1px solid #d7e1f0;
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .section-header {
-    margin-bottom: 20px;
-    padding-bottom: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--border);
 }
 
 .section-header h4 {
     margin: 0 0 4px 0;
-    color: var(--primary);
-    font-size: 1.1rem;
+    color: #000;
+    font-size: 1.05rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
 }
@@ -295,14 +337,14 @@
 .section-desc {
     margin: 0;
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: 0.86rem;
 }
 
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 16px;
+    gap: 14px;
+    margin-bottom: 12px;
 }
 
 .form-row:last-child {
@@ -319,10 +361,10 @@
 }
 
 .form-group label {
-    margin-bottom: 6px;
-    color: var(--text);
-    font-weight: 500;
-    font-size: 0.9rem;
+    margin-bottom: 4px;
+    color: #000;
+    font-weight: 700;
+    font-size: 1.02rem;
 }
 
 .required {
@@ -332,31 +374,78 @@
 .form-group input,
 .form-group select,
 .form-group textarea {
-    padding: 12px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
+    padding: 11px 12px;
+    border-radius: 10px;
+    border: 1.5px solid #b6c5dc;
+    background: #ffffff;
+    color: #1f2937;
+    font-size: 0.94rem;
+    line-height: 1.2;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+
+.form-group input:hover,
+.form-group select:hover,
+.form-group textarea:hover {
+    border-color: #8fa7c8;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: #6c757d;
+    opacity: 1;
+}
+
+.form-group select,
+.form-group select option {
+    color: #1f2937;
+}
+
+.form-group input[type="date"] {
+    color: #1f2937;
+}
+
+.form-group input[type="date"]::-webkit-datetime-edit,
+.form-group input[type="date"]::-webkit-datetime-edit-text,
+.form-group input[type="date"]::-webkit-datetime-edit-month-field,
+.form-group input[type="date"]::-webkit-datetime-edit-day-field,
+.form-group input[type="date"]::-webkit-datetime-edit-year-field {
+    color: #1f2937;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
-    background: var(--surface);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    background: #ffffff;
 }
 
-.form-group input:invalid {
-    border-color: #dc3545;
+.form-group input:invalid:not(:placeholder-shown),
+.form-group textarea:invalid:not(:placeholder-shown) {
+    border-color: #e11d48;
 }
 
-.form-group input:invalid:focus {
-    border-color: #dc3545;
-    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+.form-group input:invalid:not(:placeholder-shown):focus,
+.form-group select:invalid:focus,
+.form-group textarea:invalid:not(:placeholder-shown):focus {
+    border-color: #e11d48;
+    box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.12);
+}
+
+.form-group input:-webkit-autofill,
+.form-group input:-webkit-autofill:hover,
+.form-group input:-webkit-autofill:focus,
+.form-group textarea:-webkit-autofill,
+.form-group select:-webkit-autofill {
+    -webkit-text-fill-color: #1f2937;
+    box-shadow: 0 0 0 1000px #ffffff inset;
+    border: 1.5px solid #b6c5dc;
+}
+
+.joining-date-group {
+    max-width: 360px;
 }
 
 .form-text {
@@ -371,7 +460,7 @@
 
 .form-group textarea {
     resize: vertical;
-    min-height: 80px;
+    min-height: 72px;
 }
 
 .form-group select {
@@ -387,22 +476,51 @@
     display: flex;
     gap: 12px;
     justify-content: flex-start;
-    margin-top: 32px;
-    padding-top: 24px;
+    margin-top: 20px;
+    padding-top: 14px;
     border-top: 1px solid var(--border);
 }
 
 .btn-primary {
     background: linear-gradient(135deg, var(--primary), var(--primary-2));
-    padding: 12px 24px;
+    padding: 11px 16px;
     font-weight: 600;
+}
+
+.minimal-registration-panel .camera-controls .btn,
+.minimal-registration-panel .form-actions .btn-primary {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.minimal-registration-panel .camera-controls #startCameraBtn,
+.minimal-registration-panel .form-actions .btn-primary {
+    background: #2563eb;
+    border: 1px solid #1d4ed8;
+}
+
+.minimal-registration-panel .camera-controls #startCameraBtn:hover,
+.minimal-registration-panel .form-actions .btn-primary:hover {
+    background: #1d4ed8;
+    border-color: #1e40af;
+}
+
+.minimal-registration-panel .camera-controls #captureBtn {
+    background: #16a34a;
+    border: 1px solid #15803d;
+}
+
+.minimal-registration-panel .camera-controls #retakeBtn {
+    background: #f59e0b;
+    border: 1px solid #d97706;
+    color: #111827;
 }
 
 .btn-secondary {
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 12px 24px;
+    padding: 11px 16px;
     text-decoration: none;
     border-radius: 10px;
     transition: all 0.3s ease;
@@ -418,17 +536,31 @@
 }
 
 @media (max-width: 768px) {
+    .add-employee-panel {
+        padding: 18px;
+        border-radius: 14px;
+    }
+
     .form-row {
         grid-template-columns: 1fr;
-        gap: 16px;
+        gap: 10px;
     }
     
     .form-section {
-        padding: 20px;
+        padding: 14px;
     }
     
     .form-actions {
         flex-direction: column;
+    }
+
+    .minimal-registration-panel {
+        max-width: 100%;
+    }
+
+    .minimal-registration-panel .form-actions .btn-primary {
+        width: 100%;
+        min-width: 0;
     }
 }
 
@@ -437,17 +569,17 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 14px;
 }
 
 .camera-preview-wrapper {
     position: relative;
-    width: 320px;
-    height: 240px;
-    border-radius: 12px;
+    width: 300px;
+    height: 225px;
+    border-radius: 10px;
     overflow: hidden;
-    background: #f8f9fa;
-    border: 2px solid var(--border);
+    background: #f3f6fb;
+    border: 1px dashed #b8c8de;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -464,9 +596,9 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 180px;
-    height: 180px;
-    border: 3px solid rgba(13, 110, 253, 0.8);
+    width: 160px;
+    height: 160px;
+    border: 2px solid rgba(13, 110, 253, 0.75);
     border-radius: 50%;
     pointer-events: none;
     z-index: 10;
@@ -479,8 +611,8 @@
 }
 
 .camera-placeholder i {
-    font-size: 3rem;
-    margin-bottom: 12px;
+    font-size: 2.6rem;
+    margin-bottom: 8px;
     display: block;
 }
 
@@ -491,9 +623,14 @@
 
 .camera-controls {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     flex-wrap: wrap;
     justify-content: center;
+}
+
+.camera-controls .btn {
+    padding: 9px 14px;
+    font-size: 0.9rem;
 }
 
 .captured-image-preview {
@@ -501,21 +638,35 @@
 }
 
 .captured-image-preview img {
-    width: 200px;
-    height: 150px;
+    width: 190px;
+    height: 142px;
     object-fit: cover;
     border-radius: 8px;
-    border: 2px solid var(--success);
-    margin-bottom: 12px;
+    border: 1px solid var(--success);
+    margin-bottom: 8px;
 }
 
 .image-status {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     color: var(--success);
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .camera-preview-wrapper {
+        width: 100%;
+        max-width: 260px;
+        height: 195px;
+    }
+
+    .captured-image-preview img {
+        width: 150px;
+        height: 112px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -542,6 +693,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const isMinimalRegistration = {{ 'true' if minimal else 'false' }};
     const form = document.querySelector('.employee-form');
     const submitBtn = form.querySelector('button[type="submit"]');
     
@@ -549,12 +701,12 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
         // Disable submit button to prevent double submission
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding Employee...';
+        submitBtn.innerHTML = `<i class="bi bi-hourglass-split me-2"></i>${isMinimalRegistration ? 'Submitting...' : 'Adding Employee...'}`;
         
         // Re-enable button after 3 seconds in case of error
         setTimeout(() => {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="bi bi-person-plus me-2"></i>Add Employee';
+            submitBtn.innerHTML = `<i class="bi bi-person-plus me-2"></i>${isMinimalRegistration ? 'Complete Registration' : 'Add Employee'}`;
         }, 3000);
     });
     
@@ -691,10 +843,14 @@ document.addEventListener('DOMContentLoaded', function() {
         cameraPlaceholder.style.display = 'flex';
     });
     
-    // Form validation - selfie capture is optional
+    // Minimal QR registration requires face capture.
     form.addEventListener('submit', function(e) {
-        // Selfie capture is optional - no validation needed
-        // The backend will handle cases where face recognition is not available
+        if (isMinimalRegistration && !faceImageData.value) {
+            e.preventDefault();
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-person-plus me-2"></i>Complete Registration';
+            alert('Face photo is required for employee self-registration.');
+        }
     });
 });
 </script>

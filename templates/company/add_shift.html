@@ -5,22 +5,21 @@
 {% block content %}
 <div class="panel form-panel">
     <h2><i class="bi bi-clock-history me-2"></i>Add Shift</h2>
-    <p>Create a new work shift schedule for your company to manage employee working hours.</p>
+    <p>Create a shift schedule for your company.</p>
 
     <form method="POST" class="shift-form">
         <div class="form-section">
             <div class="section-header">
                 <h4><i class="bi bi-clock me-2"></i>Shift Information</h4>
-                <p class="section-desc">Define the shift name and working hours</p>
+                <p class="section-desc">Define shift name and working hours.</p>
             </div>
             
             <div class="form-row">
                 <div class="form-group full-width">
                     <label for="shift_name">Shift Name <span class="required">*</span></label>
                     <input type="text" id="shift_name" name="shift_name" 
-                           placeholder="e.g., Morning Shift, Evening Shift, Night Shift" 
+                              placeholder="Enter shift name" 
                            value="{{ request.form.get('shift_name', '') }}" required>
-                    <small class="form-help">Enter a unique shift name for your company</small>
                 </div>
             </div>
             
@@ -29,13 +28,11 @@
                     <label for="start_time">Start Time <span class="required">*</span></label>
                     <input type="time" id="start_time" name="start_time" 
                            value="{{ request.form.get('start_time', '') }}" required>
-                    <small class="form-help">When does this shift begin?</small>
                 </div>
                 <div class="form-group">
                     <label for="end_time">End Time <span class="required">*</span></label>
                     <input type="time" id="end_time" name="end_time" 
                            value="{{ request.form.get('end_time', '') }}" required>
-                    <small class="form-help">When does this shift end?</small>
                 </div>
             </div>
             
@@ -76,24 +73,25 @@
 }
 
 .form-section {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: #ffffff;
+    border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-    backdrop-filter: blur(10px);
+    padding: 20px;
+    margin-bottom: 18px;
+    backdrop-filter: blur(8px);
 }
 
 .section-header {
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
 }
 
 .section-header h4 {
     margin: 0 0 4px 0;
-    color: var(--primary);
-    font-size: 1.1rem;
+    color: #000;
+    font-size: 1rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
 }
@@ -101,14 +99,14 @@
 .section-desc {
     margin: 0;
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: 0.86rem;
 }
 
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 16px;
+    gap: 16px;
+    margin-bottom: 14px;
 }
 
 .form-group {
@@ -122,9 +120,9 @@
 
 .form-group label {
     margin-bottom: 6px;
-    color: var(--text);
-    font-weight: 500;
-    font-size: 0.9rem;
+    color: #000;
+    font-weight: 700;
+    font-size: 0.92rem;
 }
 
 .required {
@@ -132,47 +130,46 @@
 }
 
 .form-group input {
-    padding: 12px 14px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(0, 0, 0, 0.2);
-    color: var(--text);
-    font-size: 0.95rem;
+    padding: 11px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: #6c757d;
+    font-size: 0.92rem;
     transition: all 0.3s ease;
+}
+
+.form-group input::placeholder {
+    color: #6c757d;
+    opacity: 1;
 }
 
 .form-group input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(95, 139, 255, 0.1);
-    background: rgba(0, 0, 0, 0.3);
-}
-
-.form-help {
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 0.8rem;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+    background: #ffffff;
 }
 
 .shift-preview {
-    margin-top: 24px;
-    padding: 16px;
-    background: rgba(95, 139, 255, 0.1);
-    border: 1px solid rgba(95, 139, 255, 0.2);
-    border-radius: 8px;
+    margin-top: 18px;
+    padding: 14px;
+    background: #f8fbff;
+    border: 1px solid rgba(13, 110, 253, 0.15);
+    border-radius: 10px;
 }
 
 .shift-preview h5 {
     margin: 0 0 12px 0;
-    color: var(--primary);
-    font-size: 0.95rem;
+    color: #174ea6;
+    font-size: 0.9rem;
     display: flex;
     align-items: center;
 }
 
 .preview-content {
     display: grid;
-    gap: 8px;
+    gap: 10px;
 }
 
 .preview-item {
@@ -194,24 +191,24 @@
 
 .form-actions {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     justify-content: flex-start;
-    margin-top: 32px;
-    padding-top: 24px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
 }
 
 .btn-primary {
     background: linear-gradient(135deg, var(--primary), var(--primary-2));
-    padding: 12px 24px;
+    padding: 10px 16px;
     font-weight: 600;
 }
 
 .btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #ffffff;
+    border: 1px solid var(--border);
     color: var(--text);
-    padding: 12px 24px;
+    padding: 10px 16px;
     text-decoration: none;
     border-radius: 10px;
     transition: all 0.3s ease;
@@ -220,14 +217,16 @@
 }
 
 .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(13, 110, 253, 0.08);
     color: var(--text);
     text-decoration: none;
+    border-color: var(--primary);
 }
 
 @media (max-width: 768px) {
     .form-row {
         grid-template-columns: 1fr;
+        gap: 12px;
     }
     
     .form-actions {

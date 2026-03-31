@@ -4,6 +4,7 @@
 
 {% block content %}
 <div class="attendance-qr-page px-4 py-4">
+    <div class="attendance-qr-shell">
     <!-- 1. Top Section: Title + Buttons -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -22,8 +23,8 @@
 
     <!-- 2. QR Code Section (Centered) -->
     <div class="row justify-content-center mb-4">
-        <div class="col-md-6 col-lg-5">
-            <div class="card shadow-sm rounded-3 p-4 text-center position-relative">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm rounded-3 p-3 text-center position-relative">
                 <!-- Active Badge -->
                 <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success">
                     <i class="bi bi-check-circle-fill me-1"></i>Active
@@ -38,7 +39,7 @@
 
     <!-- 3. Attendance Link Section -->
     <div class="row justify-content-center mb-5">
-        <div class="col-md-8 col-lg-6">
+        <div class="col-md-8 col-lg-5">
             <div class="card shadow-sm rounded-3 p-3">
                 <h6 class="text-center text-muted mb-3">Attendance Portal Link</h6>
                 <div class="input-group">
@@ -53,12 +54,12 @@
     </div>
 
     <!-- 4. How to Use Section (Bottom - 3 Cards in Row) -->
-    <div class="mt-5">
-        <h4 class="text-center mb-4 fw-bold">How to Use</h4>
-        <div class="row g-4">
+    <div class="mt-4">
+        <h4 class="text-center mb-3 fw-bold">How to Use</h4>
+        <div class="row g-3">
             <!-- Card 1: Display QR Code -->
             <div class="col-md-4">
-                <div class="card h-100 shadow-sm rounded-3 text-center p-4 hover-card">
+                <div class="card h-100 shadow-sm rounded-3 text-center p-3 hover-card">
                     <div class="card-icon mb-3">
                         <i class="bi bi-display fs-1 text-primary"></i>
                     </div>
@@ -69,7 +70,7 @@
 
             <!-- Card 2: Employee Scanning -->
             <div class="col-md-4">
-                <div class="card h-100 shadow-sm rounded-3 text-center p-4 hover-card">
+                <div class="card h-100 shadow-sm rounded-3 text-center p-3 hover-card">
                     <div class="card-icon mb-3">
                         <i class="bi bi-phone fs-1 text-success"></i>
                     </div>
@@ -80,7 +81,7 @@
 
             <!-- Card 3: Mark Attendance -->
             <div class="col-md-4">
-                <div class="card h-100 shadow-sm rounded-3 text-center p-4 hover-card">
+                <div class="card h-100 shadow-sm rounded-3 text-center p-3 hover-card">
                     <div class="card-icon mb-3">
                         <i class="bi bi-check-circle fs-1 text-warning"></i>
                     </div>
@@ -96,6 +97,7 @@
             </div>
         </div>
     </div>
+    </div>
 </div>
 
 <style>
@@ -103,6 +105,11 @@
 .attendance-qr-page {
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     min-height: calc(100vh - 68px);
+}
+
+.attendance-qr-shell {
+    max-width: 1120px;
+    margin: 0 auto;
 }
 
 /* Header Styling */
@@ -120,6 +127,15 @@
 
 .card.shadow-sm {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+.hover-card .card-title {
+    font-size: 1rem;
+}
+
+.hover-card .card-text {
+    font-size: 0.9rem;
+    margin-bottom: 0;
 }
 
 /* Gradient Headers */
@@ -349,6 +365,10 @@
     
     .d-flex.gap-2 .btn {
         width: 100%;
+    }
+
+    .attendance-qr-shell {
+        max-width: 100%;
     }
     
     .step-item {
