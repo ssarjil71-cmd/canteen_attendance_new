@@ -1,0 +1,835 @@
+{% extends "base.html" %}
+
+{% block title %}Company Profile{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <!-- Page Header -->
+    <div class="panel-header">
+        <div>
+            <h2>
+                <i class="bi bi-building-gear me-2"></i>Company Profile
+            </h2>
+            <p>Manage your company information and settings</p>
+        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+            <i class="bi bi-pencil-square me-2"></i>Edit Profile
+        </button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="profile-content">
+        <!-- Company Header Card -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card company-header-card">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <div class="company-avatar">
+                                    {% if company.logo %}
+                                        <img src="/static/uploads/logos/{{ company.logo }}" 
+                                             alt="Company Logo" 
+                                             class="avatar-img">
+                                    {% else %}
+                                        <div class="avatar-placeholder">
+                                            <i class="bi bi-building"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col">
+                                <h2 class="company-name">{{ company.company_name }}</h2>
+                                <div class="company-status mt-2">
+                                    <span class="status-badge status-{{ (company.status or 'active') }}">
+                                        <i class="bi bi-{{ 'check-circle-fill' if (company.status or 'active') == 'active' else 'x-circle-fill' }}"></i>
+                                        {{ (company.status or 'active')|title }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Grid -->
+        <div class="row g-4">
+            <!-- Company Information -->
+            <div class="col-lg-8">
+                <div class="card info-card">
+                    <div class="card-header">
+                        <h5 class="card-title">
+                            <i class="bi bi-info-circle me-2"></i>Company Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-grid">
+                            <div class="info-row">
+                                <div class="info-item">
+                                    <label class="info-label">Company Name</label>
+                                    <div class="info-value">{{ company.company_name or '-' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label class="info-label">Company Type</label>
+                                    <div class="info-value">{{ company.company_type_name or '-' }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="info-row">
+                                <div class="info-item">
+                                    <label class="info-label">Email Address</label>
+                                    <div class="info-value">{{ company.email or '-' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label class="info-label">Phone Number</label>
+                                    <div class="info-value">{{ company.phone or '-' }}</div>
+                                </div>
+                            </div>
+
+                            <div class="info-row">
+                                <div class="info-item">
+                                    <label class="info-label">GST Number</label>
+                                    <div class="info-value">{{ company.gst_number or '-' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label class="info-label">Company ID</label>
+                                    <div class="info-value">{{ company.company_code if company.company_code else '-' }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="info-row">
+                                <div class="info-item full-width">
+                                    <label class="info-label">Address</label>
+                                    <div class="info-value">{{ company.address or '-' }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="info-row">
+                                <div class="info-item full-width">
+                                    <label class="info-label">Registration Date</label>
+                                    <div class="info-value">
+                                        {% if company.created_at %}
+                                            {{ company.created_at.strftime('%B %d, %Y') }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Location Settings -->
+            <div class="col-lg-4">
+                <div class="card location-card">
+                    <div class="card-header">
+                        <h5 class="card-title">
+                            <i class="bi bi-geo-alt me-2"></i>Location Settings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if company.latitude and company.longitude %}
+                            <div class="location-status configured">
+                                <div class="status-icon">
+                                    <i class="bi bi-geo-alt-fill"></i>
+                                </div>
+                                <div class="status-content">
+                                    <h6>Location Configured</h6>
+                                    <p class="text-muted small mb-0">Attendance verification enabled</p>
+                                </div>
+                            </div>
+                            
+                            <div class="location-details">
+                                <div class="detail-row">
+                                    <span class="detail-label">Latitude:</span>
+                                    <span class="detail-value">{{ "%.6f"|format(company.latitude) }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Longitude:</span>
+                                    <span class="detail-value">{{ "%.6f"|format(company.longitude) }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Radius:</span>
+                                    <span class="detail-value">{{ company.radius or 100 }} meters</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="location-status not-configured">
+                                <div class="status-icon">
+                                    <i class="bi bi-geo-alt"></i>
+                                </div>
+                                <div class="status-content">
+                                    <h6>Location Not Set</h6>
+                                    <p class="text-muted small mb-0">Configure location for attendance verification</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        <button type="button" class="btn btn-primary w-100 mt-3" data-bs-toggle="modal" data-bs-target="#locationModal">
+                            <i class="bi bi-geo-alt me-2"></i>
+                            {% if company.latitude and company.longitude %}Update Location{% else %}Set Location{% endif %}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card location-card mt-4">
+                    <div class="card-header">
+                        <h5 class="card-title">
+                            <i class="bi bi-grid me-2"></i>Enabled Modules
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="location-details">
+                            <div class="detail-row">
+                                <span class="detail-label">Attendance</span>
+                                <span class="module-chip {{ 'enabled' if company.attendance_module_enabled else 'disabled' }}">
+                                    {{ 'Enabled' if company.attendance_module_enabled else 'Disabled' }}
+                                </span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Canteen</span>
+                                <span class="module-chip {{ 'enabled' if company.canteen_module_enabled else 'disabled' }}">
+                                    {{ 'Enabled' if company.canteen_module_enabled else 'Disabled' }}
+                                </span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Salary Slip</span>
+                                <span class="module-chip {{ 'enabled' if company.salary_slip_module_enabled else 'disabled' }}">
+                                    {{ 'Enabled' if company.salary_slip_module_enabled else 'Disabled' }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Location Setting Modal -->
+<div class="modal fade" id="locationModal" tabindex="-1" aria-labelledby="locationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="locationModalLabel">
+                    <i class="bi bi-geo-alt me-2"></i>Set Company Location
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('company.update_location') }}">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Location-based Attendance:</strong> Set your company's location to ensure employees can only mark attendance when they are physically present at your workplace.
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="latitude" class="form-label">Latitude *</label>
+                            <input type="number" class="form-control" id="latitude" name="latitude" 
+                                   step="0.000001" min="-90" max="90" 
+                                   value="{{ company.latitude or '' }}" required>
+                            <div class="form-text">Example: 18.469283</div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="longitude" class="form-label">Longitude *</label>
+                            <input type="number" class="form-control" id="longitude" name="longitude" 
+                                   step="0.000001" min="-180" max="180" 
+                                   value="{{ company.longitude or '' }}" required>
+                            <div class="form-text">Example: 73.860551</div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="radius" class="form-label">Allowed Radius (meters)</label>
+                            <input type="number" class="form-control" id="radius" name="radius" 
+                                   min="50" max="1000" value="{{ company.radius or 100 }}">
+                            <div class="form-text">Default: 100 meters</div>
+                        </div>
+                        
+                        <div class="col-md-6 d-flex align-items-end">
+                            <button type="button" class="btn btn-success w-100" id="getCurrentLocation">
+                                <i class="bi bi-crosshair me-2"></i>Use Current Location
+                            </button>
+                        </div>
+                        
+                        <div class="col-12">
+                            <div class="location-status" id="locationStatus" style="display: none;">
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    <span id="locationStatusText">Location detected successfully!</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="bi bi-lightbulb me-2"></i>How to get coordinates:
+                                    </h6>
+                                    <ul class="mb-0 small">
+                                        <li>Click "Use Current Location" if you're at your company premises</li>
+                                        <li>Or use Google Maps: Right-click on your location → Copy coordinates</li>
+                                        <li>Or search online: "What are the coordinates of [your address]"</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-geo-alt me-2"></i>Save Location
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editProfileModalLabel">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Company Profile
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('company.update_profile') }}">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label for="email" class="form-label">Email Address *</label>
+                            <input type="email" class="form-control" id="email" name="email"
+                                   value="{{ company.email }}" required>
+                            <div class="form-text">This email is used for company login and is visible in admin company details.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="new_password" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password"
+                                   minlength="6" autocomplete="new-password">
+                            <div class="form-text">Leave blank if you do not want to change password.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="confirm_password" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                                   minlength="6" autocomplete="new-password">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Update Profile
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Company Profile Styles - Integrated with Base Layout */
+.profile-content {
+    width: 100%;
+}
+
+.panel-header h2 {
+    color: #111827;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+.panel-header p {
+    color: #6b7280;
+}
+
+#editProfileModal .modal-content {
+    background: #ffffff;
+    opacity: 1;
+    backdrop-filter: none;
+    border-radius: 14px;
+}
+
+#editProfileModal .modal-dialog {
+    max-width: 640px;
+}
+
+#editProfileModal .modal-header,
+#editProfileModal .modal-body,
+#editProfileModal .modal-footer {
+    background: #ffffff;
+}
+
+#editProfileModal .modal-header {
+    padding: 1rem 1.25rem;
+}
+
+#editProfileModal .modal-body {
+    padding: 1rem 1.25rem;
+}
+
+#editProfileModal .modal-footer {
+    padding: 0.85rem 1.25rem;
+}
+
+#editProfileModal .form-control {
+    padding: 0.6rem 0.85rem;
+}
+
+#editProfileModal .form-text {
+    margin-top: 0.3rem;
+    font-size: 0.875rem;
+}
+
+#editProfileModal .btn {
+    padding: 0.5rem 1rem;
+}
+
+/* Company Header Card */
+.company-header-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+    overflow: hidden;
+    background: #ffffff;
+    color: #111827;
+    margin-bottom: 1.5rem;
+}
+
+.company-header-card .card-body {
+    padding: 0.95rem 1.15rem;
+}
+
+.company-header-card .row {
+    --bs-gutter-x: 0.9rem;
+}
+
+.company-avatar {
+    width: 68px;
+    height: 68px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #eff6ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder {
+    color: #2563eb;
+    font-size: 1.8rem;
+}
+
+.company-name {
+    font-size: 1.3rem;
+    font-weight: 800;
+    margin: 0 0 0.35rem 0;
+    color: #111827;
+}
+
+.company-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    margin-bottom: 0.35rem;
+    row-gap: 0.4rem;
+}
+
+.meta-item {
+    color: #4b5563;
+    font-size: 0.86rem;
+    display: flex;
+    align-items: center;
+}
+
+.meta-item i {
+    color: #6b7280;
+}
+
+.company-status {
+    display: flex;
+    align-items: center;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #ecfdf3;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+/* Info Card */
+.info-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    background: var(--surface);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    border-radius: 12px 12px 0 0 !important;
+    padding: 1.25rem;
+}
+
+.card-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+}
+
+/* Info Grid */
+.info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.info-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    background: #f8fafc;
+    border: 1px solid #edf1f6;
+    border-radius: 10px;
+    padding: 0.95rem 1rem;
+}
+
+.info-row .info-item.full-width {
+    grid-column: 1 / -1;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.info-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.info-value {
+    font-size: 0.94rem;
+    color: #334155;
+    font-weight: 500;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+/* Location Card */
+.location-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    height: fit-content;
+    background: var(--surface);
+}
+
+.location-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.location-status.configured {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.location-status.not-configured {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+}
+
+.status-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.location-status.configured .status-icon {
+    background-color: #28a745;
+    color: white;
+}
+
+.location-status.not-configured .status-icon {
+    background-color: #ffc107;
+    color: white;
+}
+
+.status-content h6 {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.location-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.detail-value {
+    font-size: 0.85rem;
+    color: #2c3e50;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+}
+
+.module-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.module-chip.enabled {
+    background: #e8f6ee;
+    border-color: #b9e7ca;
+    color: #17663a;
+}
+
+.module-chip.disabled {
+    background: #f4f5f7;
+    border-color: #d7dbe2;
+    color: #6b7280;
+}
+
+/* Button Styles */
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+    .info-row {
+        grid-template-columns: 1fr;
+        gap: 0.85rem;
+    }
+    
+    .company-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .company-name {
+        font-size: 1.15rem;
+    }
+    
+    .company-avatar {
+        width: 56px;
+        height: 56px;
+    }
+    
+    .avatar-placeholder {
+        font-size: 1.5rem;
+    }
+    
+    .panel-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .btn {
+        width: 100%;
+    }
+}
+
+/* Animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    animation: fadeInUp 0.6s ease;
+}
+
+.card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.card:nth-child(3) {
+    animation-delay: 0.2s;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const getCurrentLocationBtn = document.getElementById('getCurrentLocation');
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const locationStatus = document.getElementById('locationStatus');
+    const locationStatusText = document.getElementById('locationStatusText');
+    
+    if (getCurrentLocationBtn) {
+        getCurrentLocationBtn.addEventListener('click', function() {
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by this browser.');
+                return;
+            }
+            
+            // Show loading state
+            getCurrentLocationBtn.disabled = true;
+            getCurrentLocationBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Getting Location...';
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    latitudeInput.value = lat.toFixed(6);
+                    longitudeInput.value = lng.toFixed(6);
+                    
+                    locationStatusText.textContent = `Location detected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                    locationStatus.style.display = 'block';
+                    
+                    // Reset button
+                    getCurrentLocationBtn.disabled = false;
+                    getCurrentLocationBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Location Set';
+                    getCurrentLocationBtn.classList.remove('btn-success');
+                    getCurrentLocationBtn.classList.add('btn-success');
+                    
+                    setTimeout(() => {
+                        getCurrentLocationBtn.innerHTML = '<i class="bi bi-crosshair me-2"></i>Use Current Location';
+                        getCurrentLocationBtn.classList.remove('btn-success');
+                        getCurrentLocationBtn.classList.add('btn-success');
+                    }, 3000);
+                },
+                function(error) {
+                    let errorMsg = 'Unable to get location.';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg = 'Location access denied. Please enable location services.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg = 'Location information unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg = 'Location request timed out.';
+                            break;
+                    }
+                    
+                    alert(errorMsg);
+                    
+                    // Reset button
+                    getCurrentLocationBtn.disabled = false;
+                    getCurrentLocationBtn.innerHTML = '<i class="bi bi-crosshair me-2"></i>Use Current Location';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                }
+            );
+        });
+    }
+    
+    // Phone number: only allow 10 digits, no formatting
+    const phoneField = document.getElementById('phone');
+    if (phoneField) {
+        phoneField.addEventListener('input', function(e) {
+            // Remove all non-digit characters
+            let value = e.target.value.replace(/\D/g, '');
+            // Limit to 10 digits
+            if (value.length > 10) {
+                value = value.slice(0, 10);
+            }
+            e.target.value = value;
+        });
+        // Phone validation on blur
+        phoneField.addEventListener('blur', function(e) {
+            const value = e.target.value;
+            if (value.length > 0 && value.length < 10) {
+                e.target.setCustomValidity('Please enter a complete 10-digit phone number');
+            } else {
+                e.target.setCustomValidity('');
+            }
+        });
+    }
+});
+</script>
+
+{% endblock %}

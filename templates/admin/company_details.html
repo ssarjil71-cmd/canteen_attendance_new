@@ -1,0 +1,603 @@
+{% extends "base.html" %}
+
+{% block title %}Company Details{% endblock %}
+
+{% block content %}
+<style>
+	.company-title {
+		margin-bottom: 16px;
+	}
+
+	.company-title h2 {
+		margin: 0;
+	}
+
+	.company-top {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		margin-bottom: 14px;
+	}
+
+	.company-top-logo {
+		width: 78px;
+		height: 78px;
+		object-fit: cover;
+		border-radius: 10px;
+		border: 1px solid #ddd;
+	}
+
+	.company-top-logo-placeholder {
+		width: 78px;
+		height: 78px;
+		border-radius: 10px;
+		border: 1px solid #ddd;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #f7f7f7;
+		color: #9ca3af;
+		font-size: 28px;
+	}
+
+	.company-list {
+		display: grid;
+		gap: 14px;
+	}
+
+	.company-section {
+		background: #fff;
+		border: 1px solid #e5e7eb;
+		border-radius: 12px;
+		overflow: hidden;
+	}
+
+	.company-section-title {
+		padding: 12px 16px;
+		font-weight: 700;
+		font-size: 0.98rem;
+		color: #1f2937;
+		background: #f9fafb;
+		border-bottom: 1px solid #eef2f7;
+	}
+
+	.company-row {
+		display: grid;
+		grid-template-columns: 240px 1fr;
+		gap: 16px;
+		padding: 14px 16px;
+		border-bottom: 1px solid #f0f0f0;
+	}
+
+	.company-row:last-child {
+		border-bottom: none;
+	}
+
+	.company-row .label {
+		font-weight: 600;
+		color: #4b5563;
+	}
+
+	.company-row .value {
+		color: #111827;
+		word-break: break-word;
+	}
+
+	.module-badges {
+		display: flex;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.module-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 6px 10px;
+		border-radius: 999px;
+		font-size: 0.82rem;
+		font-weight: 600;
+		border: 1px solid #d1d5db;
+		background: #f3f4f6;
+		color: #374151;
+	}
+
+	.module-badge.enabled {
+		background: #e8f6ee;
+		border-color: #b9e7ca;
+		color: #17663a;
+	}
+
+	.module-badge.disabled {
+		background: #f4f5f7;
+		border-color: #d7dbe2;
+		color: #6b7280;
+	}
+
+	@media (max-width: 768px) {
+		.company-row {
+			grid-template-columns: 1fr;
+			gap: 6px;
+		}
+	}
+
+	.badge {
+		display: inline-block;
+		padding: 6px 12px;
+		border-radius: 20px;
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+
+	.badge-success {
+		background-color: #d4edda;
+		color: #155724;
+	}
+
+	.badge-secondary {
+		background-color: #e2e3e5;
+		color: #383d41;
+	}
+
+	.action-buttons {
+		margin-top: 30px;
+		display: flex;
+		gap: 12px;
+		justify-content: flex-start;
+	}
+
+	.btn-primary, .btn-secondary {
+		padding: 11px 24px;
+		font-size: 0.95rem;
+		font-weight: 500;
+		border-radius: 6px;
+		border: none;
+		cursor: pointer;
+		text-decoration: none;
+		display: inline-block;
+		transition: all 0.3s ease;
+	}
+
+	.btn-primary {
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		color: white;
+	}
+
+	.btn-primary:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+	}
+
+	.btn-secondary {
+		background-color: #6c757d;
+		color: white;
+	}
+
+	.btn-secondary:hover {
+		background-color: #5a6268;
+	}
+</style>
+
+<div class="panel form-panel add-company-panel">
+	<div class="company-title">
+		<div class="company-top">
+			{% if company.logo %}
+				<img src="/static/uploads/logos/{{ company.logo }}" alt="{{ company.company_name }} logo" class="company-top-logo">
+			{% else %}
+				<div class="company-top-logo-placeholder">🏢</div>
+			{% endif %}
+			<div>
+				<h2>{{ company.company_name or 'Company Details' }}</h2>
+				<p class="mb-0">All company information is listed below.</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="company-list">
+		<div class="company-section">
+			<div class="company-section-title">Basic Information</div>
+			<div class="company-row"><div class="label">Company Name</div><div class="value">{{ company.company_name or '-' }}</div></div>
+			<div class="company-row"><div class="label">Company Type</div><div class="value">{{ company.company_type_name or '-' }}</div></div>
+			<div class="company-row"><div class="label">Company ID</div><div class="value">{{ company.company_code or '-' }}</div></div>
+			<div class="company-row"><div class="label">Created At</div><div class="value">{{ company.created_at or '-' }}</div></div>
+		</div>
+
+		<div class="company-section">
+			<div class="company-section-title">Contact Details</div>
+			<div class="company-row"><div class="label">Email</div><div class="value">{{ company.email or '-' }}</div></div>
+			<div class="company-row"><div class="label">Phone Number</div><div class="value">{{ company.phone or '-' }}</div></div>
+			<div class="company-row"><div class="label">Address</div><div class="value">{{ company.address or '-' }}</div></div>
+		</div>
+
+		<div class="company-section">
+			<div class="company-section-title">Location Settings</div>
+			<div class="company-row"><div class="label">Latitude</div><div class="value">{{ company.latitude or '-' }}</div></div>
+			<div class="company-row"><div class="label">Longitude</div><div class="value">{{ company.longitude or '-' }}</div></div>
+			<div class="company-row"><div class="label">Allowed Radius (meters)</div><div class="value">{{ company.radius if company.radius is not none else '-' }}</div></div>
+		</div>
+
+		<div class="company-section">
+			<div class="company-section-title">Enabled Modules</div>
+			<div class="company-row">
+				<div class="label">Modules</div>
+				<div class="value module-badges">
+					<span class="module-badge {{ 'enabled' if company.attendance_module_enabled else 'disabled' }}">Attendance {{ 'Enabled' if company.attendance_module_enabled else 'Disabled' }}</span>
+					<span class="module-badge {{ 'enabled' if company.canteen_module_enabled else 'disabled' }}">Canteen {{ 'Enabled' if company.canteen_module_enabled else 'Disabled' }}</span>
+					<span class="module-badge {{ 'enabled' if company.salary_slip_module_enabled else 'disabled' }}">Salary Slip {{ 'Enabled' if company.salary_slip_module_enabled else 'Disabled' }}</span>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="action-buttons">
+		<a href="/admin/companies" class="btn-secondary">← Back to Companies</a>
+	</div>
+</div>
+
+<!-- Edit Company Modal -->
+<div id="editCompanyModal" class="modal">
+	<div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+		<div class="modal-header">
+			<h3>Edit Company</h3>
+			<span class="close" onclick="closeEditModal()">&times;</span>
+		</div>
+		<form id="editForm" method="POST" action="/admin/company/{{ company.id }}/edit" enctype="multipart/form-data" class="add-company-form row g-4" style="padding: 20px;">
+			<div class="col-12 col-md-6">
+				<label class="form-label">Name</label>
+				<input type="text" name="company_name" id="edit_company_name" class="form-control validate-field" placeholder="Enter company name" required>
+				<small class="field-hint"></small>
+			</div>
+
+			<div class="col-12 col-md-6">
+				<label class="form-label">Email</label>
+				<input type="email" name="email" id="edit_email" class="form-control validate-field" placeholder="Enter company email" required>
+				<small class="field-hint"></small>
+			</div>
+
+			<div class="col-12">
+				<label class="form-label">Address</label>
+				<input type="text" name="address" id="edit_address" class="form-control validate-field" placeholder="Enter address" required>
+				<small class="field-hint"></small>
+			</div>
+
+			<div class="col-12 col-md-6">
+				<label class="form-label">Phone Number</label>
+				<input type="tel" name="phone" id="edit_phone" class="form-control validate-field" placeholder="7722021558" maxlength="10" pattern="[0-9]{10}">
+				<small class="field-hint">Enter 10-digit phone number (digits only, e.g. 7722021558)</small>
+			</div>
+
+			<div class="col-12 col-md-6">
+				<label class="form-label">City</label>
+				<input type="text" name="city" id="edit_city" class="form-control validate-field" placeholder="Enter city">
+				<small class="field-hint"></small>
+			</div>
+
+			<div class="col-12 col-md-6">
+				<label class="form-label">State</label>
+				<input type="text" name="state" id="edit_state" class="form-control validate-field" placeholder="Enter state">
+				<small class="field-hint"></small>
+			</div>
+
+			<div class="col-12 col-md-6">
+				<label class="form-label">Pincode</label>
+				<input type="text" name="pincode" id="edit_pincode" class="form-control validate-field" placeholder="Enter pincode">
+				<small class="field-hint"></small>
+			</div>
+
+			<div class="col-12 col-md-6">
+				<label class="form-label">GST Number</label>
+				<input type="text" name="gst_number" id="edit_gst_number" class="form-control validate-field" placeholder="Enter GST number (optional)">
+				<small class="field-hint"></small>
+			</div>
+
+			<div class="col-12 col-md-6">
+				<label class="form-label">Company Logo</label>
+				{% if company.logo %}
+					<div class="mb-2 position-relative d-inline-block" id="currentLogoWrapModal">
+						<img src="/static/uploads/logos/{{ company.logo }}" alt="Current logo" style="width: 90px; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;" id="currentLogoImgModal">
+						<button type="button" id="removeLogoBtnModal" aria-label="Remove logo" style="position:absolute; top:-8px; right:-8px; width:22px; height:22px; border:none; border-radius:50%; background:#dc3545; color:#fff; font-weight:700; line-height:1; cursor:pointer;">×</button>
+					</div>
+				{% endif %}
+				<input type="file" name="logo" id="edit_logo" accept="image/*" class="form-control validate-field">
+				<input class="form-check-input" type="checkbox" name="remove_logo" value="1" id="remove_logo_modal" style="display:none;">
+				<small class="field-hint"></small>
+			</div>
+
+			<div class="col-12 col-md-6">
+				<label class="form-label">Password</label>
+				<input type="password" name="password" id="edit_password" class="form-control validate-field" placeholder="Leave blank to keep current password">
+				<small class="field-hint"></small>
+			</div>
+
+			<div class="col-12 col-md-6">
+				<label class="form-label">Confirm Password</label>
+				<input type="password" name="confirm_password" id="edit_confirm_password" class="form-control validate-field" placeholder="Leave blank to keep current password">
+				<small class="field-hint"></small>
+			</div>
+
+			<div class="col-12">
+				<div class="location-section p-3 border rounded bg-light">
+					<h5 class="mb-3">Location Settings</h5>
+					<div class="row g-3 align-items-end">
+						<div class="col-12 col-md-4">
+							<label class="form-label">Latitude</label>
+							<input type="text" name="latitude" id="edit_latitude" class="form-control validate-field" placeholder="Latitude" required>
+							<small class="field-hint"></small>
+						</div>
+						<div class="col-12 col-md-4">
+							<label class="form-label">Longitude</label>
+							<input type="text" name="longitude" id="edit_longitude" class="form-control validate-field" placeholder="Longitude" required>
+							<small class="field-hint"></small>
+						</div>
+						<div class="col-12 col-md-4 d-grid">
+							<button type="button" class="btn location-btn" onclick="getLocation()">
+								<i class="bi bi-geo-alt"></i> Get Current Location
+							</button>
+						</div>
+					</div>
+					<div class="row mt-1">
+						<div class="col-12 col-md-6">
+							<label class="form-label">Allowed Radius (meters)</label>
+							<input type="number" name="radius" id="edit_radius" class="form-control validate-field" placeholder="e.g. 100" min="1" required>
+							<small class="field-hint"></small>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="col-12">
+				<label class="form-label">Modules</label>
+				<div class="checkbox-group">
+					<label class="checkbox-item">
+						<input type="checkbox" name="attendance_module_enabled" id="edit_attendance" value="1" {% if company.attendance_module_enabled %}checked{% endif %}>
+						Attendance
+					</label>
+					<label class="checkbox-item">
+						<input type="checkbox" name="canteen_module_enabled" id="edit_canteen" value="1" {% if company.canteen_module_enabled %}checked{% endif %}>
+						Canteen Management
+					</label>
+				</div>
+			</div>
+
+			<div class="col-12" style="padding-top: 20px;">
+				<div style="display: flex; gap: 12px;">
+					<button class="btn save-company-btn" type="submit">Update Company</button>
+					<button class="btn btn-secondary" type="button" onclick="closeEditModal()" style="width: 100%; background-color: #6c757d; color: white;">Cancel</button>
+				</div>
+			</div>
+		</form>
+	</div>
+</div>
+
+<style>
+	/* Modal Styles */
+	.modal {
+		display: none;
+		position: fixed;
+		z-index: 10000;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.6);
+		animation: fadeIn 0.3s ease;
+	}
+
+	.modal.show {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.modal-content {
+		background-color: white;
+		padding: 0;
+		border-radius: 12px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.20);
+		animation: slideUp 0.3s ease;
+		width: 90%;
+	}
+
+	.modal-header {
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		color: white;
+		padding: 20px;
+		border-radius: 12px 12px 0 0;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.modal-header h3 {
+		margin: 0;
+		font-size: 1.5rem;
+	}
+
+	.close {
+		font-size: 2rem;
+		font-weight: bold;
+		cursor: pointer;
+		opacity: 0.8;
+		transition: opacity 0.3s;
+	}
+
+	.close:hover {
+		opacity: 1;
+	}
+
+	@keyframes fadeIn {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	@keyframes slideUp {
+		from { transform: translateY(50px); opacity: 0; }
+		to { transform: translateY(0); opacity: 1; }
+	}
+
+	.btn-secondary {
+		background-color: #6c757d !important;
+		color: white !important;
+	}
+
+	.btn-secondary:hover {
+		background-color: #5a6268 !important;
+	}
+</style>
+
+<script>
+	function openEditmodal() {
+		// Populate form with current company data
+		document.getElementById('edit_company_name').value = '{{ company.company_name }}';
+		document.getElementById('edit_email').value = '{{ company.email }}';
+		document.getElementById('edit_address').value = '{{ company.address or "" }}';
+		document.getElementById('edit_phone').value = '{{ company.phone or "" }}';
+		document.getElementById('edit_city').value = '{{ company.city or "" }}';
+		document.getElementById('edit_state').value = '{{ company.state or "" }}';
+		document.getElementById('edit_pincode').value = '{{ company.pincode or "" }}';
+		document.getElementById('edit_gst_number').value = '{{ company.gst_number or "" }}';
+		document.getElementById('edit_latitude').value = '{{ company.latitude or "" }}';
+		document.getElementById('edit_longitude').value = '{{ company.longitude or "" }}';
+		document.getElementById('edit_radius').value = '{{ company.radius or "100" }}';
+		document.getElementById('edit_logo').value = '';
+		document.getElementById('remove_logo_modal').checked = false;
+		document.getElementById('edit_password').value = '';
+		document.getElementById('edit_confirm_password').value = '';
+
+		document.getElementById('editCompanyModal').classList.add('show');
+	}
+
+	const removeLogoBtnModal = document.getElementById('removeLogoBtnModal');
+	const removeLogoCheckboxModal = document.getElementById('remove_logo_modal');
+	const currentLogoWrapModal = document.getElementById('currentLogoWrapModal');
+	const logoInputModal = document.getElementById('edit_logo');
+
+	if (removeLogoBtnModal && removeLogoCheckboxModal && currentLogoWrapModal) {
+		removeLogoBtnModal.addEventListener('click', function () {
+			removeLogoCheckboxModal.checked = true;
+			currentLogoWrapModal.style.display = 'none';
+		});
+	}
+
+	if (logoInputModal && removeLogoCheckboxModal) {
+		logoInputModal.addEventListener('change', function () {
+			if (this.files && this.files.length > 0) {
+				removeLogoCheckboxModal.checked = false;
+			}
+		});
+	}
+
+	function closeEditModal() {
+		document.getElementById('editCompanyModal').classList.remove('show');
+	}
+
+	// Attach validation listeners
+	document.querySelectorAll('#editForm .validate-field').forEach(input => {
+		input.addEventListener('blur', function() {
+			validateModalField(this);
+		});
+
+		input.addEventListener('input', function() {
+			if (this.classList.contains('has-warning')) {
+				validateModalField(this);
+			}
+		});
+	});
+
+	// Phone number: only allow 10 digits, no formatting
+	const phoneFieldModal = document.getElementById('edit_phone');
+	if (phoneFieldModal) {
+		phoneFieldModal.addEventListener('input', function(e) {
+			// Remove all non-digit characters
+			let value = e.target.value.replace(/\D/g, '');
+			// Limit to 10 digits
+			if (value.length > 10) {
+				value = value.slice(0, 10);
+			}
+			e.target.value = value;
+		});
+	}
+
+	// Relaxed validation for modal form
+	function validateModalField(input) {
+		const name = input.name;
+		const value = input.value.trim();
+		const hint = input.nextElementSibling;
+
+		const rules = {
+			company_name: { required: true, message: 'Company name is required' },
+			email: { required: true, validate: (val) => val.includes('@') && val.includes('.'), message: 'Email should contain @ and .' },
+			address: { required: true, message: 'Address is required' },
+			phone: { validate: (val) => val === '' || /^[0-9]{10}$/.test(val), message: 'Phone should be 10 digits' },
+			pincode: { validate: (val) => val === '' || /^[0-9]{5,6}$/.test(val), message: 'Pincode should be 5-6 digits' },
+			latitude: { required: true, validate: (val) => val === '' || /^-?[0-9]{1,3}\.[0-9]{1,}$/.test(val), message: 'Invalid latitude' },
+			longitude: { required: true, validate: (val) => val === '' || /^-?[0-9]{1,3}\.[0-9]{1,}$/.test(val), message: 'Invalid longitude' },
+			radius: { required: true, message: 'Radius is required' }
+		};
+
+		const rule = rules[name];
+		if (!rule) return true;
+
+		if (rule.required && value === '') {
+			input.classList.add('has-warning');
+			if (hint && hint.classList.contains('field-hint')) {
+				hint.textContent = rule.message;
+				hint.style.display = 'block';
+			}
+			return false;
+		}
+
+		if (rule.validate && value && !rule.validate(value)) {
+			input.classList.add('has-warning');
+			if (hint && hint.classList.contains('field-hint')) {
+				hint.textContent = rule.message;
+				hint.style.display = 'block';
+			}
+			return false;
+		}
+
+		input.classList.remove('has-warning');
+		if (hint && hint.classList.contains('field-hint')) {
+			hint.textContent = '';
+			hint.style.display = 'none';
+		}
+		return true;
+	}
+
+	// Form submission
+	document.getElementById('editForm').addEventListener('submit', function(e) {
+		const password = document.getElementById('edit_password').value;
+		const confirmPassword = document.getElementById('edit_confirm_password').value;
+
+		if (password && confirmPassword && password !== confirmPassword) {
+			e.preventDefault();
+			const confirmInput = document.getElementById('edit_confirm_password');
+			const hint = confirmInput.nextElementSibling;
+			hint.textContent = 'Passwords do not match';
+			hint.style.display = 'block';
+			confirmInput.classList.add('has-warning');
+			return false;
+		}
+	});
+
+	function getLocation() {
+		if (navigator.geolocation) {
+			navigator.geolocation.getCurrentPosition(function(position) {
+				document.getElementById('edit_latitude').value = position.coords.latitude;
+				document.getElementById('edit_longitude').value = position.coords.longitude;
+			}, function(error) {
+				alert('Unable to retrieve your location.');
+			});
+		} else {
+			alert('Geolocation is not supported by this browser.');
+		}
+	}
+
+	// Close modal when clicking outside
+	window.onclick = function(event) {
+		const modal = document.getElementById('editCompanyModal');
+		if (event.target === modal) {
+			closeEditModal();
+		}
+	}
+</script>
+{% endblock %}

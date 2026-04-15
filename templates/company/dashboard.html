@@ -1,0 +1,535 @@
+{% extends "base.html" %}
+
+{% block title %}Company Dashboard{% endblock %}
+
+{% block content %}
+<div class="panel dashboard-panel" id="companyDashboard" data-dashboard-stats='{{ dashboard_stats|tojson }}'>
+    <div class="dashboard-head">
+        <div>
+            <h2 class="company-dashboard-title mb-2">Company Dashboard</h2>
+            <p class="company-dashboard-subtitle mb-0">Real-time view of workforce and attendance health.</p>
+        </div>
+    </div>
+
+    <div class="dashboard-metrics-grid">
+        <article class="metric-card metric-card-attendance">
+            <div class="metric-card-head">
+                <span class="metric-pill">Today Attendance</span>
+                <i class="bi bi-pie-chart metric-icon"></i>
+            </div>
+            <div class="attendance-chart-wrap">
+                <canvas id="attendancePieChart" aria-label="Attendance pie chart" role="img"></canvas>
+            </div>
+            <div class="attendance-legend" id="attendanceLegend">
+                <div class="attendance-legend-item">
+                    <span class="legend-dot present-dot"></span>
+                    <span>Present</span>
+                    <strong id="presentCount">0</strong>
+                </div>
+                <div class="attendance-legend-item">
+                    <span class="legend-dot absent-dot"></span>
+                    <span>Absent</span>
+                    <strong id="absentCount">0</strong>
+                </div>
+                <div class="attendance-legend-item">
+                    <span class="legend-dot late-dot"></span>
+                    <span>Late</span>
+                    <strong id="lateCount">0</strong>
+                </div>
+            </div>
+            <div class="attendance-meta">
+                <span>Attendance Rate</span>
+                <strong id="attendanceRate">0%</strong>
+            </div>
+        </article>
+
+        <article class="metric-card metric-card-kpi metric-card-employees">
+            <div class="metric-card-head">
+                <span class="metric-pill">Total Employees</span>
+                <i class="bi bi-people-fill metric-icon"></i>
+            </div>
+            <h3 class="metric-value" id="totalEmployees">0</h3>
+            <p class="metric-note">All active and registered employees</p>
+        </article>
+
+        <article class="metric-card metric-card-kpi metric-card-managers">
+            <div class="metric-card-head">
+                <span class="metric-pill">Total Managers</span>
+                <i class="bi bi-person-workspace metric-icon"></i>
+            </div>
+            <h3 class="metric-value" id="totalManagers">0</h3>
+            <p class="metric-note">Leadership coverage: <strong id="managerCoverage">0%</strong></p>
+        </article>
+
+        <article class="metric-card metric-card-kpi metric-card-departments">
+            <div class="metric-card-head">
+                <span class="metric-pill">Total Departments</span>
+                <i class="bi bi-diagram-3-fill metric-icon"></i>
+            </div>
+            <h3 class="metric-value" id="totalDepartments">0</h3>
+            <p class="metric-note">Functional teams in your company</p>
+        </article>
+
+        <article class="metric-card metric-card-kpi metric-card-roles">
+            <div class="metric-card-head">
+                <span class="metric-pill">Total Roles</span>
+                <i class="bi bi-person-badge-fill metric-icon"></i>
+            </div>
+            <h3 class="metric-value" id="totalRoles">0</h3>
+            <p class="metric-note">Job designations currently configured</p>
+        </article>
+    </div>
+
+    <p class="refresh-meta mb-0">Auto-refreshing every 30s • Last updated: <span id="lastUpdated">--</span></p>
+</div>
+
+<style>
+.company-dashboard-title {
+    color: #1447a7;
+    font-weight: 800;
+}
+
+.company-dashboard-subtitle {
+    color: #4a607f;
+    font-weight: 500;
+}
+
+.dashboard-panel {
+    padding: 28px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 251, 255, 0.95) 100%);
+}
+
+.dashboard-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.dashboard-metrics-grid {
+    display: grid;
+    grid-template-columns: 1.2fr repeat(2, minmax(210px, 1fr));
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.metric-card {
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.85));
+    border: 1px solid rgba(13, 110, 253, 0.2);
+    border-radius: 18px;
+    padding: 18px 18px 16px;
+    box-shadow: 0 10px 28px rgba(18, 63, 130, 0.09);
+    animation: fadeUp 0.55s ease;
+    transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 30px rgba(18, 63, 130, 0.16);
+    border-color: rgba(13, 110, 253, 0.32);
+}
+
+.metric-card-attendance {
+    grid-row: span 2;
+    background: #dbeafe;
+    border-color: #93c5fd;
+    box-shadow: none;
+}
+
+.metric-card-attendance .metric-pill {
+    border-color: #60a5fa;
+    background: #bfdbfe;
+    color: #1e3a8a;
+}
+
+.metric-card-attendance .metric-icon {
+    color: #1d4ed8;
+}
+
+.metric-card-attendance .attendance-legend-item,
+.metric-card-attendance .attendance-legend-item strong,
+.metric-card-attendance .attendance-meta,
+.metric-card-attendance .attendance-meta strong {
+    color: #1e3a8a;
+}
+
+.metric-card-kpi {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.metric-card-employees {
+    background: #cffafe;
+    border-color: #67e8f9;
+    box-shadow: none;
+}
+
+.metric-card-managers {
+    background: #ede9fe;
+    border-color: #c4b5fd;
+    box-shadow: none;
+}
+
+.metric-card-departments {
+    background: #ffedd5;
+    border-color: #fdba74;
+    box-shadow: none;
+}
+
+.metric-card-roles {
+    background: #dcfce7;
+    border-color: #86efac;
+    box-shadow: none;
+}
+
+.metric-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.metric-pill {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(25, 103, 210, 0.24);
+    background: rgba(13, 110, 253, 0.12);
+    color: #174ea6;
+    font-weight: 700;
+    font-size: 0.76rem;
+    border-radius: 999px;
+    letter-spacing: 0.03em;
+    padding: 5px 10px;
+}
+
+.metric-icon {
+    color: #165bc8;
+    font-size: 1.25rem;
+}
+
+.metric-card-employees .metric-icon {
+    color: #0e7490;
+}
+
+.metric-card-managers .metric-icon {
+    color: #6d28d9;
+}
+
+.metric-card-departments .metric-icon {
+    color: #c2410c;
+}
+
+.metric-card-roles .metric-icon {
+    color: #15803d;
+}
+
+.metric-card-employees .metric-pill {
+    border-color: #22d3ee;
+    background: #a5f3fc;
+    color: #155e75;
+}
+
+.metric-card-managers .metric-pill {
+    border-color: #a78bfa;
+    background: #ddd6fe;
+    color: #5b21b6;
+}
+
+.metric-card-departments .metric-pill {
+    border-color: #fb923c;
+    background: #fed7aa;
+    color: #9a3412;
+}
+
+.metric-card-roles .metric-pill {
+    border-color: #4ade80;
+    background: #bbf7d0;
+    color: #166534;
+}
+
+.metric-value {
+    margin: 6px 0 4px;
+    font-size: clamp(1.8rem, 2.2vw, 2.2rem);
+    font-weight: 800;
+    color: #0f3f95;
+}
+
+.metric-card-employees .metric-value {
+    color: #0f766e;
+}
+
+.metric-card-managers .metric-value {
+    color: #6d28d9;
+}
+
+.metric-card-departments .metric-value {
+    color: #c2410c;
+}
+
+.metric-card-roles .metric-value {
+    color: #15803d;
+}
+
+.metric-card-employees .metric-note {
+    color: #0e7490;
+}
+
+.metric-card-managers .metric-note {
+    color: #6d28d9;
+}
+
+.metric-card-departments .metric-note {
+    color: #b45309;
+}
+
+.metric-card-roles .metric-note {
+    color: #166534;
+}
+
+.metric-note {
+    margin: 0;
+    font-size: 0.86rem;
+    color: #586884;
+}
+
+.attendance-chart-wrap {
+    width: min(250px, 100%);
+    margin: 10px auto 4px;
+}
+
+.attendance-legend {
+    display: grid;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.attendance-legend-item {
+    display: grid;
+    grid-template-columns: 12px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: #274160;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.present-dot { background: #22a35a; }
+.absent-dot { background: #ef5350; }
+.late-dot { background: #f7a534; }
+
+.attendance-meta {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(30, 58, 138, 0.32);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #3f5774;
+    font-size: 0.9rem;
+}
+
+.attendance-meta strong {
+    color: #10499b;
+}
+
+.refresh-meta {
+    margin-top: 14px;
+    font-size: 0.8rem;
+    color: #63738c;
+}
+
+@media (max-width: 1160px) {
+    .dashboard-metrics-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+
+    .metric-card-attendance {
+        grid-column: 1 / -1;
+        grid-row: auto;
+    }
+}
+
+@media (max-width: 900px) {
+    .dashboard-panel {
+        padding: 22px;
+    }
+
+    .dashboard-metrics-grid {
+        gap: 14px;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-panel {
+        padding: 18px;
+    }
+
+    .dashboard-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .dashboard-metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .metric-card-attendance {
+        grid-row: auto;
+    }
+
+    .attendance-chart-wrap {
+        width: min(200px, 100%);
+    }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const dashboardRoot = document.getElementById("companyDashboard");
+    if (!dashboardRoot) {
+        return;
+    }
+
+    let attendanceChart = null;
+
+    const parseInitialStats = function () {
+        try {
+            return JSON.parse(dashboardRoot.getAttribute("data-dashboard-stats") || "{}");
+        } catch (error) {
+            return {};
+        }
+    };
+
+    const updateText = function (id, value) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = String(value);
+        }
+    };
+
+    const formatPercent = function (value) {
+        const numeric = Number(value || 0);
+        return `${numeric.toFixed(1)}%`;
+    };
+
+    const formatTimestamp = function (isoString) {
+        if (!isoString) {
+            return "--";
+        }
+        const dateObj = new Date(isoString);
+        if (Number.isNaN(dateObj.getTime())) {
+            return "--";
+        }
+        return dateObj.toLocaleString();
+    };
+
+    const renderAttendanceChart = function (attendance) {
+        const chartCanvas = document.getElementById("attendancePieChart");
+        if (!chartCanvas || typeof Chart === "undefined") {
+            return;
+        }
+
+        const chartData = [
+            Number(attendance.present || 0),
+            Number(attendance.absent || 0),
+            Number(attendance.late || 0),
+        ];
+
+        if (attendanceChart) {
+            attendanceChart.data.datasets[0].data = chartData;
+            attendanceChart.update();
+            return;
+        }
+
+        attendanceChart = new Chart(chartCanvas, {
+            type: "pie",
+            data: {
+                labels: ["Present", "Absent", "Late"],
+                datasets: [
+                    {
+                        data: chartData,
+                        backgroundColor: ["#22a35a", "#ef5350", "#f7a534"],
+                        borderWidth: 2,
+                        borderColor: "#ffffff",
+                    },
+                ],
+            },
+            options: {
+                animation: {
+                    duration: 650,
+                },
+                plugins: {
+                    legend: {
+                        display: false,
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const total = context.dataset.data.reduce((sum, item) => sum + Number(item || 0), 0);
+                                const value = Number(context.raw || 0);
+                                const share = total ? ((value / total) * 100).toFixed(1) : "0.0";
+                                return `${context.label}: ${value} (${share}%)`;
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    };
+
+    const renderDashboard = function (stats) {
+        const totals = stats.totals || {};
+        const attendance = stats.attendance || {};
+        const insights = stats.insights || {};
+
+        updateText("totalEmployees", totals.employees || 0);
+        updateText("totalManagers", totals.managers || 0);
+        updateText("totalDepartments", totals.departments || 0);
+        updateText("totalRoles", totals.roles || 0);
+
+        updateText("presentCount", attendance.present || 0);
+        updateText("absentCount", attendance.absent || 0);
+        updateText("lateCount", attendance.late || 0);
+        updateText("attendanceRate", formatPercent(attendance.rate || 0));
+        updateText("managerCoverage", formatPercent(insights.manager_coverage || 0));
+        updateText("lastUpdated", formatTimestamp(stats.generated_at));
+
+        renderAttendanceChart(attendance);
+    };
+
+    const refreshDashboardStats = function () {
+        fetch("/company/dashboard/stats", {
+            method: "GET",
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error("Failed to fetch dashboard stats");
+                }
+                return response.json();
+            })
+            .then(function (payload) {
+                renderDashboard(payload || {});
+            })
+            .catch(function () {
+                updateText("lastUpdated", "Unable to refresh");
+            });
+    };
+
+    renderDashboard(parseInitialStats());
+    window.setInterval(refreshDashboardStats, 30000);
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Add Role{% endblock %}
+
+{% block content %}
+<div class="panel form-panel">
+    <div class="panel-header">
+        <div class="panel-title">
+            <h2><i class="bi bi-person-gear me-2"></i>Add Role</h2>
+            <p>Create a role for your company.</p>
+        </div>
+    </div>
+
+    <form method="POST" class="role-form">
+        
+        <!-- SECTION 1: Basic Information -->
+        <div class="form-section">
+            <div class="section-header">
+                <h4><i class="bi bi-person-badge me-2"></i>Role Information</h4>
+                <p class="section-desc">Define role name and description.</p>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="role_name">Role Name <span class="required">*</span></label>
+                    <input type="text" id="role_name" name="role_name" 
+                           placeholder="Enter role name" 
+                           value="{{ request.form.get('role_name', '') }}" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="4" 
+                              placeholder="Describe the role responsibilities and requirements">{{ request.form.get('description', '') }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-person-gear me-2"></i>Add Role
+            </button>
+            <a href="{{ url_for('company.view_roles') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.role-form {
+    width: 100%;
+    max-width: none;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.panel-title h2 {
+    margin: 0 0 8px 0;
+    color: #000;
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+}
+
+.panel-title p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.form-section {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 18px;
+    backdrop-filter: blur(8px);
+}
+
+.section-header {
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.section-header h4 {
+    margin: 0 0 4px 0;
+    color: #000;
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+}
+
+.section-desc {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.form-row:last-child {
+    margin-bottom: 0;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    margin-bottom: 6px;
+    color: #000;
+    font-weight: 700;
+    font-size: 0.92rem;
+}
+
+.required {
+    color: #ff6b6b;
+}
+
+.form-group input,
+.form-group textarea {
+    padding: 11px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: #6c757d;
+    font-size: 0.92rem;
+    transition: all 0.3s ease;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: #6c757d;
+    opacity: 1;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+    background: #ffffff;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 92px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 14px;
+    justify-content: flex-start;
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    padding: 10px 16px;
+    font-weight: 600;
+}
+
+.btn-outline-secondary {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 16px;
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-outline-secondary:hover {
+    background: rgba(13, 110, 253, 0.08);
+    color: var(--text);
+    text-decoration: none;
+    border-color: var(--primary);
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .form-section {
+        padding: 16px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('.role-form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Form submission handling
+    form.addEventListener('submit', function(e) {
+        // Disable submit button to prevent double submission
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding Role...';
+        
+        // Re-enable button after 3 seconds in case of error
+        setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-person-gear me-2"></i>Add Role';
+        }, 3000);
+    });
+});
+</script>
+{% endblock %}

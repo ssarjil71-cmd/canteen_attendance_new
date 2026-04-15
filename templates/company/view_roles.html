@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}View Roles{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h2><i class="bi bi-person-badge me-2"></i>Roles</h2>
+        <p>Manage employee roles and permissions in your company.</p>
+        <div class="panel-actions">
+            <a href="{{ url_for('company.add_role') }}" class="btn btn-primary">
+                <i class="bi bi-person-gear me-2"></i>Add New Role
+            </a>
+        </div>
+    </div>
+
+    {% if roles %}
+    <div class="table-card roles-list-card">
+        <div class="roles-list-scroll">
+            <table class="companies-table roles-table">
+                <thead>
+                    <tr>
+                        <th style="width: 90px;">Sr No</th>
+                        <th>Role</th>
+                        <th style="width: 280px;">Description</th>
+                        <th style="width: 280px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role in roles %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td><strong>{{ role.name }}</strong></td>
+                        <td>{{ role.description if role.description else '-' }}</td>
+                        <td>
+                            <div class="table-actions">
+                                <a href="{{ url_for('company.edit_role', role_id=role.id) }}" class="btn btn-small btn-outline">
+                                    <i class="bi bi-pencil me-1"></i>Edit
+                                </a>
+                                <button
+                                    class="btn btn-small btn-outline"
+                                    type="button"
+                                    data-role-name="{{ role.name|e }}"
+                                    data-role-description="{{ (role.description or '-')|e }}"
+                                    data-role-employees="{{ role.employee_count }}"
+                                    data-role-created="{{ role.created_at.strftime('%B %d, %Y') }}"
+                                    onclick="viewRoleDetails(this)"
+                                >
+                                    <i class="bi bi-eye me-1"></i>View
+                                </button>
+                                {% if role.employee_count == 0 %}
+                                <form method="POST" action="{{ url_for('company.delete_role', role_id=role.id) }}" onsubmit="return confirmDelete('{{ role.name }}')">
+                                    <button type="submit" class="btn btn-small btn-danger">
+                                        <i class="bi bi-trash me-1"></i>Delete
+                                    </button>
+                                </form>
+                                {% else %}
+                                <button class="btn btn-small btn-danger" disabled title="Cannot delete role with assigned employees">
+                                    <i class="bi bi-trash me-1"></i>Delete
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Role Statistics -->
+    <div class="role-stats">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-person-badge-fill"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ roles|length }}</h3>
+                    <p>Total Roles</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-person-gear"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ roles|selectattr('name', 'equalto', 'Manager')|list|length }}</h3>
+                    <p>Manager Roles</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-person-check"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ roles|selectattr('name', 'equalto', 'Supervisor')|list|length }}</h3>
+                    <p>Supervisor Roles</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ roles|sum(attribute='employee_count') }}</h3>
+                    <p>Assigned Employees</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="bi bi-person-badge"></i>
+        </div>
+        <h3>No Roles Found</h3>
+        <p>You haven't created any roles yet. Start by creating your first employee role with specific permissions.</p>
+        <a href="{{ url_for('company.add_role') }}" class="btn btn-primary">
+            <i class="bi bi-person-gear me-2"></i>Add First Role
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="roleDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-badge me-2"></i>Role Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="role-details-row"><span class="detail-label">Role:</span><span id="detailRoleName" class="detail-value">-</span></div>
+                <div class="role-details-row"><span class="detail-label">Description:</span><span id="detailRoleDescription" class="detail-value">-</span></div>
+                <div class="role-details-row"><span class="detail-label">Employees:</span><span id="detailRoleEmployees" class="detail-value">-</span></div>
+                <div class="role-details-row"><span class="detail-label">Created:</span><span id="detailRoleCreated" class="detail-value">-</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.panel-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.roles-list-card {
+    margin-top: 6px;
+}
+
+.roles-list-scroll {
+    overflow-x: auto;
+    width: 100%;
+}
+
+.roles-table {
+    margin-top: 0;
+    width: 100%;
+    min-width: 100%;
+}
+
+.roles-table th,
+.roles-table td {
+    vertical-align: middle;
+}
+
+.table-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.role-details-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.role-details-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 700;
+    color: #374151;
+}
+
+.detail-value {
+    color: #111827;
+}
+
+.table-actions form {
+    margin: 0;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.btn-outline:hover {
+    background: rgba(13, 110, 253, 0.08);
+    border-color: var(--primary);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    border: none;
+    color: white;
+}
+
+.btn-danger:hover {
+    opacity: 0.9;
+}
+
+.btn-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.role-stats {
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+}
+
+.stat-card {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.stat-icon {
+    font-size: 2rem;
+    color: var(--primary);
+}
+
+.stat-info h3 {
+    margin: 0 0 4px 0;
+    color: var(--text);
+    font-size: 1.5rem;
+}
+
+.stat-info p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    margin: 0 0 8px 0;
+    color: var(--text);
+}
+
+.empty-state p {
+    margin: 0 0 24px 0;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (max-width: 768px) {
+    .panel-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .table-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+</style>
+
+<script>
+function confirmDelete(roleName) {
+    return confirm(`Are you sure you want to delete the role "${roleName}"? This action cannot be undone.`);
+}
+
+function viewRoleDetails(buttonEl) {
+    var roleName = buttonEl.getAttribute('data-role-name') || '-';
+    var roleDescription = buttonEl.getAttribute('data-role-description') || '-';
+    var roleEmployees = buttonEl.getAttribute('data-role-employees') || '0';
+    var roleCreated = buttonEl.getAttribute('data-role-created') || '-';
+
+    document.getElementById('detailRoleName').textContent = roleName;
+    document.getElementById('detailRoleDescription').textContent = roleDescription;
+    document.getElementById('detailRoleEmployees').textContent = roleEmployees;
+    document.getElementById('detailRoleCreated').textContent = roleCreated;
+
+    var modalEl = document.getElementById('roleDetailsModal');
+    if (!modalEl) {
+        return;
+    }
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+}
+</script>
+{% endblock %}

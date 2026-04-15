@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Registration - Smart Canteen System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="registration-page">
+
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+
+<div class="container-fluid">
+    <div class="row justify-content-center min-vh-100 align-items-center">
+        <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+            <div class="registration-card">
+                <div class="registration-header">
+                    <div class="logo-section">
+                        <i class="bi bi-person-plus-fill"></i>
+                        <h1>Employee Registration</h1>
+                        <p>Join Smart Canteen System</p>
+                    </div>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="alerts-section">
+                            {% for category, message in messages %}
+                                <div class="alert {{ 'alert-error' if category == 'error' else 'alert-success' }}">
+                                    <i class="bi bi-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" class="registration-form">
+                    
+                    <!-- Basic Information -->
+                    <div class="form-section">
+                        <h4><i class="bi bi-person-circle me-2"></i>Basic Information</h4>
+                        
+                        <div class="form-group">
+                            <label for="name">Full Name <span class="required">*</span></label>
+                            <input type="text" id="name" name="name" 
+                                   placeholder="Enter your full name" 
+                                   value="{{ request.form.get('name', '') }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="emp_id">Employee ID <span class="required">*</span></label>
+                            <input type="text" id="emp_id" name="emp_id" 
+                                   placeholder="EMP001" 
+                                   value="{{ request.form.get('emp_id', '') }}" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="email">Email Address</label>
+                                <input type="email" id="email" name="email" 
+                                       placeholder="your.email@company.com" 
+                                       value="{{ request.form.get('email', '') }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="phone">Phone Number <span class="required">*</span></label>
+                                    <input type="tel" id="phone" name="phone" 
+                                        placeholder="7722021558" 
+                                        maxlength="10"
+                                        pattern="\d{10}"
+                                        value="{{ request.form.get('phone', '') }}" required>
+                                    <small class="form-text text-muted">Enter 10-digit phone number (digits only, e.g. 7722021558)</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="gender">Gender</label>
+                                <select id="gender" name="gender">
+                                    <option value="">Select Gender</option>
+                                    <option value="Male" {{ 'selected' if request.form.get('gender') == 'Male' }}>Male</option>
+                                    <option value="Female" {{ 'selected' if request.form.get('gender') == 'Female' }}>Female</option>
+                                    <option value="Other" {{ 'selected' if request.form.get('gender') == 'Other' }}>Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="dob">Date of Birth</label>
+                                <input type="date" id="dob" name="dob" 
+                                       value="{{ request.form.get('dob', '') }}">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="address">Address</label>
+                            <textarea id="address" name="address" rows="3" 
+                                      placeholder="Enter your complete address">{{ request.form.get('address', '') }}</textarea>
+                        </div>
+                    </div>
+
+                    <!-- Work Details -->
+                    <div class="form-section">
+                        <h4><i class="bi bi-briefcase me-2"></i>Work Details</h4>
+                        
+                        <div class="form-group">
+                            <label for="company_id">Company <span class="required">*</span></label>
+                            <select id="company_id" name="company_id" required onchange="updateCompanyData()">
+                                <option value="">Select Company</option>
+                                {% for company in companies %}
+                                <option value="{{ company.id }}" 
+                                        {{ 'selected' if request.form.get('company_id') == company.id|string }}>
+                                    {{ company.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="employee_role">Employee Role <span class="required">*</span></label>
+                                <select id="employee_role" name="employee_role" required>
+                                    <option value="">Select Employee Role</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="role">Job Position</label>
+                                <input type="text" id="role" name="role" 
+                                       placeholder="e.g., Software Engineer, Sales Executive" 
+                                       value="{{ request.form.get('role', '') }}">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="department_id">Department</label>
+                                <select id="department_id" name="department_id">
+                                    <option value="">Select Department</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="shift_id">Shift</label>
+                                <select id="shift_id" name="shift_id">
+                                    <option value="">Select Shift</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="joining_date">Joining Date</label>
+                            <input type="date" id="joining_date" name="joining_date" 
+                                   value="{{ request.form.get('joining_date', '') }}">
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-person-plus me-2"></i>Register Now
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="registration-footer">
+                    <p><i class="bi bi-shield-check me-1"></i>Your information is secure and will be processed by your company's HR department.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+:root {
+    --primary: #5f8bff;
+    --primary-2: #7f5cff;
+    --surface: rgba(30, 41, 59, 0.95);
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --success: #2ecc71;
+    --error: #e74c3c;
+}
+
+body.registration-page {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+}
+
+.bg-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.1;
+    z-index: -1;
+}
+
+.orb-1 {
+    width: 400px;
+    height: 400px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    top: -200px;
+    right: -200px;
+}
+
+.orb-2 {
+    width: 300px;
+    height: 300px;
+    background: linear-gradient(135deg, var(--primary-2), var(--primary));
+    bottom: -150px;
+    left: -150px;
+}
+
+.registration-card {
+    background: var(--surface);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    margin: 2rem 0;
+}
+
+.registration-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo-section i {
+    font-size: 3rem;
+    color: var(--primary);
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.logo-section h1 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.logo-section p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 1rem;
+}
+
+.alerts-section {
+    margin-bottom: 1.5rem;
+}
+
+.alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.alert-success {
+    background: rgba(46, 204, 113, 0.1);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    color: var(--success);
+}
+
+.alert-error {
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    color: var(--error);
+}
+
+.form-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+}
+
+.form-section h4 {
+    margin: 0 0 1.5rem 0;
+    color: var(--primary);
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.required {
+    color: var(--error);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text);
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(95, 139, 255, 0.1);
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-group select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: 40px;
+    appearance: none;
+}
+
+.form-actions {
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    border: none;
+    color: white;
+    padding: 14px 32px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(95, 139, 255, 0.3);
+    min-width: 200px;
+    justify-content: center;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--primary-2), var(--primary));
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(95, 139, 255, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-primary:disabled {
+    opacity: 0.7;
+    transform: none;
+    cursor: not-allowed;
+}
+
+.registration-footer {
+    text-align: center;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.registration-footer p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+    .registration-card {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+    
+    .logo-section i {
+        font-size: 2.5rem;
+    }
+    
+    .logo-section h1 {
+        font-size: 1.5rem;
+    }
+}
+</style>
+
+<script>
+// Store company data for dynamic updates
+const companyData = {{ companies|tojson }};
+
+function updateCompanyData() {
+    const companySelect = document.getElementById('company_id');
+    const departmentSelect = document.getElementById('department_id');
+    const shiftSelect = document.getElementById('shift_id');
+    const roleSelect = document.getElementById('employee_role');
+    
+    const selectedCompanyId = parseInt(companySelect.value);
+    
+    // Clear existing options
+    departmentSelect.innerHTML = '<option value="">Select Department</option>';
+    shiftSelect.innerHTML = '<option value="">Select Shift</option>';
+    roleSelect.innerHTML = '<option value="">Select Employee Role</option>';
+    
+    if (selectedCompanyId) {
+        const company = companyData.find(c => c.id === selectedCompanyId);
+        
+        if (company) {
+            // Populate departments
+            company.departments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept.id;
+                option.textContent = dept.name;
+                departmentSelect.appendChild(option);
+            });
+            
+            // Populate shifts
+            company.shifts.forEach(shift => {
+                const option = document.createElement('option');
+                option.value = shift.id;
+                option.textContent = shift.name;
+                shiftSelect.appendChild(option);
+            });
+            
+            // Populate roles
+            if (company.roles && company.roles.length > 0) {
+                company.roles.forEach(role => {
+                    const option = document.createElement('option');
+                    option.value = role.name;
+                    option.textContent = role.name;
+                    roleSelect.appendChild(option);
+                });
+            } else {
+                // Fallback to default roles if no custom roles are defined
+                const defaultRoles = ['Manager', 'Supervisor', 'Staff', 'Worker', 'Other'];
+                defaultRoles.forEach(roleName => {
+                    const option = document.createElement('option');
+                    option.value = roleName;
+                    option.textContent = roleName;
+                    roleSelect.appendChild(option);
+                });
+            }
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('.registration-form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Form submission handling
+    form.addEventListener('submit', function(e) {
+        // Disable submit button to prevent double submission
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Registering...';
+        
+        // Re-enable button after 5 seconds in case of error
+        setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-person-plus me-2"></i>Register Now';
+        }, 5000);
+    });
+    
+    // Age validation from DOB
+    const dobField = document.getElementById('dob');
+    dobField.addEventListener('change', function() {
+        if (this.value) {
+            const today = new Date();
+            const birthDate = new Date(this.value);
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            
+            if (age < 16) {
+                alert('You must be at least 16 years old to register.');
+                this.value = '';
+            }
+        }
+    });
+    
+    // Set default joining date to today
+    const joiningDateField = document.getElementById('joining_date');
+    if (!joiningDateField.value) {
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0];
+        joiningDateField.value = formattedDate;
+    }
+    
+    // Initialize company data if pre-selected
+    updateCompanyData();
+    
+    // Phone number: only allow 10 digits, no formatting
+    const phoneField = document.getElementById('phone');
+    if (phoneField) {
+        phoneField.addEventListener('input', function(e) {
+            // Remove all non-digit characters
+            let value = e.target.value.replace(/\D/g, '');
+            // Limit to 10 digits
+            if (value.length > 10) {
+                value = value.slice(0, 10);
+            }
+            e.target.value = value;
+        });
+        // Phone validation on blur
+        phoneField.addEventListener('blur', function(e) {
+            const value = e.target.value;
+            if (value.length > 0 && value.length < 10) {
+                e.target.setCustomValidity('Please enter a complete 10-digit phone number');
+            } else {
+                e.target.setCustomValidity('');
+            }
+        });
+    }
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

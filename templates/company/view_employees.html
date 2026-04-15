@@ -1,0 +1,677 @@
+{% extends "base.html" %}
+
+{% block title %}View Employees{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">
+            <h2><i class="bi bi-people me-2"></i>Employees</h2>
+            <p>Manage all employees in your company workforce.</p>
+        </div>
+    </div>
+
+    {% if employees %}
+    <div class="employees-table-container">
+        <div class="table-responsive">
+            <table class="employees-table">
+                <thead>
+                    <tr>
+                        <th class="col-sr"><i class="bi bi-hash me-2"></i>Sr No</th>
+                        <th><i class="bi bi-person me-2"></i>Employee</th>
+                        <th><i class="bi bi-card-text me-2"></i>ID</th>
+                        <th><i class="bi bi-briefcase me-2"></i>Role</th>
+                        <th><i class="bi bi-building me-2"></i>Department</th>
+                        <th><i class="bi bi-clock me-2"></i>Shift</th>
+                        <th><i class="bi bi-check-circle me-2"></i>Status</th>
+                        <th class="col-actions"><i class="bi bi-gear me-2"></i>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in employees %}
+                    <tr class="employee-row">
+                        <td>{{ loop.index }}</td>
+                        <td class="employee-info-cell">
+                            <div class="employee-info">
+                                <div class="employee-avatar">
+                                    <i class="bi bi-person-circle"></i>
+                                </div>
+                                <div class="employee-details">
+                                    <div class="employee-name">{{ employee.name }}</div>
+                                    <div class="employee-meta">
+                                        {% if employee.email %}
+                                            <span class="meta-item">
+                                                <i class="bi bi-envelope me-1"></i>{{ employee.email }}
+                                            </span>
+                                        {% endif %}
+                                        {% if employee.phone %}
+                                            <span class="meta-item">
+                                                <i class="bi bi-telephone me-1"></i>{{ employee.phone }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="employee-id">
+                            <span class="id-badge">{{ employee.emp_id }}</span>
+                        </td>
+                        <td class="employee-role">
+                            {% if employee.employee_role %}
+                                <span class="role-badge role-{{ employee.employee_role.lower() }}">
+                                    <i class="bi bi-{{ 'person-gear' if employee.employee_role == 'Manager' else 'person-check' if employee.employee_role == 'Supervisor' else 'person' if employee.employee_role == 'Staff' else 'person-workspace' if employee.employee_role == 'Worker' else 'person-plus' }} me-1"></i>{{ employee.employee_role }}
+                                </span>
+                                {% if employee.role and employee.role != 'General' %}
+                                    <div class="job-position">{{ employee.role }}</div>
+                                {% endif %}
+                            {% else %}
+                                <span class="unassigned">Not assigned</span>
+                            {% endif %}
+                        </td>
+                        <td class="employee-department">
+                            <span class="department-name">{{ employee.department or 'General' }}</span>
+                        </td>
+                        <td class="employee-shift">
+                            <span class="shift-name">{{ employee.shift or 'General' }}</span>
+                        </td>
+                        <td class="employee-status">
+                            {% if employee.status == 'registered' %}
+                                <span class="status-badge status-registered">
+                                    <i class="bi bi-check-circle me-1"></i>Registered
+                                </span>
+                            {% elif employee.status == 'active' %}
+                                <span class="status-badge status-active">
+                                    <i class="bi bi-person-check me-1"></i>Active
+                                </span>
+                            {% elif employee.status == 'pending' %}
+                                <span class="status-badge status-pending">
+                                    <i class="bi bi-clock me-1"></i>Pending
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-inactive">
+                                    <i class="bi bi-person-x me-1"></i>Inactive
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="employee-actions">
+                            <div class="action-buttons">
+                                <a href="{{ url_for('company.view_employee', employee_id=employee.id) }}" 
+                                   class="btn btn-sm btn-outline" title="View Employee Details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if employee.status == 'pending' %}
+                                <a href="{{ url_for('company.edit_employee', employee_id=employee.id) }}"
+                                   class="btn btn-sm btn-complete-work" title="Complete Work Details">
+                                    <i class="bi bi-clipboard-check me-1"></i>
+                                    Complete Work Details
+                                </a>
+                                {% else %}
+                                <a href="{{ url_for('company.edit_employee', employee_id=employee.id) }}" 
+                                   class="btn btn-sm btn-outline" title="Edit Employee">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% endif %}
+                                <form method="POST" action="{{ url_for('company.delete_employee', employee_id=employee.id) }}" 
+                                      style="display: inline;" onsubmit="return confirmDelete('{{ employee.name }}')">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete Employee">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Employee Statistics -->
+    <div class="employee-stats">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ employees|length }}</h3>
+                    <p>Total Employees</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-person-check"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ employees|selectattr('gender', 'equalto', 'Male')|list|length }}</h3>
+                    <p>Male Employees</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-person-heart"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ employees|selectattr('gender', 'equalto', 'Female')|list|length }}</h3>
+                    <p>Female Employees</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-person-check-fill"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ employees|selectattr('status', 'equalto', 'active')|list|length }}</h3>
+                    <p>Active Employees</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="bi bi-people"></i>
+        </div>
+        <h3>No Employees Found</h3>
+        <p>You haven't added any employees yet. Start building your workforce by adding your first employee.</p>
+        <a href="{{ url_for('company.add_employee') }}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-2"></i>Add First Employee
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.panel-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.panel-title {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.panel-title h2 {
+    margin: 0;
+}
+
+.panel-title p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 1rem;
+}
+
+/* Table Layout Styles */
+.employees-table-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px var(--shadow);
+    margin-bottom: 32px;
+}
+
+.table-responsive {
+    max-height: 460px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.employees-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    min-width: 1050px;
+}
+
+.employees-table thead {
+    background: #eef4ff;
+    border-bottom: 1px solid var(--border);
+}
+
+.employees-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #eef4ff;
+    color: #174ea6;
+    padding: 12px 14px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+}
+
+.employees-table th i {
+    color: var(--primary);
+}
+
+.employees-table .col-sr {
+    width: 90px;
+}
+
+.employees-table .col-actions {
+    width: 220px;
+}
+
+.employee-row {
+    border-bottom: 1px solid var(--border);
+    transition: all 0.2s ease;
+}
+
+.employee-row:hover {
+    background: var(--hover);
+}
+
+.employee-row:last-child {
+    border-bottom: none;
+}
+
+.employees-table td {
+    padding: 12px 14px;
+    vertical-align: middle;
+    color: var(--text);
+}
+
+/* Employee Info Cell */
+.employee-info-cell {
+    min-width: 250px;
+}
+
+.employee-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.employee-avatar {
+    font-size: 2rem;
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.employee-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.employee-name {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 1rem;
+    margin-bottom: 4px;
+}
+
+.employee-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.meta-item {
+    font-size: 0.8rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+}
+
+.meta-item i {
+    color: var(--primary);
+    font-size: 0.75rem;
+}
+
+/* ID Badge */
+.employee-id {
+    min-width: 100px;
+}
+
+.id-badge {
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* Role Column */
+.employee-role {
+    min-width: 140px;
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.role-manager {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.role-supervisor {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.role-staff {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6b7280;
+    border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.role-worker {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.role-other {
+    background: rgba(168, 85, 247, 0.1);
+    color: #a855f7;
+    border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.job-position {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 2px;
+}
+
+/* Department and Shift */
+.employee-department,
+.employee-shift {
+    min-width: 120px;
+}
+
+.department-name,
+.shift-name {
+    background: var(--background);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    display: inline-block;
+}
+
+/* Status Column */
+.employee-status {
+    min-width: 120px;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid;
+}
+
+.status-active {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+    border-color: rgba(34, 197, 94, 0.2);
+}
+
+.status-registered {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+.status-pending {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.status-inactive {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6b7280;
+    border-color: rgba(107, 114, 128, 0.2);
+}
+
+/* Actions Column */
+.employee-actions {
+    min-width: 140px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.btn-sm {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    min-width: 36px;
+    height: 36px;
+}
+
+.btn-outline {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.btn-outline:hover {
+    background: var(--hover);
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px var(--shadow);
+}
+
+.btn-complete-work {
+    background: #f59e0b;
+    border: 1px solid #d97706;
+    color: #ffffff;
+    padding: 8px 10px;
+    min-width: unset;
+    height: 36px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.btn-complete-work:hover {
+    background: #d97706;
+    border-color: #b45309;
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(217, 119, 6, 0.35);
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.unassigned {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+/* Employee Statistics */
+.employee-stats {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 4px var(--shadow);
+}
+
+.stat-icon {
+    font-size: 2rem;
+    color: var(--primary);
+}
+
+.stat-info h3 {
+    margin: 0 0 4px 0;
+    color: var(--text);
+    font-size: 1.5rem;
+}
+
+.stat-info p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    margin: 0 0 8px 0;
+    color: var(--text);
+}
+
+.empty-state p {
+    margin: 0 0 24px 0;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .employees-table th,
+    .employees-table td {
+        padding: 12px 14px;
+    }
+    
+    .employee-meta {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .panel-header {
+        margin-bottom: 16px;
+    }
+    
+    .employees-table-container {
+        border-radius: 8px;
+    }
+    
+    .employees-table th,
+    .employees-table td {
+        padding: 12px 14px;
+    }
+
+    .table-responsive {
+        max-height: 380px;
+    }
+    
+    .employee-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .employee-avatar {
+        font-size: 1.5rem;
+    }
+    
+    .employee-name {
+        font-size: 0.9rem;
+    }
+    
+    .action-buttons {
+        flex-direction: row;
+        gap: 4px;
+        justify-content: center;
+    }
+    
+    .btn-sm {
+        min-width: 32px;
+        height: 32px;
+        padding: 6px 8px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    /* Stack table on mobile */
+    .table-responsive {
+        overflow-x: scroll;
+    }
+    
+    .employees-table {
+        min-width: 800px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+function confirmDelete(employeeName) {
+    return confirm(`Are you sure you want to delete "${employeeName}"? This action cannot be undone.`);
+}
+</script>
+{% endblock %}

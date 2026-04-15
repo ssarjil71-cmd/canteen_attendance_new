@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Add Company{% endblock %}
+
+{% block content %}
+<div class="panel form-panel add-company-panel">
+	<h2>Add Company</h2>
+	<p>Create a new company and set credentials for company login.</p>
+
+	<form method="POST" enctype="multipart/form-data" class="add-company-form row g-3" id="addCompanyForm">
+		<div class="col-12 col-md-6">
+			<label class="form-label required-label">Company Name</label>
+			<input type="text" name="company_name" class="form-control" placeholder="Enter company name" required>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label required-label">Company Address</label>
+			<input type="text" name="address" class="form-control" placeholder="Enter company address" required>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label required-label">Company's official Mail</label>
+			<input type="email" name="email" class="form-control" placeholder="Enter company email" required>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label required-label">Contact Number</label>
+			<input type="tel" name="phone" class="form-control" placeholder="Enter contact number" maxlength="10" pattern="[0-9]{10}" required>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label">Company ID</label>
+			<input type="text" name="company_code" class="form-control" placeholder="Enter company code (optional)">
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label required-label">Company Type</label>
+			<select name="company_type_id" class="form-control" required>
+				<option value="">Select company type</option>
+				{% for company_type in company_types %}
+					<option value="{{ company_type.id }}" {% if request.form.get('company_type_id') == company_type.id|string %}selected{% endif %}>{{ company_type.type_name }}</option>
+				{% endfor %}
+			</select>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label required-label">Password</label>
+			<div class="password-input-wrapper">
+				<input type="password" name="password" class="form-control password-field" placeholder="Set company login password" required>
+				<button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this)" title="Show password">
+					<i class="bi bi-eye"></i>
+				</button>
+			</div>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label required-label">Confirm Password</label>
+			<div class="password-input-wrapper">
+				<input type="password" name="confirm_password" class="form-control password-field" placeholder="Confirm company login password" required>
+				<button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this)" title="Show password">
+					<i class="bi bi-eye"></i>
+				</button>
+			</div>
+		</div>
+
+		<div class="col-12 col-md-6">
+			<label class="form-label">Company Logo</label>
+			<input type="file" name="logo" accept="image/*" class="form-control">
+			<small class="text-muted d-block mt-1">Maximum file size: 10 MB</small>
+		</div>
+
+		<!-- Location Settings Section -->
+		<div class="col-12">
+			<div class="location-section mt-2 mb-1 p-3 border rounded bg-light">
+			<h5 class="mb-3">Location Settings</h5>
+			<div class="row g-3 align-items-end">
+				<div class="col-12 col-md-4">
+					<label class="form-label required-label">Latitude</label>
+					<input type="text" name="latitude" id="latitude" class="form-control" placeholder="Latitude" required>
+				</div>
+				<div class="col-12 col-md-4">
+					<label class="form-label required-label">Longitude</label>
+					<input type="text" name="longitude" id="longitude" class="form-control" placeholder="Longitude" required>
+				</div>
+				<div class="col-12 col-md-4 d-grid">
+					<button type="button" class="btn location-btn" onclick="getLocation()">
+						<i class="bi bi-geo-alt"></i> Get Current Location
+					</button>
+				</div>
+			</div>
+			<div class="row mt-1">
+				<div class="col-12 col-md-6">
+					<label class="form-label required-label">Allowed Radius (meters)</label>
+					<input type="number" name="radius" class="form-control" placeholder="e.g. 100" min="1" required>
+				</div>
+			</div>
+			</div>
+		</div>
+
+		<div class="col-12">
+			<label class="form-label required-label">Modules</label>
+			<div class="checkbox-group">
+				<label class="checkbox-item">
+					<input type="checkbox" name="attendance_module_enabled" value="1">
+					Attendance Management
+				</label>
+				<label class="checkbox-item">
+					<input type="checkbox" name="canteen_module_enabled" value="1">
+					Canteen Management
+				</label>
+				<label class="checkbox-item">
+					<input type="checkbox" name="salary_slip_module_enabled" value="1">
+					Salary Slip Management
+				</label>
+			</div>
+		</div>
+
+		<div class="col-12 mt-2 d-grid save-company-row">
+			<button class="btn save-company-btn" type="submit">Save Company</button>
+		</div>
+	</form>
+
+	<script>
+	function togglePasswordVisibility(button) {
+		event.preventDefault();
+		const wrapper = button.closest('.password-input-wrapper');
+		const input = wrapper.querySelector('.password-field');
+		const icon = button.querySelector('i');
+		
+		if (input.type === 'password') {
+			input.type = 'text';
+			icon.classList.remove('bi-eye');
+			icon.classList.add('bi-eye-slash');
+			button.title = 'Hide password';
+		} else {
+			input.type = 'password';
+			icon.classList.remove('bi-eye-slash');
+			icon.classList.add('bi-eye');
+			button.title = 'Show password';
+		}
+	}
+
+	const MAX_LOGO_SIZE = 10 * 1024 * 1024;
+
+	const addCompanyForm = document.getElementById('addCompanyForm');
+	const logoInput = addCompanyForm ? addCompanyForm.querySelector('input[name="logo"]') : null;
+
+	if (logoInput) {
+		logoInput.addEventListener('change', function () {
+			const file = this.files && this.files[0];
+			if (file && file.size > MAX_LOGO_SIZE) {
+				alert('Company logo size must be 10 MB or less.');
+				this.value = '';
+			}
+		});
+	}
+
+	if (addCompanyForm) {
+		addCompanyForm.addEventListener('submit', function (event) {
+			const selectedModules = addCompanyForm.querySelectorAll('input[name="attendance_module_enabled"], input[name="canteen_module_enabled"], input[name="salary_slip_module_enabled"]');
+			const hasSelectedModule = Array.from(selectedModules).some(function (moduleInput) {
+				return moduleInput.checked;
+			});
+			if (!hasSelectedModule) {
+				event.preventDefault();
+				alert('Please select at least one module.');
+				return;
+			}
+
+			const file = logoInput && logoInput.files && logoInput.files[0];
+			if (file && file.size > MAX_LOGO_SIZE) {
+				event.preventDefault();
+				alert('Company logo size must be 10 MB or less.');
+			}
+		});
+	}
+
+	function getLocation() {
+		if (navigator.geolocation) {
+			navigator.geolocation.getCurrentPosition(function(position) {
+				document.getElementById('latitude').value = position.coords.latitude;
+				document.getElementById('longitude').value = position.coords.longitude;
+			}, function(error) {
+				alert('Unable to retrieve your location.');
+			});
+		} else {
+			alert('Geolocation is not supported by this browser.');
+		}
+	}
+	</script>
+</div>
+{% endblock %}

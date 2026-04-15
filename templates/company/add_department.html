@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Add Department{% endblock %}
+
+{% block content %}
+<div class="panel form-panel add-company-panel">
+    <h2>Add Department</h2>
+    <p>Create and manage department options for your company.</p>
+
+    <form method="POST" class="add-company-form row g-2 add-company-type-form">
+        <div class="col-12 col-lg-8">
+            <label class="form-label required-label" for="department_name">Department Name</label>
+            <div class="company-type-input-row">
+                <input
+                    type="text"
+                    id="department_name"
+                    name="department_name"
+                    class="form-control"
+                    placeholder="e.g. Human Resources, Operations, Finance, IT"
+                    value="{{ request.form.get('department_name', '') }}"
+                    required
+                >
+                <button class="btn btn-small" type="submit">Add Department</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="table-card mt-4 company-types-list-card">
+        <div class="company-types-list-scroll">
+            <table class="companies-table company-types-table">
+                <thead>
+                    <tr>
+                        <th style="width: 90px;">ID</th>
+                        <th>Department</th>
+                        <th style="width: 140px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for department in departments %}
+                    <tr>
+                        <td>{{ department.id }}</td>
+                        <td>{{ department.name }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('company.delete_department', department_id=department.id) }}" onsubmit="return confirm('Delete this department?');">
+                                <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3">No departments added yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        mainContent.classList.add('company-types-only-scroll');
+    }
+});
+</script>
+{% endblock %}

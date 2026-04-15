@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}Add Shift{% endblock %}
+
+{% block content %}
+<div class="panel form-panel">
+    <h2><i class="bi bi-clock-history me-2"></i>Add Shift</h2>
+    <p>Create a shift schedule for your company.</p>
+
+    <form method="POST" class="shift-form">
+        <div class="form-section">
+            <div class="section-header">
+                <h4><i class="bi bi-clock me-2"></i>Shift Information</h4>
+                <p class="section-desc">Define shift name and working hours.</p>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="shift_name">Shift Name <span class="required">*</span></label>
+                    <input type="text" id="shift_name" name="shift_name" 
+                              placeholder="Enter shift name" 
+                           value="{{ request.form.get('shift_name', '') }}" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="start_time">Start Time <span class="required">*</span></label>
+                    <input type="time" id="start_time" name="start_time" 
+                           value="{{ request.form.get('start_time', '') }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="end_time">End Time <span class="required">*</span></label>
+                    <input type="time" id="end_time" name="end_time" 
+                           value="{{ request.form.get('end_time', '') }}" required>
+                </div>
+            </div>
+            
+            <div class="shift-preview">
+                <h5><i class="bi bi-eye me-2"></i>Shift Preview</h5>
+                <div class="preview-content">
+                    <div class="preview-item">
+                        <span class="preview-label">Shift Name:</span>
+                        <span class="preview-value" id="preview-name">-</span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">Duration:</span>
+                        <span class="preview-value" id="preview-duration">-</span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">Schedule:</span>
+                        <span class="preview-value" id="preview-schedule">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>Add Shift
+            </button>
+            <a href="{{ url_for('company.view_shifts') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.shift-form {
+    width: 100%;
+    max-width: none;
+}
+
+.form-section {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 18px;
+    backdrop-filter: blur(8px);
+}
+
+.section-header {
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.section-header h4 {
+    margin: 0 0 4px 0;
+    color: #000;
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+}
+
+.section-desc {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    margin-bottom: 6px;
+    color: #000;
+    font-weight: 700;
+    font-size: 0.92rem;
+}
+
+.required {
+    color: #ff6b6b;
+}
+
+.form-group input {
+    padding: 11px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: #6c757d;
+    font-size: 0.92rem;
+    transition: all 0.3s ease;
+}
+
+.form-group input::placeholder {
+    color: #6c757d;
+    opacity: 1;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+    background: #ffffff;
+}
+
+.shift-preview {
+    margin-top: 18px;
+    padding: 14px;
+    background: #f8fbff;
+    border: 1px solid rgba(13, 110, 253, 0.15);
+    border-radius: 10px;
+}
+
+.shift-preview h5 {
+    margin: 0 0 12px 0;
+    color: #174ea6;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+}
+
+.preview-content {
+    display: grid;
+    gap: 10px;
+}
+
+.preview-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.preview-label {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.preview-value {
+    color: var(--text);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 14px;
+    justify-content: flex-start;
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    padding: 10px 16px;
+    font-weight: 600;
+}
+
+.btn-secondary {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 16px;
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-secondary:hover {
+    background: rgba(13, 110, 253, 0.08);
+    color: var(--text);
+    text-decoration: none;
+    border-color: var(--primary);
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const shiftNameInput = document.getElementById('shift_name');
+    const startTimeInput = document.getElementById('start_time');
+    const endTimeInput = document.getElementById('end_time');
+    
+    const previewName = document.getElementById('preview-name');
+    const previewDuration = document.getElementById('preview-duration');
+    const previewSchedule = document.getElementById('preview-schedule');
+    
+    function updatePreview() {
+        // Update shift name
+        previewName.textContent = shiftNameInput.value || '-';
+        
+        // Update schedule and duration
+        if (startTimeInput.value && endTimeInput.value) {
+            const startTime = new Date(`2000-01-01T${startTimeInput.value}`);
+            const endTime = new Date(`2000-01-01T${endTimeInput.value}`);
+            
+            // Handle overnight shifts
+            if (endTime < startTime) {
+                endTime.setDate(endTime.getDate() + 1);
+            }
+            
+            const duration = (endTime - startTime) / (1000 * 60 * 60); // hours
+            
+            previewSchedule.textContent = `${formatTime(startTimeInput.value)} - ${formatTime(endTimeInput.value)}`;
+            previewDuration.textContent = `${duration} hours`;
+        } else {
+            previewSchedule.textContent = '-';
+            previewDuration.textContent = '-';
+        }
+    }
+    
+    function formatTime(timeString) {
+        if (!timeString) return '';
+        const [hours, minutes] = timeString.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour % 12 || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
+    }
+    
+    // Add event listeners
+    shiftNameInput.addEventListener('input', updatePreview);
+    startTimeInput.addEventListener('change', updatePreview);
+    endTimeInput.addEventListener('change', updatePreview);
+    
+    // Initial preview update
+    updatePreview();
+    
+    // Preset shift suggestions
+    const presetShifts = {
+        'Morning Shift': { start: '09:00', end: '17:00' },
+        'Evening Shift': { start: '14:00', end: '22:00' },
+        'Night Shift': { start: '22:00', end: '06:00' }
+    };
+    
+    shiftNameInput.addEventListener('blur', function() {
+        const shiftName = this.value;
+        if (presetShifts[shiftName] && !startTimeInput.value && !endTimeInput.value) {
+            startTimeInput.value = presetShifts[shiftName].start;
+            endTimeInput.value = presetShifts[shiftName].end;
+            updatePreview();
+        }
+    });
+});
+</script>
+{% endblock %}

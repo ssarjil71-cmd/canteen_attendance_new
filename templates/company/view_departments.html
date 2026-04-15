@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}View Departments{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h2><i class="bi bi-diagram-2 me-2"></i>Departments</h2>
+        <p>Manage all departments in your company organization.</p>
+        <div class="panel-actions">
+            <a href="{{ url_for('company.add_department') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>Add New Department
+            </a>
+        </div>
+    </div>
+
+    {% if departments %}
+    <div class="department-list-wrapper">
+        <div class="department-list-scroll">
+            <table class="department-table">
+                <thead>
+                    <tr>
+                        <th class="col-sr">Sr No</th>
+                        <th>Department Name</th>
+                        <th>Created On</th>
+                        <th class="col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for department in departments %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ department.name }}</td>
+                        <td>
+                            {% if department.created_at %}
+                                {{ department.created_at.strftime('%B %d, %Y') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="department-actions">
+                                <button class="btn btn-small btn-outline" onclick="editDepartment({{ department.id }}, '{{ department.name }}')">
+                                    <i class="bi bi-pencil me-1"></i>Edit
+                                </button>
+                                <form method="POST" action="{{ url_for('company.delete_department', department_id=department.id) }}"
+                                      style="display: inline;" onsubmit="return confirmDelete('{{ department.name }}')">
+                                    <button type="submit" class="btn btn-small btn-danger">
+                                        <i class="bi bi-trash me-1"></i>Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="bi bi-diagram-2"></i>
+        </div>
+        <h3>No Departments Found</h3>
+        <p>You haven't created any departments yet. Start by adding your first department to organize your workforce.</p>
+        <a href="{{ url_for('company.add_department') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>Add First Department
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Edit Department Modal -->
+<div class="modal fade" id="editDepartmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Department</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editDepartmentForm" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="edit_department_name">Department Name</label>
+                        <input type="text" id="edit_department_name" name="department_name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Department</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.panel-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.department-list-wrapper {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-strong);
+}
+
+.department-list-scroll {
+    max-height: 460px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.department-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 700px;
+}
+
+.department-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #eef4ff;
+    color: #174ea6;
+    font-weight: 700;
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.department-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+}
+
+.department-table tbody tr:hover {
+    background: var(--hover);
+}
+
+.department-table .col-sr {
+    width: 90px;
+}
+
+.department-table .col-actions {
+    width: 220px;
+}
+
+.department-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.btn-outline {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+    background: var(--hover);
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px var(--shadow);
+}
+
+.btn-danger {
+    background: #ef4444;
+    border: none;
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    margin: 0 0 8px 0;
+    color: var(--text);
+}
+
+.empty-state p {
+    margin: 0 0 24px 0;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.modal-content {
+    background: var(--surface);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text);
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text);
+    font-weight: 500;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--text);
+}
+
+@media (max-width: 768px) {
+    .panel-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .department-actions {
+        justify-content: flex-start;
+    }
+
+    .department-list-scroll {
+        max-height: 380px;
+    }
+}
+</style>
+
+<script>
+function editDepartment(id, name) {
+    document.getElementById('edit_department_name').value = name;
+    document.getElementById('editDepartmentForm').action = `/company/edit_department/${id}`;
+    new bootstrap.Modal(document.getElementById('editDepartmentModal')).show();
+}
+
+function confirmDelete(departmentName) {
+    return confirm(`Are you sure you want to delete the "${departmentName}" department? This action cannot be undone.`);
+}
+</script>
+{% endblock %}
