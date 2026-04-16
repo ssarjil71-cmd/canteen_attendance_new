@@ -1416,35 +1416,56 @@ def common_employee_registration():
     """Public employee self-registration from company QR flow."""
 
     company_id = request.args.get("company_id", type=int) or request.form.get("company_id", type=int)
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
-
     if not company_id:
-        cursor.close()
-        connection.close()
         return render_template(
-            "employee/common_registration_form.html",
+            "employee/self_registration.html",
+            minimal=True,
             error_message="Missing company information in the registration link.",
         )
 
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
     cursor.execute("SELECT id, company_name FROM companies WHERE id = %s", (company_id,))
     company = cursor.fetchone()
-    cursor.close()
-    connection.close()
 
     if not company:
+        cursor.close()
+        connection.close()
         return render_template(
-            "employee/common_registration_form.html",
+            "employee/self_registration.html",
+            minimal=True,
             error_message="Invalid company registration link.",
         )
 
+    cursor.execute("SELECT id, name FROM departments WHERE company_id = %s ORDER BY name", (company_id,))
+    departments = cursor.fetchall()
+    cursor.execute("SELECT id, name, start_time, end_time FROM shifts WHERE company_id = %s ORDER BY name", (company_id,))
+    shifts = cursor.fetchall()
+    cursor.execute("SELECT id, name FROM roles WHERE company_id = %s ORDER BY name", (company_id,))
+    roles = cursor.fetchall()
+    cursor.close()
+    connection.close()
+
+    for shift in shifts:
+        if hasattr(shift["start_time"], "total_seconds"):
+            total_seconds = int(shift["start_time"].total_seconds())
+            hours = max(0, min(23, total_seconds // 3600))
+            minutes = max(0, min(59, (total_seconds % 3600) // 60))
+            shift["start_time"] = time(hours, minutes)
+        if hasattr(shift["end_time"], "total_seconds"):
+            total_seconds = int(shift["end_time"].total_seconds())
+            hours = max(0, min(23, total_seconds // 3600))
+            minutes = max(0, min(59, (total_seconds % 3600) // 60))
+            shift["end_time"] = time(hours, minutes)
+
     if request.method == "GET":
         return render_template(
-            "company/add_employee.html",
-            departments=[],
-            shifts=[],
-            roles=[],
+            "employee/self_registration.html",
+            departments=departments,
+            shifts=shifts,
+            roles=roles,
             minimal=True,
+            page_title="Employee Self Registration",
             company_name=company["company_name"],
             company_id=company_id,
         )
@@ -1456,6 +1477,11 @@ def common_employee_registration():
     dob = request.form.get("dob", "").strip()
     phone = request.form.get("phone", "").strip()
     address = request.form.get("address", "").strip()
+    role = request.form.get("role", "").strip()
+    employee_role = request.form.get("employee_role", "").strip()
+    department_id = request.form.get("department_id", "").strip()
+    shift_id = request.form.get("shift_id", "").strip()
+    joining_date = request.form.get("joining_date", "").strip()
     face_image_data = request.form.get("face_image_data", "").strip()
 
     errors = []
@@ -1471,6 +1497,16 @@ def common_employee_registration():
         errors.append("Phone number is required.")
     if not address:
         errors.append("Address is required.")
+    if not role:
+        errors.append("Job position is required.")
+    if not employee_role:
+        errors.append("Employee Role is required.")
+    if not department_id:
+        errors.append("Department is required.")
+    if not shift_id:
+        errors.append("Shift is required.")
+    if not joining_date:
+        errors.append("Joining date is required.")
     if not face_image_data:
         errors.append("Face image is required for self-registration.")
 
@@ -1499,6 +1535,34 @@ def common_employee_registration():
     except ValueError:
         errors.append("Invalid date format for date of birth.")
         dob_obj = None
+
+    try:
+        joining_date_obj = datetime.strptime(joining_date, "%Y-%m-%d").date() if joining_date else None
+    except ValueError:
+        errors.append("Invalid date format for joining date.")
+        joining_date_obj = None
+
+    department_name = None
+    shift_name = None
+    if department_id and shift_id and not errors:
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT name FROM departments WHERE id = %s AND company_id = %s", (department_id, company_id))
+        dept_result = cursor.fetchone()
+        cursor.execute("SELECT name FROM shifts WHERE id = %s AND company_id = %s", (shift_id, company_id))
+        shift_result = cursor.fetchone()
+        cursor.close()
+        connection.close()
+
+        if not dept_result:
+            errors.append("Selected department is invalid.")
+        else:
+            department_name = dept_result["name"]
+
+        if not shift_result:
+            errors.append("Selected shift is invalid.")
+        else:
+            shift_name = shift_result["name"]
 
     image_path = None
     if face_image_data and not errors:
@@ -1529,11 +1593,12 @@ def common_employee_registration():
         for error in errors:
             flash(error, "error")
         return render_template(
-            "company/add_employee.html",
-            departments=[],
-            shifts=[],
-            roles=[],
+            "employee/self_registration.html",
+            departments=departments,
+            shifts=shifts,
+            roles=roles,
             minimal=True,
+            page_title="Employee Self Registration",
             company_name=company["company_name"],
             company_id=company_id,
         )
@@ -1555,11 +1620,11 @@ def common_employee_registration():
             dob_obj,
             phone,
             address,
-            "Pending Assignment",
-            None,
-            "General",
-            "General",
-            datetime.now().date(),
+            role,
+            employee_role,
+            department_name,
+            shift_name,
+            joining_date_obj,
             company["company_name"],
             company_id,
             image_path,

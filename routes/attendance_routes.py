@@ -26,6 +26,40 @@ FACE_VERIFICATION_CONFIG = {
 }
 
 
+def _attendance_has_meal_status(connection):
+    cursor = connection.cursor()
+    cursor.execute("SHOW COLUMNS FROM attendance LIKE 'meal_status'")
+    has_column = cursor.fetchone() is not None
+    cursor.close()
+    return has_column
+
+
+def _ensure_attendance_meal_status(connection):
+    if _attendance_has_meal_status(connection):
+        return
+    cursor = connection.cursor()
+    cursor.execute("ALTER TABLE attendance ADD COLUMN meal_status ENUM('YES', 'NO') DEFAULT 'NO' AFTER check_out_time")
+    cursor.close()
+    connection.commit()
+
+
+def _attendance_has_meal_taken(connection):
+    cursor = connection.cursor()
+    cursor.execute("SHOW COLUMNS FROM attendance LIKE 'meal_taken'")
+    has_column = cursor.fetchone() is not None
+    cursor.close()
+    return has_column
+
+
+def _ensure_attendance_meal_taken(connection):
+    if _attendance_has_meal_taken(connection):
+        return
+    cursor = connection.cursor()
+    cursor.execute("ALTER TABLE attendance ADD COLUMN meal_taken ENUM('YES', 'NO') DEFAULT 'NO' AFTER meal_status")
+    cursor.close()
+    connection.commit()
+
+
 def _rekognition_client():
     return boto3.client(
         "rekognition",
@@ -278,6 +312,7 @@ def auto_mark_attendance():
         #     })
 
         attendance_image_path = None
+        _ensure_attendance_meal_status(connection)
         try:
             unique_filename = f"attendance_{employee_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
             uploads_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'faces')
@@ -292,14 +327,15 @@ def auto_mark_attendance():
         cursor.execute(
             """
             INSERT INTO attendance (
-                employee_id, company_id, date, check_in_time, face_image,
+                employee_id, company_id, date, check_in_time, meal_status, face_image,
                 latitude, longitude, location_verified, face_verified, status
-            ) VALUES (%s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 employee_id,
                 company_id,
                 today,
+                'NO',
                 attendance_image_path,
                 latitude,
                 longitude,
@@ -357,6 +393,7 @@ def meal_response():
         employee_id = data.get('employee_id')
         company_id = data.get('company_id')
         status = (data.get('status') or '').strip()
+        meal_status = 'YES' if status == 'Coming' else 'NO'
 
         if not employee_id or not company_id or status not in {"Coming", "Not Coming"}:
             return jsonify({
@@ -379,16 +416,27 @@ def meal_response():
             }), 404
 
         canteen_id = canteen['id']
+        _ensure_attendance_meal_status(connection)
         cursor.execute(
             """
-            INSERT INTO meal_responses (employee_id, canteen_id, response_date, status)
-            VALUES (%s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE
-                status = VALUES(status),
+            UPDATE attendance
+            SET meal_status = %s,
                 updated_at = CURRENT_TIMESTAMP
+            WHERE employee_id = %s
+              AND company_id = %s
+              AND DATE(check_in_time) = CURDATE()
+              AND check_in_time IS NOT NULL
             """,
-            (employee_id, canteen_id, response_date, status),
+            (meal_status, employee_id, company_id),
         )
+
+        if cursor.rowcount == 0:
+            current_app.logger.warning(
+                "Meal response update matched no attendance row for employee_id=%s company_id=%s date=%s",
+                employee_id,
+                company_id,
+                response_date,
+            )
 
         menu_payload = None
         if status == "Coming":
@@ -409,6 +457,12 @@ def meal_response():
                 }
 
         connection.commit()
+        current_app.logger.info(
+            "Meal response saved for employee_id=%s company_id=%s attendance_status=%s",
+            employee_id,
+            company_id,
+            meal_status,
+        )
         cursor.close()
         connection.close()
 
@@ -1001,15 +1055,16 @@ def mark_attendance():
                 current_app.logger.error(f"Error saving attendance image: {str(img_error)}")
         
         # Mark attendance in database
+        _ensure_attendance_meal_status(connection)
         cursor.execute(
             """
             INSERT INTO attendance (
-                employee_id, company_id, date, check_in_time, face_image, 
+                employee_id, company_id, date, check_in_time, meal_status, face_image, 
                 latitude, longitude, location_verified, face_verified, status
-            ) VALUES (%s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s, %s)
             """,
             (
-                employee_id, company_id, today, attendance_image_path,
+                employee_id, company_id, today, 'NO', attendance_image_path,
                 latitude, longitude, location_verified, face_verified, 'present'
             )
         )

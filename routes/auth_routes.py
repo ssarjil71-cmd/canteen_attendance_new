@@ -1,12 +1,29 @@
 from functools import wraps
 from datetime import date
+import os
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 from database.db_connection import get_db_connection
 
 auth = Blueprint('auth', __name__)
+
+
+def _attendance_has_meal_status(connection):
+	cursor = connection.cursor()
+	cursor.execute("SHOW COLUMNS FROM attendance LIKE 'meal_status'")
+	has_column = cursor.fetchone() is not None
+	cursor.close()
+	return has_column
+
+
+def _attendance_has_meal_taken(connection):
+	cursor = connection.cursor()
+	cursor.execute("SHOW COLUMNS FROM attendance LIKE 'meal_taken'")
+	has_column = cursor.fetchone() is not None
+	cursor.close()
+	return has_column
 
 
 ROLE_LOGIN_SELECT_MAP = {
@@ -125,22 +142,36 @@ def redirect_dashboard():
 @auth.route("/canteen/dashboard")
 @login_required(["canteen"])
 def canteen_dashboard():
+	company_id = session.get("company_id")
 	canteen_id = session.get("user_id")
 	today = date.today()
 
 	connection = get_db_connection()
 	cursor = connection.cursor(dictionary=True)
-
-	cursor.execute(
-		"""
-		SELECT
-			SUM(CASE WHEN status = 'Coming' THEN 1 ELSE 0 END) AS coming_count,
-			SUM(CASE WHEN status = 'Not Coming' THEN 1 ELSE 0 END) AS not_coming_count
-		FROM meal_responses
-		WHERE canteen_id = %s AND response_date = %s
-		""",
-		(canteen_id, today),
-	)
+	if _attendance_has_meal_status(connection):
+		cursor.execute(
+			"""
+			SELECT
+				SUM(CASE WHEN meal_status = 'YES' THEN 1 ELSE 0 END) AS coming_count,
+				SUM(CASE WHEN COALESCE(meal_status, 'NO') = 'NO' THEN 1 ELSE 0 END) AS not_coming_count
+			FROM attendance
+			WHERE company_id = %s
+			  AND DATE(check_in_time) = %s
+			  AND check_in_time IS NOT NULL
+			""",
+			(company_id, today),
+		)
+	else:
+		cursor.execute(
+			"""
+			SELECT
+				SUM(CASE WHEN status = 'Coming' THEN 1 ELSE 0 END) AS coming_count,
+				SUM(CASE WHEN status = 'Not Coming' THEN 1 ELSE 0 END) AS not_coming_count
+			FROM meal_responses
+			WHERE canteen_id = %s AND response_date = %s
+			""",
+			(canteen_id, today),
+		)
 	meal_counts = cursor.fetchone() or {}
 
 	coming_count = int(meal_counts.get("coming_count") or 0)
@@ -170,6 +201,62 @@ def canteen_dashboard():
 	}
 
 	return render_template("canteen/canteen_dashboard.html", stats=stats, today_menu=today_menu, today=today)
+
+
+@auth.route("/canteen/meal-scan")
+def canteen_meal_scan():
+	logged_in_canteen = session.get("role") == "canteen"
+	company_id = request.args.get("company_id", type=int)
+
+	if not company_id and logged_in_canteen:
+		company_id = session.get("company_id")
+
+	if not company_id:
+		return render_template("attendance/error.html", message="Invalid meal scan link. Missing company information."), 400
+
+	connection = get_db_connection()
+	cursor = connection.cursor(dictionary=True)
+	cursor.execute("SELECT id, company_name FROM companies WHERE id = %s", (company_id,))
+	company = cursor.fetchone()
+	cursor.close()
+	connection.close()
+
+	if not company:
+		return render_template("attendance/error.html", message="Company not found for meal scan."), 404
+
+	scan_url = url_for("auth.canteen_meal_scan", _external=True, company_id=company_id)
+	qr_image_path = None
+	if logged_in_canteen and session.get("company_id") == company_id:
+		try:
+			import qrcode
+			static_dir = os.path.join(current_app.root_path, "static")
+			qr_dir = os.path.join(static_dir, "qr")
+			os.makedirs(qr_dir, exist_ok=True)
+			qr_filename = f"canteen_meal_scan_company_{company_id}.png"
+			qr_file_path = os.path.join(qr_dir, qr_filename)
+
+			qr = qrcode.QRCode(
+				version=1,
+				error_correction=qrcode.constants.ERROR_CORRECT_H,
+				box_size=10,
+				border=4,
+			)
+			qr.add_data(scan_url)
+			qr.make(fit=True)
+			qr_img = qr.make_image(fill_color="black", back_color="white")
+			qr_img.save(qr_file_path)
+			qr_image_path = f"qr/{qr_filename}"
+		except Exception as exc:
+			current_app.logger.error("Failed to generate meal scan QR: %s", exc)
+
+	return render_template(
+		"canteen/meal_scan.html",
+		company=company,
+		company_id=company_id,
+		scan_url=scan_url,
+		qr_image_path=qr_image_path,
+		show_qr_tools=bool(logged_in_canteen and session.get("company_id") == company_id),
+	)
 
 
 @auth.route("/canteen/menu/add", methods=["GET", "POST"])
@@ -231,6 +318,115 @@ def view_menu():
 	connection.close()
 
 	return render_template("canteen/view_menu.html", menus=menus)
+
+
+@auth.route("/canteen/reports")
+@login_required(["canteen"])
+def canteen_reports():
+	company_id = session.get("company_id")
+	if not company_id:
+		flash("Company session is missing. Please login again.", "error")
+		return redirect(url_for("auth.role_login", role="canteen"))
+	selected_date = request.args.get("date") or date.today().isoformat()
+	meal_filter = (request.args.get("meal_filter") or "all").strip().lower()
+	search_query = (request.args.get("q") or "").strip()
+
+	if meal_filter not in {"all", "yes", "no"}:
+		meal_filter = "all"
+
+	connection = get_db_connection()
+	cursor = connection.cursor(dictionary=True)
+	if not _attendance_has_meal_status(connection):
+		cursor.execute("ALTER TABLE attendance ADD COLUMN meal_status ENUM('YES', 'NO') DEFAULT 'NO' AFTER check_out_time")
+	if not _attendance_has_meal_taken(connection):
+		cursor.execute("ALTER TABLE attendance ADD COLUMN meal_taken ENUM('YES', 'NO') DEFAULT 'NO' AFTER meal_status")
+		connection.commit()
+
+	count_query = (
+		"""
+		SELECT COUNT(*) AS total_count
+		FROM attendance a
+		JOIN employees e
+		  ON e.company_id = a.company_id
+		 AND a.employee_id = e.emp_id
+		"""
+		+ """
+		WHERE a.company_id = %s
+		  AND DATE(a.check_in_time) = %s
+		  AND a.check_in_time IS NOT NULL
+		"""
+	)
+	count_params = [company_id, selected_date]
+	if meal_filter == "yes":
+		count_query += " AND a.meal_status = 'YES'"
+	elif meal_filter == "no":
+		count_query += " AND COALESCE(a.meal_status, 'NO') = 'NO'"
+	if search_query:
+		count_query += " AND (e.name LIKE %s OR e.emp_id LIKE %s)"
+		count_params.extend([f"%{search_query}%", f"%{search_query}%"])
+
+	cursor.execute(count_query, count_params)
+	total_count = int((cursor.fetchone() or {}).get("total_count") or 0)
+	current_app.logger.info(
+		"Canteen reports count query returned %s rows for company_id=%s date=%s meal_filter=%s search=%s",
+		total_count,
+		company_id,
+		selected_date,
+		meal_filter,
+		search_query,
+	)
+
+	query = (
+		"""
+		SELECT
+			e.name,
+			e.emp_id,
+			e.department,
+			COALESCE(a.meal_status, 'NO') AS meal_status,
+			COALESCE(a.meal_taken, 'NO') AS meal_taken,
+			a.check_in_time
+		FROM attendance a
+		JOIN employees e
+		  ON e.company_id = a.company_id
+		 AND a.employee_id = e.emp_id
+		WHERE a.company_id = %s
+		  AND DATE(a.check_in_time) = %s
+		  AND a.check_in_time IS NOT NULL
+		"""
+	)
+	params = [company_id, selected_date]
+	if meal_filter == "yes":
+		query += " AND a.meal_status = 'YES'"
+	elif meal_filter == "no":
+		query += " AND COALESCE(a.meal_status, 'NO') = 'NO'"
+	if search_query:
+		query += " AND (e.name LIKE %s OR e.emp_id LIKE %s)"
+		params.extend([f"%{search_query}%", f"%{search_query}%"])
+	query += " ORDER BY a.check_in_time DESC, e.name ASC"
+
+	cursor.execute(query, params)
+	reports = cursor.fetchall()
+	current_app.logger.info(
+		"Canteen reports query returned rows: %s",
+		len(reports),
+	)
+	for row in reports[:10]:
+		current_app.logger.info("Canteen report row: %s", row)
+	cursor.close()
+	connection.close()
+
+	for row in reports:
+		row["meal_status_label"] = "YES" if (row.get("meal_status") or "").strip().upper() == "YES" else "NO"
+		row["meal_taken_label"] = "YES" if (row.get("meal_taken") or "").strip().upper() == "YES" else "NO"
+
+	return render_template(
+		"canteen/canteen_reports.html",
+		reports=reports,
+		total_count=total_count,
+		selected_date=selected_date,
+		meal_filter=meal_filter,
+		search_query=search_query,
+	)
 
 
 @auth.route("/logout")

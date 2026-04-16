@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Canteen Reports{% endblock %}
+
+{% block content %}
+<div class="panel canteen-reports-panel">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <h2 class="mb-1">Today's Meal Participants</h2>
+            <p class="text-muted mb-0">Employees who marked attendance today and their meal selection status.</p>
+        </div>
+        <span class="canteen-date-pill"><i class="bi bi-calendar3 me-2"></i>{{ selected_date }}</span>
+    </div>
+
+    <div class="canteen-summary-row mb-3">
+        <div class="summary-card">
+            <div class="summary-label">Total Records</div>
+            <div class="summary-value">{{ total_count }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Meal Filter</div>
+            <div class="summary-value text-uppercase">{{ meal_filter }}</div>
+        </div>
+    </div>
+
+    <div class="report-filters card mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Date</label>
+                    <input type="date" name="date" class="form-control" value="{{ selected_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Meal Filter</label>
+                    <select name="meal_filter" class="form-select">
+                        <option value="all" {{ 'selected' if meal_filter == 'all' }}>All Employees</option>
+                        <option value="yes" {{ 'selected' if meal_filter == 'yes' }}>Only Meal YES</option>
+                        <option value="no" {{ 'selected' if meal_filter == 'no' }}>Only Meal NO</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="q" class="form-control" placeholder="Employee name or ID" value="{{ search_query }}">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-2"></i>Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card report-table-card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Employee Name</th>
+                            <th>Employee ID</th>
+                            <th>Department</th>
+                            <th>Meal Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if reports %}
+                            {% for row in reports %}
+                            <tr>
+                                <td class="fw-semibold">{{ row.name }}</td>
+                                <td>{{ row.emp_id }}</td>
+                                <td>{{ row.department or '-' }}</td>
+                                <td>
+                                    {% if row.meal_status_label == 'YES' %}
+                                        <span class="badge bg-success">YES</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">NO</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">No attendance records found for the selected filter.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.canteen-reports-panel {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.canteen-date-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid #dbe3ef;
+    color: #374151;
+    background: #ffffff;
+    font-weight: 600;
+}
+
+.canteen-summary-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.summary-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+.summary-label {
+    color: #6b7280;
+    font-size: 0.88rem;
+    margin-bottom: 4px;
+}
+
+.summary-value {
+    color: #111827;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.report-table-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+.report-table-card .table thead th {
+    background: #f8fafc;
+    color: #374151;
+    font-weight: 700;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.report-table-card .table tbody td {
+    border-top: 1px solid #f1f5f9;
+}
+
+@media (max-width: 576px) {
+    .report-filters .btn {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}

@@ -215,7 +215,8 @@ def _ensure_core_tables(connection):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uk_canteen_menu_date (canteen_id, menu_date),
-            CONSTRAINT fk_canteen_menu_canteen FOREIGN KEY (canteen_id) REFERENCES canteen(id) ON DELETE CASCADE
+            CONSTRAINT fk_canteen_menu_canteen FOREIGN KEY (canteen_id)
+              REFERENCES canteen(id) ON DELETE CASCADE
         )
         """
     )
@@ -352,6 +353,7 @@ def _apply_schema_updates(connection):
             date DATE NOT NULL,
             check_in_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             check_out_time TIMESTAMP NULL,
+            meal_status ENUM('YES', 'NO') DEFAULT 'NO',
             face_image VARCHAR(500) NULL,
             latitude DECIMAL(10, 8) NULL,
             longitude DECIMAL(11, 8) NULL,
@@ -366,6 +368,9 @@ def _apply_schema_updates(connection):
         )
         """
     )
+
+    if not _column_exists(cursor, "attendance", "meal_status"):
+        cursor.execute("ALTER TABLE attendance ADD COLUMN meal_status ENUM('YES', 'NO') DEFAULT 'NO' AFTER check_out_time")
 
     cursor.execute("UPDATE companies SET company_name = CONCAT('Company ', id) WHERE company_name IS NULL OR company_name = ''")
     cursor.execute("UPDATE companies SET email = CONCAT('company', id, '@example.com') WHERE email IS NULL OR email = ''")
