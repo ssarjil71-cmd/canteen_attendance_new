@@ -1,5 +1,6 @@
 from functools import wraps
 from datetime import datetime, time
+import re
 
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import generate_password_hash
@@ -1630,6 +1631,84 @@ def add_role():
         return redirect(url_for("company.view_roles"))
 
     return render_template("company/add_role.html")
+
+
+@company.route("/add_canteen", methods=["GET", "POST"])
+@company_required
+def add_canteen():
+    company_id = session.get("company_id")
+
+    if request.method == "POST":
+        canteen_name = request.form.get("canteen_name", "").strip()
+        owner_name = request.form.get("owner_name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "").strip()
+        confirm_password = request.form.get("confirm_password", "").strip()
+
+        errors = []
+        if not canteen_name:
+            errors.append("Canteen name is required.")
+        if not owner_name:
+            errors.append("Owner name is required.")
+        if not phone:
+            errors.append("Phone number is required.")
+        if not email:
+            errors.append("Email is required.")
+        if not password:
+            errors.append("Password is required.")
+        if not confirm_password:
+            errors.append("Confirm password is required.")
+
+        if email and not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", email):
+            errors.append("Enter a valid email address.")
+        if phone and (len(phone) != 10 or not phone.isdigit()):
+            errors.append("Phone number must be exactly 10 digits.")
+        if password and confirm_password and password != confirm_password:
+            errors.append("Password and confirm password must match.")
+
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        if not errors:
+            cursor.execute("SELECT id FROM canteen WHERE company_id = %s", (company_id,))
+            if cursor.fetchone():
+                errors.append("This company already has a canteen registered.")
+
+        if not errors:
+            cursor.execute("SELECT id FROM canteen WHERE username = %s", (canteen_name,))
+            if cursor.fetchone():
+                errors.append("Canteen name already exists.")
+
+        if not errors:
+            cursor.execute("SELECT id FROM canteen WHERE email = %s", (email,))
+            if cursor.fetchone():
+                errors.append("Email already exists.")
+
+        if errors:
+            cursor.close()
+            connection.close()
+            for error in errors:
+                flash(error, "error")
+            return render_template("company/add_canteen.html")
+
+        hashed_password = generate_password_hash(password)
+        cursor.execute(
+            """
+            INSERT INTO canteen (username, full_name, phone, email, password, company_id, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            """,
+            (canteen_name, owner_name, phone, email, hashed_password, company_id),
+        )
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        flash("Canteen added successfully", "success")
+        return redirect(url_for("company.company_dashboard"))
+
+    return render_template("company/add_canteen.html")
 
 
 @company.route("/roles")

@@ -28,14 +28,14 @@
 
         <form method="POST" class="form-grid auth-form">
             <div class="auth-field">
-                <label for="loginIdentifier">{{ 'Email Address' if role == 'company' else ('Admin Username' if role == 'admin' else 'Username or Email') }}</label>
+                <label for="loginIdentifier">{{ 'Email Address' if role == 'company' else ('Admin Username' if role == 'admin' else 'Email') }}</label>
                 <input
                     id="loginIdentifier"
                     class="auth-input"
-                    type="{{ 'email' if role == 'company' else 'text' }}"
-                    name="{{ 'admin_username' if role == 'admin' else 'username' }}"
-                    placeholder="{{ 'Enter Company\'s mail address' if role == 'company' else ('Enter your username' if role == 'admin' else 'Enter your username or email') }}"
-                    autocomplete="{{ 'email' if role == 'company' else 'username' }}"
+                    type="{{ 'email' if role in ['company', 'canteen'] else 'text' }}"
+                    name="{{ 'admin_username' if role == 'admin' else ('email' if role == 'canteen' else 'username') }}"
+                    placeholder="{{ 'Enter Company\'s mail address' if role == 'company' else ('Enter your email address' if role == 'canteen' else 'Enter your username') }}"
+                    autocomplete="{{ 'email' if role in ['company', 'canteen'] else 'username' }}"
                     required
                 >
             </div>
@@ -47,6 +47,9 @@
                         <i id="passwordToggleIcon" class="bi bi-eye"></i>
                     </button>
                 </div>
+                {% if login_error %}
+                    <div class="inline-form-error" role="alert">{{ login_error }}</div>
+                {% endif %}
             </div>
             <button type="submit" class="btn auth-submit">Login</button>
         </form>

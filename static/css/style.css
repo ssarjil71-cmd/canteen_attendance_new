@@ -413,6 +413,13 @@ body.dashboard-layout {
     font-weight: 600;
 }
 
+.inline-form-error {
+    margin-top: 8px;
+    color: #dc3545;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
 label {
     color: var(--muted);
     font-size: 0.92rem;

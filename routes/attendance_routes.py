@@ -1,180 +1,437 @@
 import base64
+import io
 import os
 import uuid
 from datetime import datetime, date
 from math import radians, cos, sin, asin, sqrt
 import json
 
+import boto3
 from flask import Blueprint, request, jsonify, current_app, render_template
+from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
+from PIL import Image
 
-# Required face recognition imports
-try:
-    import cv2
-    import numpy as np
-    import face_recognition
-    FACE_RECOGNITION_AVAILABLE = True
-except ImportError as e:
-    print(f"Face recognition libraries not available: {e}")
-    FACE_RECOGNITION_AVAILABLE = False
+AWS_REKOGNITION_AVAILABLE = True
 
 from database.db_connection import get_db_connection
 
 attendance = Blueprint("attendance", __name__, url_prefix="/attendance")
 
-# Face verification configuration
+# Face verification configuration (AWS Rekognition)
 FACE_VERIFICATION_CONFIG = {
-    'threshold': 0.55,  # Recommended practical tolerance for face_recognition
-    'method': 'face_recognition',
-    'detection_model': 'hog',
-    'num_jitters': 1,
-    'min_brightness': 45,
-    'description': 'Lower values = stricter matching, Higher values = more tolerant matching'
+    'method': 'aws_rekognition',
+    'similarity_threshold': 90.0,
+    'min_face_confidence': 85.0,
+    'description': 'AWS Rekognition based face detection and comparison'
 }
 
 
-def preprocess_bgr_image(image_bgr):
-    """Normalize lighting and contrast before converting to RGB for detection."""
-    if image_bgr is None:
-        return None
-
-    processed = image_bgr.copy()
-    gray = cv2.cvtColor(processed, cv2.COLOR_BGR2GRAY)
-    brightness = float(np.mean(gray))
-
-    if brightness < FACE_VERIFICATION_CONFIG['min_brightness']:
-        # Boost dark images to reduce false negatives in low-light scenes.
-        processed = cv2.convertScaleAbs(processed, alpha=1.25, beta=20)
-
-    ycrcb = cv2.cvtColor(processed, cv2.COLOR_BGR2YCrCb)
-    y, cr, cb = cv2.split(ycrcb)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    y = clahe.apply(y)
-    processed = cv2.cvtColor(cv2.merge((y, cr, cb)), cv2.COLOR_YCrCb2BGR)
-    return processed
+def _rekognition_client():
+    return boto3.client(
+        "rekognition",
+        region_name=os.getenv("AWS_REGION", "us-east-1")
+    )
 
 
-def decode_base64_to_bgr(face_image_data):
-    """Decode data URL/base64 string into OpenCV BGR image."""
+def decode_base64_image_bytes(face_image_data):
+    """Decode data URL/base64 string into bytes suitable for Rekognition."""
     if not face_image_data:
         return None
 
     if ',' in face_image_data:
         face_image_data = face_image_data.split(',', 1)[1]
 
-    image_binary = base64.b64decode(face_image_data)
-    np_arr = np.frombuffer(image_binary, np.uint8)
-    return cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    try:
+        return base64.b64decode(face_image_data)
+    except Exception:
+        return None
 
 
-def detect_faces_with_boxes(image_bgr):
-    """Return face locations in CSS format (top, right, bottom, left)."""
-    if image_bgr is None:
-        return []
-
-    processed = preprocess_bgr_image(image_bgr)
-    rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
-
-    # Resize for speed while preserving detection accuracy.
-    scale = 0.5
-    small_rgb = cv2.resize(rgb, (0, 0), fx=scale, fy=scale)
-    locations_small = face_recognition.face_locations(
-        small_rgb,
-        number_of_times_to_upsample=1,
-        model=FACE_VERIFICATION_CONFIG['detection_model']
+def detect_faces_with_rekognition(image_bytes):
+    client = _rekognition_client()
+    response = client.detect_faces(
+        Image={"Bytes": image_bytes},
+        Attributes=["DEFAULT"]
     )
-
-    locations = []
-    inv_scale = int(round(1 / scale))
-    for top, right, bottom, left in locations_small:
-        locations.append((top * inv_scale, right * inv_scale, bottom * inv_scale, left * inv_scale))
-
-    return locations
+    return response.get("FaceDetails", [])
 
 
-def verify_face_images(stored_image_path, captured_image_path, threshold=None):
-    """Verify one captured face against one stored face using face encodings."""
-    if threshold is None:
-        threshold = FACE_VERIFICATION_CONFIG['threshold']
+def _pixel_box_from_rekognition_box(rekognition_box, image_width, image_height):
+    left = int(rekognition_box.get("Left", 0.0) * image_width)
+    top = int(rekognition_box.get("Top", 0.0) * image_height)
+    width = int(rekognition_box.get("Width", 0.0) * image_width)
+    height = int(rekognition_box.get("Height", 0.0) * image_height)
+    return {
+        "left": left,
+        "top": top,
+        "right": left + width,
+        "bottom": top + height,
+        "width": width,
+        "height": height,
+    }
+
+
+def verify_face_images(stored_image_path, captured_image_bytes, similarity_threshold=None):
+    """Compare stored image with captured image using AWS Rekognition."""
+    if similarity_threshold is None:
+        similarity_threshold = FACE_VERIFICATION_CONFIG['similarity_threshold']
+
+    if not os.path.exists(stored_image_path):
+        return {
+            'verified': False,
+            'confidence': 0.0,
+            'similarity': 0.0,
+            'threshold': similarity_threshold,
+            'error': 'Stored image file not found'
+        }
 
     try:
-        stored_bgr = cv2.imread(stored_image_path)
-        captured_bgr = cv2.imread(captured_image_path)
+        with open(stored_image_path, "rb") as source_file:
+            source_bytes = source_file.read()
 
-        if stored_bgr is None or captured_bgr is None:
-            return {
-                'distance': 1.0,
-                'verified': False,
-                'confidence': 0.0,
-                'threshold': threshold,
-                'error': 'Could not read image files'
-            }
-
-        stored_locations = detect_faces_with_boxes(stored_bgr)
-        captured_locations = detect_faces_with_boxes(captured_bgr)
-
-        if len(stored_locations) == 0 or len(captured_locations) == 0:
-            return {
-                'distance': 1.0,
-                'verified': False,
-                'confidence': 0.0,
-                'threshold': threshold,
-                'error': 'No face detected in one or both images'
-            }
-
-        if len(stored_locations) > 1 or len(captured_locations) > 1:
-            return {
-                'distance': 1.0,
-                'verified': False,
-                'confidence': 0.0,
-                'threshold': threshold,
-                'error': 'Multiple faces detected. Please ensure only your face is visible.'
-            }
-
-        stored_rgb = cv2.cvtColor(preprocess_bgr_image(stored_bgr), cv2.COLOR_BGR2RGB)
-        captured_rgb = cv2.cvtColor(preprocess_bgr_image(captured_bgr), cv2.COLOR_BGR2RGB)
-
-        stored_encodings = face_recognition.face_encodings(
-            stored_rgb,
-            known_face_locations=stored_locations,
-            num_jitters=FACE_VERIFICATION_CONFIG['num_jitters']
+        client = _rekognition_client()
+        response = client.compare_faces(
+            SourceImage={"Bytes": source_bytes},
+            TargetImage={"Bytes": captured_image_bytes},
+            SimilarityThreshold=float(similarity_threshold)
         )
-        captured_encodings = face_recognition.face_encodings(
-            captured_rgb,
-            known_face_locations=captured_locations,
-            num_jitters=FACE_VERIFICATION_CONFIG['num_jitters']
-        )
+        matches = response.get("FaceMatches", [])
 
-        if not stored_encodings or not captured_encodings:
+        if matches:
+            best = max(matches, key=lambda item: item.get("Similarity", 0.0))
+            similarity = float(best.get("Similarity", 0.0))
+            confidence = float(best.get("Face", {}).get("Confidence", 0.0))
             return {
-                'distance': 1.0,
-                'verified': False,
-                'confidence': 0.0,
-                'threshold': threshold,
-                'error': 'Face encoding could not be extracted. Keep face straight with better lighting.'
+                'verified': True,
+                'confidence': round(confidence, 1),
+                'similarity': round(similarity, 2),
+                'threshold': similarity_threshold
             }
-
-        distance = float(face_recognition.face_distance([stored_encodings[0]], captured_encodings[0])[0])
-        verified = distance <= threshold
-
-        # Convert distance to a user-friendly confidence estimate.
-        confidence = max(0.0, min(100.0, (1.0 - (distance / max(threshold, 1e-6))) * 100.0))
 
         return {
-            'distance': round(distance, 4),
-            'verified': verified,
-            'confidence': round(confidence, 1),
-            'threshold': threshold
+            'verified': False,
+            'confidence': 0.0,
+            'similarity': 0.0,
+            'threshold': similarity_threshold,
+            'error': 'Face does not match stored employee image'
         }
 
     except Exception as exc:
-        current_app.logger.error(f"Face verification error: {exc}")
+        current_app.logger.error(f"AWS face verification error: {exc}")
         return {
-            'distance': 1.0,
             'verified': False,
             'confidence': 0.0,
-            'threshold': threshold,
+            'similarity': 0.0,
+            'threshold': similarity_threshold,
             'error': str(exc)
         }
+
+
+def identify_employee_by_face(company_id, captured_image_bytes, similarity_threshold=None):
+    """Find the best matching employee in a company using AWS Rekognition."""
+    if similarity_threshold is None:
+        similarity_threshold = FACE_VERIFICATION_CONFIG['similarity_threshold']
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute(
+        """
+        SELECT id, emp_id, name, image_path, company_id
+        FROM employees
+        WHERE company_id = %s
+          AND image_path IS NOT NULL
+          AND TRIM(image_path) <> ''
+        """,
+        (company_id,),
+    )
+    employees = cursor.fetchall()
+    cursor.close()
+    connection.close()
+
+    best_match = None
+    for employee in employees:
+        stored_image_path = os.path.join(current_app.root_path, 'static', employee['image_path'])
+        if not os.path.exists(stored_image_path):
+            continue
+
+        result = verify_face_images(stored_image_path, captured_image_bytes, similarity_threshold)
+        if not result.get('verified'):
+            continue
+
+        similarity = float(result.get('similarity', 0.0))
+        confidence = float(result.get('confidence', 0.0))
+        if not best_match or similarity > best_match['similarity']:
+            best_match = {
+                'employee_id': employee['emp_id'],
+                'employee_name': employee['name'],
+                'similarity': similarity,
+                'confidence': confidence,
+            }
+
+    return best_match
+
+
+@attendance.route("/auto-mark", methods=["POST"])
+def auto_mark_attendance():
+    """Fully automated attendance: location + face match + mark attendance."""
+    try:
+        data = request.get_json() or {}
+        company_id = data.get('company_id')
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        face_image_data = data.get('face_image_data')
+
+        if not all([company_id, latitude, longitude, face_image_data]):
+            return jsonify({
+                'success': False,
+                'message': 'Location and face image are required'
+            }), 400
+
+        if not AWS_REKOGNITION_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'message': 'AWS Rekognition is not available. Please contact administrator.'
+            }), 500
+
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT id, company_name, latitude, longitude, radius FROM companies WHERE id = %s",
+            (company_id,)
+        )
+        company = cursor.fetchone()
+
+        if not company:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Company not found'
+            }), 404
+
+        distance_m = 0
+        if company['latitude'] and company['longitude']:
+            distance_m = calculate_distance(
+                float(latitude),
+                float(longitude),
+                float(company['latitude']),
+                float(company['longitude'])
+            )
+            allowed_radius = company['radius'] or 100
+            if distance_m > allowed_radius:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'success': False,
+                    'message': 'You are not in the allowed location'
+                }), 403
+
+        captured_bytes = decode_base64_image_bytes(face_image_data)
+        if not captured_bytes:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Face not recognized'
+            }), 400
+
+        faces = detect_faces_with_rekognition(captured_bytes)
+        if len(faces) != 1:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Face not recognized'
+            }), 400
+
+        threshold = FACE_VERIFICATION_CONFIG['similarity_threshold']
+        identified = identify_employee_by_face(company_id, captured_bytes, threshold)
+        if not identified:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Face not recognized'
+            }), 404
+
+        employee_id = identified['employee_id']
+        employee_name = identified['employee_name']
+        similarity = identified['similarity']
+        confidence = identified['confidence']
+
+        today = date.today()
+        # TESTING MODE: Duplicate attendance restriction is temporarily disabled.
+        # Keep this original production logic for future re-enable.
+        # cursor.execute(
+        #     "SELECT id, check_in_time FROM attendance WHERE employee_id = %s AND company_id = %s AND date = %s",
+        #     (employee_id, company_id, today)
+        # )
+        # existing_attendance = cursor.fetchone()
+        # if existing_attendance:
+        #     cursor.close()
+        #     connection.close()
+        #     return jsonify({
+        #         'success': False,
+        #         'already_marked': True,
+        #         'message': f'Attendance already marked today at {existing_attendance["check_in_time"].strftime("%H:%M:%S")}',
+        #         'employee_name': employee_name
+        #     })
+
+        attendance_image_path = None
+        try:
+            unique_filename = f"attendance_{employee_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            uploads_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'faces')
+            os.makedirs(uploads_dir, exist_ok=True)
+            image_file_path = os.path.join(uploads_dir, unique_filename)
+            with open(image_file_path, 'wb') as image_file:
+                image_file.write(captured_bytes)
+            attendance_image_path = f"faces/{unique_filename}"
+        except Exception as img_error:
+            current_app.logger.error(f"Error saving attendance image: {img_error}")
+
+        cursor.execute(
+            """
+            INSERT INTO attendance (
+                employee_id, company_id, date, check_in_time, face_image,
+                latitude, longitude, location_verified, face_verified, status
+            ) VALUES (%s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                employee_id,
+                company_id,
+                today,
+                attendance_image_path,
+                latitude,
+                longitude,
+                True,
+                True,
+                'present',
+            ),
+        )
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        return jsonify({
+            'success': True,
+            'message': 'Attendance marked successfully',
+            'employee_id': employee_id,
+            'employee_name': employee_name,
+            'company_name': company['company_name'],
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'verification_details': {
+                'location_verified': True,
+                'distance': int(distance_m) if distance_m else 0,
+                'face_verified': True,
+                'similarity': round(similarity, 2),
+                'confidence': round(confidence, 1),
+            },
+        })
+
+    except (NoCredentialsError, PartialCredentialsError):
+        current_app.logger.error("AWS credentials are missing for Rekognition")
+        return jsonify({
+            'success': False,
+            'message': 'AWS credentials are not configured for face verification.'
+        }), 500
+    except ClientError as exc:
+        current_app.logger.error(f"AWS Rekognition error in auto attendance: {exc}")
+        return jsonify({
+            'success': False,
+            'message': 'AWS Rekognition error while verifying face.'
+        }), 500
+    except Exception as exc:
+        current_app.logger.error(f"Auto attendance error: {exc}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to mark attendance due to server error'
+        }), 500
+
+
+@attendance.route("/meal-response", methods=["POST"])
+def meal_response():
+    """Save meal participation response and return today's menu when employee is coming."""
+    try:
+        data = request.get_json() or {}
+        employee_id = data.get('employee_id')
+        company_id = data.get('company_id')
+        status = (data.get('status') or '').strip()
+
+        if not employee_id or not company_id or status not in {"Coming", "Not Coming"}:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid meal response payload'
+            }), 400
+
+        response_date = date.today()
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute("SELECT id FROM canteen WHERE company_id = %s", (company_id,))
+        canteen = cursor.fetchone()
+        if not canteen:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Canteen is not configured for this company'
+            }), 404
+
+        canteen_id = canteen['id']
+        cursor.execute(
+            """
+            INSERT INTO meal_responses (employee_id, canteen_id, response_date, status)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                status = VALUES(status),
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (employee_id, canteen_id, response_date, status),
+        )
+
+        menu_payload = None
+        if status == "Coming":
+            cursor.execute(
+                """
+                SELECT morning_item, afternoon_item, evening_item
+                FROM canteen_menus
+                WHERE canteen_id = %s AND menu_date = %s
+                """,
+                (canteen_id, response_date),
+            )
+            today_menu = cursor.fetchone()
+            if today_menu:
+                menu_payload = {
+                    'morning': today_menu['morning_item'],
+                    'afternoon': today_menu['afternoon_item'],
+                    'evening': today_menu['evening_item'],
+                }
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        if status == "Not Coming":
+            return jsonify({
+                'success': True,
+                'status': status,
+                'message': 'Okay, you are marked as not attending meal'
+            })
+
+        return jsonify({
+            'success': True,
+            'status': status,
+            'menu': menu_payload,
+            'message': 'Meal response saved'
+        })
+
+    except Exception as exc:
+        current_app.logger.error(f"Meal response error: {exc}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to save meal response'
+        }), 500
 
 
 def calculate_distance(lat1, lon1, lat2, lon2):
@@ -203,27 +460,26 @@ def face_threshold_config():
     """Configure face verification threshold (admin only)"""
     if request.method == "GET":
         return jsonify({
-            'current_threshold': FACE_VERIFICATION_CONFIG['threshold'],
+            'current_threshold': FACE_VERIFICATION_CONFIG['similarity_threshold'],
             'model': FACE_VERIFICATION_CONFIG['method'],
-            'detection_model': FACE_VERIFICATION_CONFIG['detection_model'],
-            'recommended_range': '0.5 - 0.7',
-            'description': 'Lower values = stricter matching, Higher values = more tolerant matching'
+            'recommended_range': '80 - 99',
+            'description': 'Higher values = stricter AWS Rekognition matching'
         })
     
     elif request.method == "POST":
         try:
             data = request.get_json()
-            new_threshold = float(data.get('threshold', FACE_VERIFICATION_CONFIG['threshold']))
+            new_threshold = float(data.get('threshold', FACE_VERIFICATION_CONFIG['similarity_threshold']))
             
             # Validate threshold range
-            if not (0.3 <= new_threshold <= 1.0):
+            if not (50 <= new_threshold <= 99.9):
                 return jsonify({
                     'success': False,
-                    'message': 'Threshold must be between 0.3 and 1.0'
+                    'message': 'Threshold must be between 50 and 99.9'
                 }), 400
             
             # Update configuration
-            FACE_VERIFICATION_CONFIG['threshold'] = new_threshold
+            FACE_VERIFICATION_CONFIG['similarity_threshold'] = new_threshold
             
             return jsonify({
                 'success': True,
@@ -234,7 +490,7 @@ def face_threshold_config():
         except (ValueError, TypeError):
             return jsonify({
                 'success': False,
-                'message': 'Invalid threshold value. Must be a number between 0.3 and 1.0'
+                'message': 'Invalid threshold value. Must be a number between 50 and 99.9'
             }), 400
         except Exception as e:
             return jsonify({
@@ -345,7 +601,7 @@ def verify_location():
         else:
             return jsonify({
                 'success': False,
-                'message': f'Location verification failed - You are {int(distance)}m away (max allowed: {allowed_radius}m)',
+                'message': 'You are not in the allowed location',
                 'distance': int(distance),
                 'allowed_radius': allowed_radius
             })
@@ -362,10 +618,10 @@ def verify_location():
 def detect_face():
     """Realtime face detection endpoint used by live camera preview."""
     try:
-        if not FACE_RECOGNITION_AVAILABLE:
+        if not AWS_REKOGNITION_AVAILABLE:
             return jsonify({
                 'success': False,
-                'message': 'Face recognition system not available. Please contact administrator.'
+                'message': 'AWS Rekognition is not available. Please contact administrator.'
             }), 500
 
         data = request.get_json() or {}
@@ -378,54 +634,77 @@ def detect_face():
                 'message': 'Face image is required'
             }), 400
 
-        image_bgr = decode_base64_to_bgr(face_image_data)
-        if image_bgr is None:
+        image_bytes = decode_base64_image_bytes(face_image_data)
+        if image_bytes is None:
             return jsonify({
                 'success': False,
                 'face_detected': False,
                 'message': 'Could not decode image'
             }), 400
 
-        gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-        brightness = float(np.mean(gray))
-        locations = detect_faces_with_boxes(image_bgr)
+        image = Image.open(io.BytesIO(image_bytes))
+        image_width, image_height = image.size
+        faces = detect_faces_with_rekognition(image_bytes)
 
-        if len(locations) == 0:
+        if len(faces) == 0:
             return jsonify({
                 'success': True,
                 'face_detected': False,
                 'can_capture': False,
-                'brightness': round(brightness, 1),
                 'message': 'Face not detected. Please align your face properly.'
             })
 
-        if len(locations) > 1:
+        if len(faces) > 1:
             return jsonify({
                 'success': True,
                 'face_detected': False,
                 'can_capture': False,
-                'brightness': round(brightness, 1),
                 'message': 'Multiple faces detected. Ensure only one face is visible.'
             })
 
-        top, right, bottom, left = locations[0]
-        box_w = right - left
-        box_h = bottom - top
-        can_capture = box_w > 80 and box_h > 80 and brightness >= 30
+        top_face = faces[0]
+        bounding_box = _pixel_box_from_rekognition_box(
+            top_face.get('BoundingBox', {}),
+            image_width,
+            image_height
+        )
+        face_confidence = float(top_face.get('Confidence', 0.0))
+        can_capture = (
+            bounding_box['width'] > 40
+            and bounding_box['height'] > 40
+            and face_confidence >= FACE_VERIFICATION_CONFIG['min_face_confidence']
+        )
 
         return jsonify({
             'success': True,
             'face_detected': True,
             'can_capture': can_capture,
-            'brightness': round(brightness, 1),
             'bounding_box': {
-                'top': int(top),
-                'right': int(right),
-                'bottom': int(bottom),
-                'left': int(left)
+                'top': int(bounding_box['top']),
+                'right': int(bounding_box['right']),
+                'bottom': int(bounding_box['bottom']),
+                'left': int(bounding_box['left'])
             },
-            'message': 'Face detected. You can capture now.' if can_capture else 'Face detected, adjust lighting/position for a clearer capture.'
+            'confidence': round(face_confidence, 1),
+            'message': 'Face detected. You can capture now.' if can_capture else 'Face detected. Move closer and improve framing for capture.'
         })
+
+    except (NoCredentialsError, PartialCredentialsError):
+        current_app.logger.error("AWS credentials are missing for Rekognition")
+        return jsonify({
+            'success': False,
+            'face_detected': False,
+            'can_capture': False,
+            'message': 'AWS credentials are not configured for face verification.'
+        }), 500
+    except ClientError as exc:
+        current_app.logger.error(f"AWS Rekognition detect_faces error: {exc}")
+        return jsonify({
+            'success': False,
+            'face_detected': False,
+            'can_capture': False,
+            'message': 'AWS Rekognition error while detecting face.'
+        }), 500
 
     except Exception as exc:
         current_app.logger.error(f"Face detection error: {exc}")
@@ -439,13 +718,12 @@ def detect_face():
 
 @attendance.route("/verify-face", methods=["POST"])
 def verify_face():
-    """Verify employee face against stored face image using face_recognition."""
+    """Verify employee face against stored face image using AWS Rekognition."""
     try:
-        # Check if face recognition is available
-        if not FACE_RECOGNITION_AVAILABLE:
+        if not AWS_REKOGNITION_AVAILABLE:
             return jsonify({
                 'success': False,
-                'message': 'Face recognition system not available. Please contact administrator.'
+                'message': 'AWS Rekognition is not available. Please contact administrator.'
             }), 500
         
         data = request.get_json()
@@ -482,105 +760,55 @@ def verify_face():
                 'success': False,
                 'message': f'No face image registered for {employee["name"]}. Please contact HR to register your face.'
             })
-        
-        try:
-            # Process the captured face image
-            # Remove data URL prefix if present
-            if ',' in face_image_data:
-                face_image_data = face_image_data.split(',')[1]
-            
-            # Decode base64 image and save temporarily
-            image_binary = base64.b64decode(face_image_data)
-            
-            # Create temp directory for captured images
-            temp_dir = os.path.join(current_app.root_path, 'static', 'temp')
-            os.makedirs(temp_dir, exist_ok=True)
-            
-            # Save captured image temporarily
-            temp_filename = f"temp_capture_{employee_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-            temp_image_path = os.path.join(temp_dir, temp_filename)
-            
-            with open(temp_image_path, 'wb') as f:
-                f.write(image_binary)
-            
-            # Get stored image path
-            stored_image_path = os.path.join(current_app.root_path, 'static', employee['image_path'])
-            
-            # Check if stored image exists
-            if not os.path.exists(stored_image_path):
-                # Clean up temp file
-                if os.path.exists(temp_image_path):
-                    os.remove(temp_image_path)
-                return jsonify({
-                    'success': False,
-                    'message': f'Stored face image not found for {employee["name"]}. Please contact HR.'
-                })
-            
-            # Perform face verification using face encodings and tolerance-based matching
-            try:
-                # Use configurable threshold for flexible matching
-                tolerance_threshold = FACE_VERIFICATION_CONFIG['threshold']
-                
-                result = verify_face_images(stored_image_path, temp_image_path, tolerance_threshold)
-                
-                # Clean up temp file
-                if os.path.exists(temp_image_path):
-                    os.remove(temp_image_path)
-                
-                distance = result['distance']
-                confidence = result['confidence']
-                face_verified = result['verified']
-                
-                # Check for errors in result
-                if 'error' in result:
-                    error_msg = result['error'].lower()
-                    if 'no face detected' in error_msg:
-                        return jsonify({
-                            'success': False,
-                            'message': 'Face not detected. Please align your face properly.'
-                        })
-                    elif 'multiple faces' in error_msg:
-                        return jsonify({
-                            'success': False,
-                            'message': 'Multiple faces detected. Please ensure only your face is visible in the camera.'
-                        })
-                
-                if face_verified:
-                    return jsonify({
-                        'success': True,
-                        'message': f'Face verified successfully for {employee["name"]} (Confidence: {confidence:.1f}%)',
-                        'confidence': round(float(confidence), 1),
-                        'distance': round(float(distance), 3),
-                        'threshold': tolerance_threshold,
-                        'employee_name': employee['name']
-                    })
-                else:
-                    return jsonify({
-                        'success': False,
-                        'message': f'Face verification failed. Face does not match {employee["name"]} (Distance: {distance:.3f}, Confidence: {confidence:.1f}%)',
-                        'confidence': round(float(confidence), 1),
-                        'distance': round(float(distance), 3),
-                        'threshold': tolerance_threshold,
-                        'employee_name': employee['name']
-                    })
-                    
-            except Exception as verification_error:
-                # Clean up temp file
-                if os.path.exists(temp_image_path):
-                    os.remove(temp_image_path)
-                
-                current_app.logger.error(f"Face verification error: {verification_error}")
-                return jsonify({
-                    'success': False,
-                    'message': 'Face verification failed due to processing error. Please try again with better lighting.'
-                })
-                
-        except Exception as processing_error:
-            current_app.logger.error(f"Face image processing error: {str(processing_error)}")
+        captured_bytes = decode_base64_image_bytes(face_image_data)
+        if not captured_bytes:
             return jsonify({
                 'success': False,
                 'message': 'Failed to process face image. Please try again.'
             })
+
+        stored_image_path = os.path.join(current_app.root_path, 'static', employee['image_path'])
+        if not os.path.exists(stored_image_path):
+            return jsonify({
+                'success': False,
+                'message': f'Stored face image not found for {employee["name"]}. Please contact HR.'
+            })
+
+        threshold = FACE_VERIFICATION_CONFIG['similarity_threshold']
+        result = verify_face_images(stored_image_path, captured_bytes, threshold)
+
+        if result.get('verified'):
+            similarity = float(result.get('similarity', 0.0))
+            confidence = float(result.get('confidence', similarity))
+            return jsonify({
+                'success': True,
+                'message': f'Face verified successfully for {employee["name"]} (Similarity: {similarity:.1f}%)',
+                'confidence': round(confidence, 1),
+                'similarity': round(similarity, 2),
+                'threshold': threshold,
+                'employee_name': employee['name']
+            })
+
+        return jsonify({
+            'success': False,
+            'message': f'Face verification failed. Face does not match {employee["name"]}.',
+            'similarity': round(float(result.get('similarity', 0.0)), 2),
+            'threshold': threshold,
+            'employee_name': employee['name']
+        })
+
+    except (NoCredentialsError, PartialCredentialsError):
+        current_app.logger.error("AWS credentials are missing for Rekognition")
+        return jsonify({
+            'success': False,
+            'message': 'AWS credentials are not configured for face verification.'
+        }), 500
+    except ClientError as exc:
+        current_app.logger.error(f"AWS Rekognition compare_faces error: {exc}")
+        return jsonify({
+            'success': False,
+            'message': 'AWS Rekognition error while verifying face.'
+        }), 500
             
     except Exception as e:
         current_app.logger.error(f"Face verification error: {str(e)}")
@@ -592,6 +820,12 @@ def verify_face():
 
 @attendance.route("/mark", methods=["POST"])
 def mark_attendance():
+    """Legacy endpoint blocked to enforce touchless auto attendance flow."""
+    return jsonify({
+        'success': False,
+        'message': 'Manual employee selection is not allowed. Use automated attendance flow.'
+    }), 403
+
     """Mark employee attendance with face and location verification"""
     try:
         data = request.get_json()
@@ -651,34 +885,35 @@ def mark_attendance():
         
         # Verify location (if company location is set)
         location_verified = True
-        distance = 0
+        distance_m = 0
         
         if employee['company_lat'] and employee['company_lon']:
-            distance = calculate_distance(
+            distance_m = calculate_distance(
                 float(latitude), float(longitude),
                 float(employee['company_lat']), float(employee['company_lon'])
             )
             allowed_radius = employee['radius'] or 100
-            location_verified = distance <= allowed_radius
+            location_verified = distance_m <= allowed_radius
             
             if not location_verified:
                 cursor.close()
                 connection.close()
                 return jsonify({
                     'success': False,
-                    'message': f'Location verification failed. You are {int(distance)}m away (max allowed: {allowed_radius}m)'
+                    'message': f'Location verification failed. You are {int(distance_m)}m away (max allowed: {allowed_radius}m)'
                 })
         
         # Verify face (MANDATORY - no skipping allowed)
         face_verified = False
-        confidence = 0
+        confidence = 0.0
+        similarity = 0.0
         
-        if not FACE_RECOGNITION_AVAILABLE:
+        if not AWS_REKOGNITION_AVAILABLE:
             cursor.close()
             connection.close()
             return jsonify({
                 'success': False,
-                'message': 'Face recognition system not available. Please contact administrator.'
+                'message': 'AWS Rekognition is not available. Please contact administrator.'
             }), 500
         
         if not employee['image_path']:
@@ -690,96 +925,56 @@ def mark_attendance():
             })
         
         try:
-            # Process captured face image
-            if ',' in face_image_data:
-                face_image_data = face_image_data.split(',')[1]
-            
-            image_binary = base64.b64decode(face_image_data)
-            
-            # Create temp directory for captured images
-            temp_dir = os.path.join(current_app.root_path, 'static', 'temp')
-            os.makedirs(temp_dir, exist_ok=True)
-            
-            # Save captured image temporarily
-            temp_filename = f"attendance_capture_{employee_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-            temp_image_path = os.path.join(temp_dir, temp_filename)
-            
-            with open(temp_image_path, 'wb') as f:
-                f.write(image_binary)
-            
-            # Get stored image path
+            captured_bytes = decode_base64_image_bytes(face_image_data)
+            if not captured_bytes:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'success': False,
+                    'message': 'Failed to process face image.'
+                })
+
             stored_image_path = os.path.join(current_app.root_path, 'static', employee['image_path'])
-            
-            # Check if stored image exists
             if not os.path.exists(stored_image_path):
-                # Clean up temp file
-                if os.path.exists(temp_image_path):
-                    os.remove(temp_image_path)
                 cursor.close()
                 connection.close()
                 return jsonify({
                     'success': False,
                     'message': f'Stored face image not found for {employee["name"]}. Please contact HR.'
                 })
-            
-            # Perform face verification using face encodings and tolerance-based matching
-            try:
-                # Use configurable threshold for flexible matching
-                tolerance_threshold = FACE_VERIFICATION_CONFIG['threshold']
-                
-                result = verify_face_images(stored_image_path, temp_image_path, tolerance_threshold)
-                
-                # Clean up temp file
-                if os.path.exists(temp_image_path):
-                    os.remove(temp_image_path)
-                
-                distance = result['distance']
-                confidence = result['confidence']
-                face_verified = result['verified']
-                
-                # Check for errors in result
-                if 'error' in result:
-                    error_msg = result['error'].lower()
-                    cursor.close()
-                    connection.close()
-                    if 'no face detected' in error_msg:
-                        return jsonify({
-                            'success': False,
-                            'message': 'Face not detected. Please align your face properly.'
-                        })
-                    elif 'multiple faces' in error_msg:
-                        return jsonify({
-                            'success': False,
-                            'message': 'Multiple faces detected. Please ensure only your face is visible in the camera.'
-                        })
-                    else:
-                        return jsonify({
-                            'success': False,
-                            'message': 'Face verification failed due to processing error. Please try again with better lighting.'
-                        })
-                
-                if not face_verified:
-                    cursor.close()
-                    connection.close()
-                    return jsonify({
-                        'success': False,
-                        'message': f'Face verification failed. Face does not match {employee["name"]} (Distance: {distance:.3f}, Confidence: {confidence:.1f}%)'
-                    })
-                    
-            except Exception as verification_error:
-                # Clean up temp file
-                if os.path.exists(temp_image_path):
-                    os.remove(temp_image_path)
-                
+
+            threshold = FACE_VERIFICATION_CONFIG['similarity_threshold']
+            result = verify_face_images(stored_image_path, captured_bytes, threshold)
+            face_verified = bool(result.get('verified'))
+            similarity = float(result.get('similarity', 0.0))
+            confidence = float(result.get('confidence', similarity))
+
+            if not face_verified:
                 cursor.close()
                 connection.close()
-                
-                current_app.logger.error(f"Face verification error during attendance: {verification_error}")
                 return jsonify({
                     'success': False,
-                    'message': 'Face verification failed due to processing error. Please try again with better lighting.'
+                    'message': f'Face verification failed. Face does not match {employee["name"]}.',
+                    'similarity': round(similarity, 2),
+                    'threshold': threshold
                 })
-                    
+
+        except (NoCredentialsError, PartialCredentialsError):
+            current_app.logger.error("AWS credentials are missing for Rekognition")
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'AWS credentials are not configured for face verification.'
+            }), 500
+        except ClientError as exc:
+            current_app.logger.error(f"AWS Rekognition compare_faces error during attendance: {exc}")
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'AWS Rekognition error while verifying face.'
+            }), 500
         except Exception as face_error:
             current_app.logger.error(f"Face verification error during attendance: {str(face_error)}")
             cursor.close()
@@ -826,11 +1021,11 @@ def mark_attendance():
         # Prepare success message
         verification_details = []
         if location_verified:
-            verification_details.append(f"Location verified ({int(distance)}m)")
+            verification_details.append(f"Location verified ({int(distance_m)}m)")
         
         # Face verification is now mandatory
         if face_verified and confidence > 0:
-            verification_details.append(f"Face verified ({confidence:.1f}% confidence)")
+            verification_details.append(f"Face verified ({similarity:.1f}% similarity)")
         
         verification_text = " • ".join(verification_details) if verification_details else "Verification completed"
         
@@ -846,7 +1041,8 @@ def mark_attendance():
                 'location_verified': bool(location_verified),
                 'face_verified': bool(face_verified),
                 'confidence': round(float(confidence), 1) if confidence > 0 else None,
-                'distance': int(distance) if distance > 0 else None
+                'similarity': round(float(similarity), 2) if similarity > 0 else None,
+                'distance': int(distance_m) if distance_m > 0 else None
             }
         })
         
@@ -872,7 +1068,12 @@ def attendance_status(employee_id):
         if not employee:
             cursor.close()
             connection.close()
-            return jsonify({'success': False, 'message': 'Employee not found'}), 404
+            return jsonify({
+                'success': True,
+                'employee_found': False,
+                'already_marked': False,
+                'message': 'Employee not found'
+            })
         
         # Check today's attendance
         today = date.today()

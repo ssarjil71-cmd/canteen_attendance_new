@@ -118,6 +118,7 @@ def _ensure_core_tables(connection):
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(80) NOT NULL UNIQUE,
             full_name VARCHAR(150) NULL,
+            phone VARCHAR(20) NULL,
             email VARCHAR(150) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
             company_id INT NOT NULL UNIQUE,
@@ -198,6 +199,40 @@ def _ensure_core_tables(connection):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uk_roles_name_company (name, company_id)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS canteen_menus (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            canteen_id INT NOT NULL,
+            menu_date DATE NOT NULL,
+            morning_item VARCHAR(255) NOT NULL,
+            afternoon_item VARCHAR(255) NOT NULL,
+            evening_item VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_canteen_menu_date (canteen_id, menu_date),
+            CONSTRAINT fk_canteen_menu_canteen FOREIGN KEY (canteen_id) REFERENCES canteen(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS meal_responses (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            employee_id VARCHAR(100) NOT NULL,
+            canteen_id INT NOT NULL,
+            response_date DATE NOT NULL,
+            status ENUM('Coming', 'Not Coming') NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_meal_response_daily (employee_id, canteen_id, response_date),
+            INDEX idx_meal_response_canteen_date (canteen_id, response_date),
+            CONSTRAINT fk_meal_response_canteen FOREIGN KEY (canteen_id) REFERENCES canteen(id) ON DELETE CASCADE
         )
         """
     )
@@ -491,6 +526,9 @@ def _apply_schema_updates(connection):
     # Remove created_by_manager_id column from canteen if it exists
     if _column_exists(cursor, "canteen", "created_by_manager_id"):
         cursor.execute("ALTER TABLE canteen DROP COLUMN created_by_manager_id")
+
+    if not _column_exists(cursor, "canteen", "phone"):
+        cursor.execute("ALTER TABLE canteen ADD COLUMN phone VARCHAR(20) NULL AFTER full_name")
     
     # Now drop the managers table
     if _table_exists(cursor, "managers"):

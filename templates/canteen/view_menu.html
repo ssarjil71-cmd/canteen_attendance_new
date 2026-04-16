@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}View Menu{% endblock %}
+
+{% block content %}
+<div class="panel view-menu-panel">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h2 class="mb-1">Menu History</h2>
+            <p class="text-muted mb-0">Recent published menus for your canteen.</p>
+        </div>
+        <a href="{{ url_for('auth.add_menu') }}" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Add Menu</a>
+    </div>
+
+    {% if menus %}
+    <div class="table-responsive">
+        <table class="table table-hover menu-table align-middle">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Breakfast</th>
+                    <th>Lunch</th>
+                    <th>Evening</th>
+                    <th>Updated At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for menu in menus %}
+                <tr>
+                    <td><strong>{{ menu.menu_date }}</strong></td>
+                    <td>{{ menu.morning_item }}</td>
+                    <td>{{ menu.afternoon_item }}</td>
+                    <td>{{ menu.evening_item }}</td>
+                    <td>{{ menu.updated_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state text-center">
+        <i class="bi bi-journal-x"></i>
+        <h5 class="mt-2">No Menu Found</h5>
+        <p class="text-muted mb-3">Add a menu to start collecting meal responses from employees.</p>
+        <a href="{{ url_for('auth.add_menu') }}" class="btn btn-primary">Create First Menu</a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.view-menu-panel {
+    max-width: 1020px;
+    margin: 0 auto;
+}
+
+.menu-table {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.menu-table thead th {
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 700;
+    font-size: 0.92rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.menu-table tbody td {
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.empty-state {
+    border: 1px dashed #d1d5db;
+    border-radius: 14px;
+    padding: 34px 20px;
+    background: #fcfcfd;
+}
+
+.empty-state i {
+    font-size: 2rem;
+    color: #9ca3af;
+}
+</style>
+{% endblock %}

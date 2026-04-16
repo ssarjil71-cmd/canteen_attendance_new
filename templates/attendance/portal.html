@@ -4,105 +4,73 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Employee Attendance - {{ company.company_name }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #ffffff;
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding: 20px 0;
+            padding: 12px 0;
         }
         
         .attendance-container {
-            max-width: 600px;
+            max-width: 420px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 10px;
         }
         
         .attendance-card {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            background: #ffffff;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+            padding: 20px;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
         }
         
         .company-header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 22px;
         }
         
         .company-header h2 {
-            color: #333;
+            color: #111827;
             font-weight: 700;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
+            font-size: 1.55rem;
         }
         
         .company-header p {
-            color: #666;
-            margin: 0 0 15px 0;
-        }
-        
-        .attendance-steps {
-            background: #f8f9fa;
-            padding: 10px 15px;
-            border-radius: 8px;
-            border-left: 4px solid var(--primary);
-        }
-        
-        .attendance-steps small {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 5px;
+            color: #6b7280;
+            margin: 0;
+            font-size: 0.92rem;
         }
         
         .form-section {
-            margin-bottom: 30px;
+            margin-bottom: 18px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 14px;
         }
         
         .section-header {
             display: flex;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f8f9fa;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eceff3;
         }
         
         .section-header h5 {
             margin: 0;
-            color: #333;
+            color: #111827;
             font-weight: 600;
         }
         
         .section-header i {
-            font-size: 1.2rem;
-            margin-right: 10px;
-            color: #667eea;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 8px;
-            display: block;
-        }
-        
-        .form-control {
-            border-radius: 12px;
-            border: 2px solid #e9ecef;
-            padding: 12px 16px;
-            font-size: 16px;
-        }
-        
-        .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            font-size: 1rem;
+            margin-right: 8px;
+            color: #111827;
         }
         
         .camera-container {
@@ -110,8 +78,8 @@
             background: #000;
             border-radius: 12px;
             overflow: hidden;
-            margin: 20px 0;
-            height: 300px;
+            margin: 10px 0 12px;
+            height: 260px;
         }
         
         #cameraVideo {
@@ -163,7 +131,7 @@
         
         .guide-text {
             color: white;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
             background: rgba(0, 0, 0, 0.5);
@@ -171,103 +139,94 @@
             border-radius: 15px;
             display: inline-block;
         }
+
+        .capture-hint {
+            color: #374151;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin: 4px 0 8px;
+        }
         
         .status-message {
-            padding: 15px;
-            border-radius: 12px;
-            margin: 15px 0;
-            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            margin: 6px 0;
+            font-weight: 600;
+            font-size: 0.84rem;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            color: #111827;
         }
         
         .status-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid #d1d5db;
         }
         
         .status-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid #d1d5db;
         }
         
         .status-info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid #d1d5db;
+        }
+
+        .status-warning {
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid #d1d5db;
         }
         
         .captured-preview {
             text-align: center;
-            margin: 20px 0;
+            margin: 12px 0;
         }
         
         .captured-preview img {
-            width: 150px;
-            height: 120px;
+            width: 160px;
+            height: 130px;
             object-fit: cover;
             border-radius: 12px;
-            border: 3px solid #28a745;
+            border: 1px solid #d1d5db;
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border: none;
+            background: #111827;
+            border: 1px solid #111827;
             border-radius: 12px;
-            padding: 12px 30px;
+            padding: 11px 14px;
             font-weight: 600;
-            margin: 5px;
+            margin: 4px 0;
+            width: 100%;
         }
         
         .btn-secondary {
-            background: #6c757d;
-            border: none;
+            background: #ffffff;
+            color: #111827;
+            border: 1px solid #d1d5db;
             border-radius: 12px;
-            padding: 12px 30px;
+            padding: 11px 14px;
             font-weight: 600;
-            margin: 5px;
+            margin: 4px 0;
+            width: 100%;
         }
         
         .btn-success {
-            background: linear-gradient(135deg, #28a745, #20c997);
-            border: none;
+            background: #111827;
+            border: 1px solid #111827;
             border-radius: 12px;
-            padding: 12px 30px;
+            padding: 11px 14px;
             font-weight: 600;
-            margin: 5px;
-        }
-        
-        .submit-section {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 30px;
-            border-top: 2px solid #f8f9fa;
-        }
-        
-        .submit-requirements {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .requirement-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .requirement-item i {
-            margin-right: 10px;
-            width: 20px;
-        }
-        
-        .requirement-item.completed {
-            color: #28a745;
-        }
-        
-        .requirement-item.pending {
-            color: #6c757d;
+            margin: 4px 0;
+            width: 100%;
         }
         
         .spinner-border-sm {
@@ -280,9 +239,161 @@
             margin-top: 15px;
         }
         
-        .alert-sm {
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
+        .location-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            border: 1px solid #d1d5db;
+            margin-bottom: 8px;
+            background: #f9fafb;
+            color: #111827;
+        }
+
+        .location-badge.loading {
+            background: #f9fafb;
+            color: #111827;
+            border-color: #d1d5db;
+        }
+
+        .location-badge.verified {
+            background: #f9fafb;
+            color: #111827;
+            border-color: #d1d5db;
+        }
+
+        .location-badge.not-verified {
+            background: #f9fafb;
+            color: #111827;
+            border-color: #d1d5db;
+        }
+
+        .success-card {
+            border: 1px solid #d1fae5;
+            background: #f0fdf4;
+            border-radius: 14px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .success-card h4 {
+            margin-top: 10px;
+            margin-bottom: 8px;
+            color: #166534;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .meal-prompt-card {
+            margin-top: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .meal-prompt-card h6 {
+            font-size: 0.98rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 10px;
+        }
+
+        .meal-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .btn-meal-yes {
+            background: #111827;
+            color: #ffffff;
+            border: 1px solid #111827;
+            border-radius: 10px;
+            padding: 9px 10px;
+            font-weight: 600;
+        }
+
+        .btn-meal-no {
+            background: #ffffff;
+            color: #111827;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            padding: 9px 10px;
+            font-weight: 600;
+        }
+
+        .meal-feedback {
+            margin-top: 10px;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 10px;
+            color: #111827;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .menu-display {
+            margin-top: 10px;
+            border: 1px solid #dbe3ef;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .menu-display h6 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .menu-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px dashed #e5e7eb;
+            padding: 6px 0;
+            font-size: 0.9rem;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        @media (max-width: 576px) {
+            body {
+                padding: 6px 0;
+            }
+
+            .attendance-container {
+                padding: 8px;
+            }
+
+            .attendance-card {
+                padding: 14px;
+                border-radius: 14px;
+            }
+
+            .company-header {
+                margin-bottom: 14px;
+            }
+
+            .camera-container {
+                height: 220px;
+            }
+
+            .captured-preview img {
+                width: 140px;
+                height: 112px;
+            }
         }
     </style>
 </head>
@@ -292,29 +403,6 @@
             <div class="company-header">
                 <h2>{{ company.company_name }}</h2>
                 <p>QR-Based Face Recognition Attendance</p>
-                <div class="attendance-steps">
-                    <small class="text-muted">
-                        <i class="bi bi-1-circle me-1"></i>Enter Employee ID
-                        <i class="bi bi-arrow-right mx-2"></i>
-                        <i class="bi bi-2-circle me-1"></i>Verify Location
-                        <i class="bi bi-arrow-right mx-2"></i>
-                        <i class="bi bi-3-circle me-1"></i>Capture Face
-                        <i class="bi bi-arrow-right mx-2"></i>
-                        <i class="bi bi-4-circle me-1"></i>Mark Attendance
-                    </small>
-                </div>
-            </div>
-            
-            <!-- Employee ID Section -->
-            <div class="form-section">
-                <div class="section-header">
-                    <i class="bi bi-person-badge"></i>
-                    <h5>Employee Information</h5>
-                </div>
-                <div class="form-group">
-                    <label for="employeeId">Employee ID</label>
-                    <input type="text" id="employeeId" class="form-control" placeholder="Enter your Employee ID" autocomplete="off">
-                </div>
             </div>
             
             <!-- Location Section -->
@@ -323,12 +411,13 @@
                     <i class="bi bi-geo-alt"></i>
                     <h5>Location Verification</h5>
                 </div>
-                <div class="status-message status-info" id="locationStatus">
-                    <i class="bi bi-geo-alt me-2"></i>Click "Get Location" to verify your location
+                <div id="locationBadge" class="location-badge loading">
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    <span>Detecting location...</span>
                 </div>
-                <button class="btn btn-primary" onclick="checkLocation()" id="locationBtn">
-                    <i class="bi bi-geo-alt me-2"></i>Get Location
-                </button>
+                <div class="status-message status-info" id="locationStatus">
+                    <i class="bi bi-geo-alt me-2"></i>Detecting location...
+                </div>
             </div>
             
             <!-- Face Capture Section -->
@@ -337,12 +426,9 @@
                     <i class="bi bi-camera"></i>
                     <h5>Face Verification</h5>
                 </div>
+                <p class="capture-hint">Align your face and capture</p>
                 <div class="status-message status-info" id="faceStatus">
                     <i class="bi bi-camera me-2"></i>Click "Start Camera" to capture your face for verification
-                </div>
-                <div class="alert alert-sm alert-info">
-                    <i class="bi bi-info-circle me-1"></i>
-                    <small><strong>Instructions:</strong> Keep face straight, ensure proper lighting, and make sure only one face is visible in camera.</small>
                 </div>
                 <div class="camera-container" id="cameraContainer" style="display: none;">
                     <video id="cameraVideo" autoplay playsinline></video>
@@ -360,7 +446,7 @@
                     <img id="previewImage" alt="Captured face">
                 </div>
                 <div class="camera-controls">
-                    <button class="btn btn-primary" id="startCameraBtn" onclick="initializeCamera()">
+                    <button class="btn btn-primary" id="startCameraBtn" onclick="initializeCamera()" style="display: none;" disabled>
                         <i class="bi bi-camera me-2"></i>Start Camera
                     </button>
                     <button class="btn btn-success" id="captureBtn" onclick="capturePhoto()" style="display: none;" disabled>
@@ -369,102 +455,79 @@
                     <button class="btn btn-secondary" id="retakeBtn" onclick="retakePhoto()" style="display: none;">
                         <i class="bi bi-arrow-clockwise me-2"></i>Retake
                     </button>
-                    <button class="btn btn-primary" id="verifyFaceBtn" onclick="verifyFace()" style="display: none;">
-                        <i class="bi bi-shield-check me-2"></i>Verify Face
-                    </button>
                 </div>
             </div>
             
-            <!-- Submit Section -->
-            <div class="submit-section">
-                <div class="submit-requirements">
-                    <h6 class="mb-3">Requirements Checklist:</h6>
-                    <div class="requirement-item pending" id="req-employee">
-                        <i class="bi bi-circle"></i>
-                        <span>Employee ID entered</span>
-                    </div>
-                    <div class="requirement-item pending" id="req-location">
-                        <i class="bi bi-circle"></i>
-                        <span>Location verified</span>
-                    </div>
-                    <div class="requirement-item pending" id="req-face">
-                        <i class="bi bi-circle"></i>
-                        <span>Face verified</span>
-                    </div>
-                </div>
-                
-                <button class="btn btn-success btn-lg" id="submitBtn" onclick="markAttendance()" disabled>
-                    <i class="bi bi-check-lg me-2"></i>Mark Attendance
-                </button>
-            </div>
-            
-            <!-- Success Message -->
-            <div class="status-message status-success" id="successMessage" style="display: none;">
-                <i class="bi bi-check-circle me-2"></i>
-                <span id="successText">Attendance marked successfully!</span>
+            <!-- Success and Meal Interaction -->
+            <div id="successMessage" style="display: none;"></div>
+
+            <div id="mealPromptSection" style="display: none;"></div>
+
+            <div id="mealResultSection" style="display: none;"></div>
+
+            <div id="menuDisplaySection" style="display: none;"></div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script>
-        let employeeId = '';
         let userLocation = null;
         let stream = null;
         let faceImageData = null;
         let faceVerified = false;
         let detectionInterval = null;
         let liveFaceDetected = false;
+        let detectionErrorStreak = 0;
+        let locationDetectionStarted = false;
+        let cameraAutoStarted = false;
         
         const companyId = parseInt('{{ company_id|default("0") }}') || 0;
         
-        // Check requirements and enable/disable submit button
         function checkRequirements() {
-            const hasEmployeeId = document.getElementById('employeeId').value.trim() !== '';
-            const hasLocation = userLocation !== null;
-            const hasFaceVerified = faceVerified;
-            
-            // Update requirement indicators
-            updateRequirement('req-employee', hasEmployeeId);
-            updateRequirement('req-location', hasLocation);
-            updateRequirement('req-face', hasFaceVerified);
-            
-            // Enable submit button if all requirements met
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = !(hasEmployeeId && hasLocation && hasFaceVerified);
+            return;
         }
         
-        function updateRequirement(reqId, completed) {
-            const reqElement = document.getElementById(reqId);
-            if (completed) {
-                reqElement.classList.remove('pending');
-                reqElement.classList.add('completed');
-                reqElement.querySelector('i').className = 'bi bi-check-circle-fill';
-            } else {
-                reqElement.classList.remove('completed');
-                reqElement.classList.add('pending');
-                reqElement.querySelector('i').className = 'bi bi-circle';
+        function updateLocationBadge(state, text) {
+            const badge = document.getElementById('locationBadge');
+            if (!badge) {
+                return;
             }
+
+            if (state === 'verified') {
+                badge.className = 'location-badge verified';
+                badge.innerHTML = '<i class="bi bi-check-circle"></i><span>Location Verified</span>';
+                return;
+            }
+
+            if (state === 'not-verified') {
+                badge.className = 'location-badge not-verified';
+                badge.innerHTML = '<i class="bi bi-x-circle"></i><span>Location Not Verified</span>';
+                return;
+            }
+
+            badge.className = 'location-badge loading';
+            badge.innerHTML = `<span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>${text || 'Detecting location...'}</span>`;
         }
-        
-        // Employee ID input listener
-        document.getElementById('employeeId').addEventListener('input', function() {
-            employeeId = this.value.trim();
-            checkRequirements();
-        });
-        
-        function checkLocation() {
+
+        function autoDetectLocation() {
+            if (locationDetectionStarted) {
+                return;
+            }
+            locationDetectionStarted = true;
+
             const statusDiv = document.getElementById('locationStatus');
-            const locationBtn = document.getElementById('locationBtn');
-            
-            locationBtn.disabled = true;
-            locationBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Getting Location...';
+            const startCameraBtn = document.getElementById('startCameraBtn');
+
+            updateLocationBadge('loading', 'Detecting location...');
+            statusDiv.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Detecting location...';
+            statusDiv.className = 'status-message status-info';
             
             if (!navigator.geolocation) {
-                statusDiv.innerHTML = '<i class="bi bi-x-circle me-2"></i>Geolocation not supported by this browser';
+                statusDiv.innerHTML = '<i class="bi bi-x-circle me-2"></i>Unable to detect location. Please try again';
                 statusDiv.className = 'status-message status-error';
-                locationBtn.disabled = false;
-                locationBtn.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Get Location';
+                updateLocationBadge('not-verified');
+                startCameraBtn.disabled = true;
                 return;
             }
             
@@ -493,45 +556,55 @@
                                 longitude: longitude
                             };
                             
-                            statusDiv.innerHTML = `<i class="bi bi-check-circle me-2"></i>${data.message}`;
+                            statusDiv.innerHTML = '<i class="bi bi-check-circle me-2"></i>Location verified';
                             statusDiv.className = 'status-message status-success';
-                            locationBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Location Verified';
-                            locationBtn.disabled = true;
+                            updateLocationBadge('verified');
+                            startCameraBtn.disabled = false;
+                            if (!cameraAutoStarted) {
+                                cameraAutoStarted = true;
+                                initializeCamera();
+                            }
                             
                             checkRequirements();
                         } else {
-                            statusDiv.innerHTML = `<i class="bi bi-x-circle me-2"></i>${data.message}`;
+                            userLocation = null;
+                            statusDiv.innerHTML = '<i class="bi bi-x-circle me-2"></i>You are not in the allowed location';
                             statusDiv.className = 'status-message status-error';
-                            locationBtn.disabled = false;
-                            locationBtn.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Retry Location';
+                            updateLocationBadge('not-verified');
+                            startCameraBtn.disabled = true;
+                            checkRequirements();
                         }
                     })
                     .catch(error => {
                         console.error('Location verification error:', error);
-                        statusDiv.innerHTML = '<i class="bi bi-x-circle me-2"></i>Failed to verify location. Please try again.';
+                        userLocation = null;
+                        statusDiv.innerHTML = '<i class="bi bi-x-circle me-2"></i>Unable to detect location. Please try again';
                         statusDiv.className = 'status-message status-error';
-                        locationBtn.disabled = false;
-                        locationBtn.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Retry Location';
+                        updateLocationBadge('not-verified');
+                        startCameraBtn.disabled = true;
+                        checkRequirements();
                     });
                 },
                 function(error) {
                     let errorMsg = 'Location access denied';
                     switch(error.code) {
                         case error.PERMISSION_DENIED:
-                            errorMsg = 'Location access denied. Please enable location services and try again.';
+                            errorMsg = 'Location access is required for attendance';
                             break;
                         case error.POSITION_UNAVAILABLE:
-                            errorMsg = 'Location information unavailable.';
+                            errorMsg = 'Unable to detect location. Please try again';
                             break;
                         case error.TIMEOUT:
-                            errorMsg = 'Location request timed out.';
+                            errorMsg = 'Unable to detect location. Please try again';
                             break;
                     }
                     
                     statusDiv.innerHTML = `<i class="bi bi-x-circle me-2"></i>${errorMsg}`;
                     statusDiv.className = 'status-message status-error';
-                    locationBtn.disabled = false;
-                    locationBtn.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Retry Location';
+                    updateLocationBadge('not-verified');
+                    startCameraBtn.disabled = true;
+                    userLocation = null;
+                    checkRequirements();
                 },
                 {
                     enableHighAccuracy: true,
@@ -573,7 +646,10 @@
             })
             .catch(function(error) {
                 console.error('Camera access error:', error);
-                alert('Camera access denied. Please allow camera access and try again.');
+                faceStatus.innerHTML = '<i class="bi bi-x-circle me-2"></i>Camera access required. Please allow camera permission.';
+                faceStatus.className = 'status-message status-error';
+                document.getElementById('startCameraBtn').style.display = 'inline-block';
+                document.getElementById('startCameraBtn').disabled = false;
             });
         }
 
@@ -649,13 +725,21 @@
             .then(response => response.json())
             .then(data => {
                 if (!data.success) {
+                    detectionErrorStreak += 1;
                     liveFaceDetected = false;
                     captureBtn.disabled = true;
                     faceStatus.innerHTML = `<i class="bi bi-x-circle me-2"></i>${data.message || 'Face detection failed'}`;
                     faceStatus.className = 'status-message status-error';
                     drawDetectionBox(null);
+
+                    if (detectionErrorStreak >= 3) {
+                        stopLiveFaceDetection();
+                        faceStatus.innerHTML = '<i class="bi bi-x-circle me-2"></i>Face detection stopped due to repeated server errors. Check AWS Rekognition configuration and restart camera.';
+                    }
                     return;
                 }
+
+                detectionErrorStreak = 0;
 
                 if (data.face_detected && data.bounding_box) {
                     const scaleX = video.videoWidth / detectWidth;
@@ -684,9 +768,16 @@
                 faceStatus.className = 'status-message status-error';
             })
             .catch(() => {
+                detectionErrorStreak += 1;
                 liveFaceDetected = false;
                 captureBtn.disabled = true;
                 drawDetectionBox(null);
+
+                if (detectionErrorStreak >= 3) {
+                    stopLiveFaceDetection();
+                    faceStatus.innerHTML = '<i class="bi bi-x-circle me-2"></i>Unable to reach face detection service. Check server and AWS Rekognition settings, then restart camera.';
+                    faceStatus.className = 'status-message status-error';
+                }
             });
         }
         
@@ -718,7 +809,7 @@
             document.getElementById('cameraContainer').style.display = 'none';
             document.getElementById('captureBtn').style.display = 'none';
             document.getElementById('retakeBtn').style.display = 'inline-block';
-            document.getElementById('verifyFaceBtn').style.display = 'inline-block';
+            document.getElementById('startCameraBtn').disabled = true;
 
             stopLiveFaceDetection();
             drawDetectionBox(null);
@@ -732,10 +823,10 @@
             faceVerified = false;
             checkRequirements();
             
-            // Auto-trigger face verification after 1 second
+            // Auto-trigger face verification and attendance marking after capture
             setTimeout(() => {
-                if (employeeId && faceImageData) {
-                    verifyFace();
+                if (faceImageData && userLocation) {
+                    autoMarkAttendance();
                 }
             }, 1000);
         }
@@ -745,7 +836,7 @@
             document.getElementById('capturedPreview').style.display = 'none';
             document.getElementById('startCameraBtn').style.display = 'inline-block';
             document.getElementById('retakeBtn').style.display = 'none';
-            document.getElementById('verifyFaceBtn').style.display = 'none';
+            document.getElementById('startCameraBtn').disabled = !userLocation;
             
             // Reset face status
             const faceStatus = document.getElementById('faceStatus');
@@ -757,29 +848,26 @@
             liveFaceDetected = false;
             checkRequirements();
         }
-        
-        function verifyFace() {
-            if (!employeeId || !faceImageData) {
-                alert('Please enter Employee ID and capture face first');
+
+        function autoMarkAttendance() {
+            if (!userLocation || !faceImageData) {
                 return;
             }
-            
-            const verifyBtn = document.getElementById('verifyFaceBtn');
+
             const faceStatus = document.getElementById('faceStatus');
-            
-            verifyBtn.disabled = true;
-            verifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying...';
-            
-            faceStatus.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Verifying face against registered employee...';
+
+            faceStatus.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Verifying face and marking attendance...';
             faceStatus.className = 'status-message status-info';
-            
-            fetch('/attendance/verify-face', {
+
+            fetch('/attendance/auto-mark', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    employee_id: employeeId,
+                    company_id: companyId,
+                    latitude: userLocation.latitude,
+                    longitude: userLocation.longitude,
                     face_image_data: faceImageData
                 })
             })
@@ -787,138 +875,131 @@
             .then(data => {
                 if (data.success) {
                     faceVerified = true;
-                    faceStatus.innerHTML = `<i class="bi bi-check-circle me-2"></i>${data.message}`;
+                    faceStatus.innerHTML = `<i class="bi bi-check-circle me-2"></i>Attendance marked successfully`;
                     faceStatus.className = 'status-message status-success';
-                    
-                    verifyBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Face Verified';
-                    verifyBtn.disabled = true;
-                    verifyBtn.classList.remove('btn-primary');
-                    verifyBtn.classList.add('btn-success');
-                    
+
                     checkRequirements();
-                } else {
-                    faceVerified = false;
-                    faceStatus.innerHTML = `<i class="bi bi-x-circle me-2"></i>${data.message}`;
-                    faceStatus.className = 'status-message status-error';
-                    
-                    verifyBtn.innerHTML = '<i class="bi bi-shield-check me-2"></i>Retry Verification';
-                    verifyBtn.disabled = false;
-                    
-                    checkRequirements();
-                }
-            })
-            .catch(error => {
-                console.error('Face verification error:', error);
-                faceVerified = false;
-                faceStatus.innerHTML = '<i class="bi bi-x-circle me-2"></i>Face verification failed. Please try again with better lighting.';
-                faceStatus.className = 'status-message status-error';
-                
-                verifyBtn.innerHTML = '<i class="bi bi-shield-check me-2"></i>Retry Verification';
-                verifyBtn.disabled = false;
-                
-                checkRequirements();
-            });
-        }
-        
-        function markAttendance() {
-            if (!employeeId || !userLocation || !faceVerified) {
-                alert('Please complete all requirements before submitting');
-                return;
-            }
-            
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
-            
-            const attendanceData = {
-                employee_id: employeeId,
-                company_id: companyId,
-                latitude: userLocation.latitude,
-                longitude: userLocation.longitude,
-                face_image_data: faceImageData
-            };
-            
-            fetch('/attendance/mark', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(attendanceData)
-            })
-            .then(response => {
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    return response.json();
-                } else {
-                    return response.text().then(text => {
-                        throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}...`);
-                    });
-                }
-            })
-            .then(data => {
-                if (data.success) {
-                    // Enhanced success message with verification details
-                    let successHtml = `
-                        <div class="text-center">
-                            <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
-                            <h4 class="text-success mt-3">Attendance Marked Successfully!</h4>
-                            <div class="mt-3">
+
+                    const successHtml = `
+                        <div class="success-card">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size: 2.4rem;"></i>
+                            <h4>Attendance marked successfully</h4>
+                            <div>
                                 <strong>Employee:</strong> ${data.employee_name}<br>
                                 <strong>Company:</strong> ${data.company_name}<br>
                                 <strong>Time:</strong> ${data.timestamp}
                             </div>
+                        </div>
                     `;
-                    
-                    if (data.verification_details) {
-                        successHtml += '<div class="mt-3"><strong>Verification Status:</strong><br>';
-                        if (data.verification_details.location_verified) {
-                            successHtml += '<i class="bi bi-geo-alt-fill text-success me-1"></i>Location Verified';
-                            if (data.verification_details.distance !== null) {
-                                successHtml += ` (${data.verification_details.distance}m)`;
-                            }
-                            successHtml += '<br>';
-                        }
-                        if (data.verification_details.face_verified) {
-                            successHtml += '<i class="bi bi-person-check-fill text-success me-1"></i>Face Verified';
-                            if (data.verification_details.confidence) {
-                                successHtml += ` (${data.verification_details.confidence}% confidence)`;
-                            }
-                            successHtml += '<br>';
-                        }
-                        successHtml += '</div>';
-                    }
-                    
-                    successHtml += '</div>';
-                    
                     document.getElementById('successMessage').innerHTML = successHtml;
                     document.getElementById('successMessage').style.display = 'block';
-                    
-                    // Hide form sections
+
                     document.querySelectorAll('.form-section').forEach(section => {
                         section.style.display = 'none';
                     });
-                    document.querySelector('.submit-section').style.display = 'none';
-                    
-                    // Add reload button after delay
-                    setTimeout(() => {
-                        const reloadBtn = document.createElement('button');
-                        reloadBtn.className = 'btn btn-primary btn-lg mt-4';
-                        reloadBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Mark Another Attendance';
-                        reloadBtn.onclick = () => location.reload();
-                        document.getElementById('successMessage').appendChild(reloadBtn);
-                    }, 3000);
+
+                    renderMealPrompt(data.employee_id);
                 } else {
-                    alert(data.message || 'Failed to mark attendance');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Mark Attendance';
+                    faceVerified = false;
+                    faceStatus.innerHTML = `<i class="bi bi-x-circle me-2"></i>${data.message}`;
+                    faceStatus.className = 'status-message status-error';
+                    document.getElementById('retakeBtn').style.display = 'inline-block';
+                    checkRequirements();
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert('Error occurred: ' + error.message);
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Mark Attendance';
+                console.error('Auto attendance error:', error);
+                faceVerified = false;
+                faceStatus.innerHTML = '<i class="bi bi-x-circle me-2"></i>Failed to mark attendance. Please try again.';
+                faceStatus.className = 'status-message status-error';
+                document.getElementById('retakeBtn').style.display = 'inline-block';
+                checkRequirements();
             });
+        }
+
+        function renderMealPrompt(employeeId) {
+            const promptSection = document.getElementById('mealPromptSection');
+            const resultSection = document.getElementById('mealResultSection');
+            const menuSection = document.getElementById('menuDisplaySection');
+
+            resultSection.style.display = 'none';
+            menuSection.style.display = 'none';
+
+            promptSection.innerHTML = `
+                <div class="meal-prompt-card">
+                    <h6>Are you coming for meal today?</h6>
+                    <div class="meal-actions">
+                        <button class="btn-meal-yes" onclick="submitMealResponse('${employeeId}', 'Coming')">YES</button>
+                        <button class="btn-meal-no" onclick="submitMealResponse('${employeeId}', 'Not Coming')">NO</button>
+                    </div>
+                </div>
+            `;
+            promptSection.style.display = 'block';
+        }
+
+        function submitMealResponse(employeeId, status) {
+            const promptSection = document.getElementById('mealPromptSection');
+            const resultSection = document.getElementById('mealResultSection');
+            const menuSection = document.getElementById('menuDisplaySection');
+
+            promptSection.querySelectorAll('button').forEach(btn => {
+                btn.disabled = true;
+            });
+
+            fetch('/attendance/meal-response', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    employee_id: employeeId,
+                    company_id: companyId,
+                    status: status
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.message || 'Unable to save meal response');
+                }
+
+                resultSection.innerHTML = `<div class="meal-feedback"><i class="bi bi-check2-circle me-2"></i>${data.message}</div>`;
+                resultSection.style.display = 'block';
+                promptSection.style.display = 'none';
+
+                if (status === 'Coming') {
+                    renderTodayMenu(data.menu);
+                } else {
+                    menuSection.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                resultSection.innerHTML = `<div class="meal-feedback"><i class="bi bi-x-circle me-2"></i>${error.message || 'Failed to save meal response'}</div>`;
+                resultSection.style.display = 'block';
+
+                promptSection.querySelectorAll('button').forEach(btn => {
+                    btn.disabled = false;
+                });
+            });
+        }
+
+        function renderTodayMenu(menu) {
+            const menuSection = document.getElementById('menuDisplaySection');
+            if (!menu) {
+                menuSection.innerHTML = '<div class="meal-feedback">Menu is not published yet for today.</div>';
+                menuSection.style.display = 'block';
+                return;
+            }
+
+            menuSection.innerHTML = `
+                <div class="menu-display">
+                    <h6><i class="bi bi-journal-check me-2"></i>Today Menu</h6>
+                    <div class="menu-item"><span>Breakfast</span><strong>${menu.morning}</strong></div>
+                    <div class="menu-item"><span>Lunch</span><strong>${menu.afternoon}</strong></div>
+                    <div class="menu-item"><span>Evening</span><strong>${menu.evening}</strong></div>
+                </div>
+            `;
+            menuSection.style.display = 'block';
         }
         
         // Cleanup camera on page unload
@@ -929,78 +1010,9 @@
             }
         });
         
-        // Auto-focus on Employee ID field when page loads
-        document.getElementById('employeeId').focus();
-        
-        // Auto-trigger location check when Employee ID is entered
-        document.getElementById('employeeId').addEventListener('input', function() {
-            employeeId = this.value.trim();
-            checkRequirements();
-            
-            // Check attendance status if Employee ID is valid
-            if (employeeId.length >= 3) {
-                checkAttendanceStatus(employeeId);
-                
-                // Auto-trigger location check if not already marked
-                if (!userLocation) {
-                    setTimeout(() => {
-                        if (employeeId === this.value.trim()) { // Still the same ID after delay
-                            checkLocation();
-                        }
-                    }, 1500);
-                }
-            }
-        });
-        
-        function checkAttendanceStatus(empId) {
-            fetch(`/attendance/status/${empId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.already_marked) {
-                        // Show already marked message
-                        const statusDiv = document.createElement('div');
-                        statusDiv.className = 'alert alert-warning mt-2';
-                        statusDiv.innerHTML = `
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            <strong>${data.employee_name}</strong> has already marked attendance today at ${data.check_in_time}
-                        `;
-                        
-                        // Remove any existing status message
-                        const existingStatus = document.querySelector('.attendance-status-alert');
-                        if (existingStatus) {
-                            existingStatus.remove();
-                        }
-                        
-                        statusDiv.classList.add('attendance-status-alert');
-                        document.querySelector('.form-section').appendChild(statusDiv);
-                        
-                        // Disable form elements
-                        document.getElementById('submitBtn').disabled = true;
-                        document.getElementById('submitBtn').innerHTML = '<i class="bi bi-check-circle me-2"></i>Already Marked Today';
-                    } else if (data.success && !data.already_marked) {
-                        // Remove any existing status message
-                        const existingStatus = document.querySelector('.attendance-status-alert');
-                        if (existingStatus) {
-                            existingStatus.remove();
-                        }
-                        
-                        // Show welcome message
-                        const statusDiv = document.createElement('div');
-                        statusDiv.className = 'alert alert-info mt-2 attendance-status-alert';
-                        statusDiv.innerHTML = `
-                            <i class="bi bi-person-check me-2"></i>
-                            Welcome <strong>${data.employee_name}</strong>! Please proceed with attendance marking.
-                        `;
-                        document.querySelector('.form-section').appendChild(statusDiv);
-                    }
-                })
-                .catch(error => {
-                    console.log('Attendance status check failed:', error);
-                });
-        }
-        
         // Initialize requirements check
         checkRequirements();
+        autoDetectLocation();
     </script>
 </body>
 </html>

@@ -3,8 +3,133 @@
 {% block title %}Canteen Dashboard{% endblock %}
 
 {% block content %}
-<div class="panel">
-	<h2>Canteen Dashboard</h2>
-	<p>Canteen module is available.</p>
+<div class="panel canteen-dashboard-panel">
+	<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+		<div>
+			<h2 class="mb-1">Canteen Dashboard</h2>
+			<p class="text-muted mb-0">Today's meal participation and serving summary.</p>
+		</div>
+		<span class="canteen-date-pill"><i class="bi bi-calendar3 me-2"></i>{{ today.strftime('%d %b %Y') }}</span>
+	</div>
+
+	<div class="canteen-card-grid">
+		<article class="canteen-stat-card">
+			<div class="card-head">
+				<h5 class="mb-0"><i class="bi bi-people-fill me-2"></i>Today Meal Count</h5>
+			</div>
+			<div class="stat-row">
+				<span>Total Employees Coming</span>
+				<strong>{{ stats.coming }}</strong>
+			</div>
+			<div class="stat-row">
+				<span>Total Employees Not Coming</span>
+				<strong>{{ stats.not_coming }}</strong>
+			</div>
+		</article>
+
+		<article class="canteen-stat-card">
+			<div class="card-head">
+				<h5 class="mb-0"><i class="bi bi-cup-hot me-2"></i>Meal Summary</h5>
+			</div>
+			<div class="stat-row">
+				<span>Breakfast Count</span>
+				<strong>{{ stats.breakfast }}</strong>
+			</div>
+			<div class="stat-row">
+				<span>Lunch Count</span>
+				<strong>{{ stats.lunch }}</strong>
+			</div>
+			<div class="stat-row">
+				<span>Dinner Count</span>
+				<strong>{{ stats.dinner }}</strong>
+			</div>
+		</article>
+	</div>
+
+	<article class="canteen-stat-card mt-3">
+		<div class="card-head">
+			<h5 class="mb-0"><i class="bi bi-journal-check me-2"></i>Today's Menu</h5>
+		</div>
+		{% if today_menu %}
+			<div class="stat-row"><span>Morning (Breakfast)</span><strong>{{ today_menu.morning_item }}</strong></div>
+			<div class="stat-row"><span>Afternoon (Lunch)</span><strong>{{ today_menu.afternoon_item }}</strong></div>
+			<div class="stat-row"><span>Evening (Snacks/Dinner)</span><strong>{{ today_menu.evening_item }}</strong></div>
+		{% else %}
+			<p class="text-muted mb-0">No menu added for today. Use Add Menu to publish items.</p>
+		{% endif %}
+	</article>
 </div>
+
+<style>
+.canteen-dashboard-panel {
+	max-width: 980px;
+	margin: 0 auto;
+}
+
+.canteen-date-pill {
+	display: inline-flex;
+	align-items: center;
+	padding: 7px 12px;
+	border-radius: 999px;
+	border: 1px solid #dbe3ef;
+	color: #374151;
+	background: #ffffff;
+	font-weight: 600;
+}
+
+.canteen-card-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 14px;
+}
+
+.canteen-stat-card {
+	background: #ffffff;
+	border: 1px solid #e5e7eb;
+	border-radius: 14px;
+	padding: 16px;
+	box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+.card-head {
+	padding-bottom: 8px;
+	margin-bottom: 8px;
+	border-bottom: 1px solid #eceff3;
+}
+
+.card-head h5 {
+	font-size: 1rem;
+	color: #111827;
+	font-weight: 700;
+}
+
+.stat-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 8px 0;
+	border-bottom: 1px dashed #eceff3;
+}
+
+.stat-row:last-child {
+	border-bottom: none;
+	padding-bottom: 0;
+}
+
+.stat-row span {
+	color: #4b5563;
+}
+
+.stat-row strong {
+	color: #111827;
+	font-weight: 700;
+}
+
+@media (max-width: 576px) {
+	.canteen-stat-card {
+		padding: 14px;
+	}
+}
+</style>
 {% endblock %}
