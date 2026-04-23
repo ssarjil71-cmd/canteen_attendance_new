@@ -1,0 +1,413 @@
+{% extends layout_template %}
+
+{% block title %}Meal Confirmation Dashboard{% endblock %}
+
+{% block content %}
+{% if scan_mode == 'true' %}
+<div class="form-panel verification-panel">
+	<h2 class="verification-title mb-2">Face Verification</h2>
+	<p class="text-muted mb-3">Verify your face to confirm meal.</p>
+
+	<form id="verifyForm" class="scan-form" onsubmit="return false;">
+		<input id="companyIdInput" type="hidden" value="{{ company_id }}">
+		<div class="scan-actions mb-3">
+			<button id="startCameraBtn" type="button" class="btn btn-outline-primary">Start Camera</button>
+			<button id="captureBtn" type="button" class="btn btn-primary" disabled>Capture & Verify</button>
+		</div>
+	</form>
+
+	<div class="camera-stage mb-3">
+		<video id="scanVideo" playsinline autoplay muted></video>
+		<canvas id="captureCanvas" class="scan-hidden"></canvas>
+	</div>
+	<div id="scanStatus" class="scan-status">Starting camera...</div>
+</div>
+{% else %}
+<div class="panel meal-confirmation-panel">
+	<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+		<div>
+			<h2 class="mb-1">Meal Confirmation Dashboard</h2>
+			<p class="text-muted mb-0">Today's meal confirmation status with QR-based face verification.</p>
+		</div>
+		<span class="meal-confirmation-date-pill"><i class="bi bi-calendar3 me-2"></i>{{ today.strftime('%d %b %Y') }}</span>
+	</div>
+
+	<div class="scan-shell mb-3">
+		<div class="scan-qr-card">
+			<div class="scan-qr-head">
+				<h5 class="mb-1">Employee Scan QR</h5>
+				<p class="text-muted mb-0">Employees scan this code after meal. It opens this same dashboard in scan mode.</p>
+			</div>
+			<div class="scan-qr-content">
+				<img src="data:image/png;base64,{{ qr_image_b64 }}" alt="Meal confirmation QR" class="scan-qr-image">
+				<div>
+					<div class="small text-muted mb-2">Scan URL</div>
+					<a href="{{ scan_url }}" class="scan-url" target="_blank" rel="noopener">{{ scan_url }}</a>
+					{% if qr_scanner_enabled %}
+						<div class="mt-3">
+							<a href="/meal-scanner?company_id={{ company_id }}" class="btn btn-primary">
+								<i class="bi bi-qr-code-scan me-2"></i>Open QR Scanner
+							</a>
+						</div>
+					{% else %}
+						<div class="small text-muted mt-3">QR Scanner is disabled for this company.</div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="meal-confirmation-grid mb-3">
+		<article class="confirmation-card">
+			<div class="confirmation-label">Attendance Records</div>
+			<div class="confirmation-value">{{ stats.total_records or 0 }}</div>
+		</article>
+		<article class="confirmation-card">
+			<div class="confirmation-label">Meal Requested</div>
+			<div class="confirmation-value">{{ stats.meal_requested or 0 }}</div>
+		</article>
+		<article class="confirmation-card">
+			<div class="confirmation-label">Meal Taken</div>
+			<div class="confirmation-value">{{ stats.meal_taken_count or 0 }}</div>
+		</article>
+		<article class="confirmation-card">
+			<div class="confirmation-label">Meal Confirmed</div>
+			<div class="confirmation-value">{{ stats.meal_confirmed_count or 0 }}</div>
+		</article>
+		<article class="confirmation-card">
+			<div class="confirmation-label">Face Verified</div>
+			<div class="confirmation-value">{{ stats.face_verified_count or 0 }}</div>
+		</article>
+	</div>
+
+	<div class="card confirmation-table-card">
+		<div class="card-body">
+			<div class="table-responsive">
+				<table class="table table-hover align-middle mb-0">
+					<thead>
+						<tr>
+							<th>Employee</th>
+							<th>Department</th>
+							<th>Meal Status</th>
+							<th>Meal Taken</th>
+							<th>Meal Confirmed</th>
+							<th>Face Verified</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% if records %}
+							{% for record in records %}
+							<tr>
+								<td>
+									<div class="fw-semibold">{{ record.name }}</div>
+									<div class="text-muted small">{{ record.employee_id }}</div>
+								</td>
+								<td>{{ record.department or '-' }}</td>
+								<td>
+									<span class="badge {{ 'bg-success' if record.meal_status_label == 'YES' else 'bg-secondary' }}">{{ record.meal_status_label }}</span>
+								</td>
+								<td>
+									<span class="badge {{ 'bg-success' if record.meal_taken_label == 'YES' else 'bg-secondary' }}">{{ record.meal_taken_label }}</span>
+								</td>
+								<td>
+									<span class="badge {{ 'bg-success' if record.meal_confirmed_label == 'YES' else 'bg-secondary' }}">{{ record.meal_confirmed_label }}</span>
+								</td>
+								<td>
+									<span class="badge {{ 'bg-success' if record.face_verified_label == 'YES' else 'bg-secondary' }}">{{ record.face_verified_label }}</span>
+								</td>
+							</tr>
+							{% endfor %}
+						{% else %}
+							<tr>
+								<td colspan="6" class="text-center text-muted py-4">No meal records found for today.</td>
+							</tr>
+						{% endif %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+
+<style>
+.meal-confirmation-panel {
+	max-width: 1120px;
+	margin: 0 auto;
+}
+
+.verification-panel {
+	max-width: 520px;
+	margin-top: 18px;
+}
+
+.verification-title {
+	font-weight: 800;
+	color: #0f172a;
+}
+
+.meal-confirmation-date-pill {
+	display: inline-flex;
+	align-items: center;
+	padding: 7px 12px;
+	border-radius: 999px;
+	border: 1px solid #dbe3ef;
+	color: #374151;
+	background: #ffffff;
+	font-weight: 600;
+}
+
+.meal-confirmation-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+	gap: 12px;
+}
+
+.scan-shell {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+	gap: 12px;
+}
+
+.scan-qr-card {
+	background: #ffffff;
+	border: 1px solid #e5e7eb;
+	border-radius: 14px;
+	padding: 16px;
+	box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+.scan-qr-head h5 {
+	font-weight: 700;
+	color: #111827;
+}
+
+.scan-qr-content {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin-top: 10px;
+	flex-wrap: wrap;
+}
+
+.scan-qr-image {
+	width: 170px;
+	height: 170px;
+	border-radius: 12px;
+	border: 1px solid #e5e7eb;
+	background: #f8fafc;
+	padding: 8px;
+}
+
+.scan-url {
+	word-break: break-all;
+	font-size: 0.92rem;
+	text-decoration: none;
+}
+
+.scan-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.camera-stage {
+	border: 1px dashed #cbd5e1;
+	border-radius: 12px;
+	padding: 10px;
+	background: #f8fafc;
+}
+
+#scanVideo {
+	width: 100%;
+	max-height: 360px;
+	border-radius: 10px;
+	background: #0f172a;
+	object-fit: cover;
+}
+
+.scan-status {
+	border-radius: 10px;
+	padding: 10px 12px;
+	font-size: 0.93rem;
+	background: #eef2ff;
+	color: #312e81;
+	border: 1px solid #c7d2fe;
+}
+
+.scan-hidden {
+	display: none;
+}
+
+.confirmation-card {
+	background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+	border: 1px solid #e5e7eb;
+	border-radius: 14px;
+	padding: 16px;
+	box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+.confirmation-label {
+	color: #6b7280;
+	font-size: 0.88rem;
+	margin-bottom: 6px;
+}
+
+.confirmation-value {
+	color: #111827;
+	font-size: 1.8rem;
+	font-weight: 800;
+}
+
+.confirmation-table-card {
+	border: 1px solid #e5e7eb;
+	border-radius: 14px;
+	box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+.confirmation-table-card .table thead th {
+	background: #f8fafc;
+	color: #374151;
+	font-weight: 700;
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.confirmation-table-card .table tbody td {
+	border-top: 1px solid #f1f5f9;
+}
+
+@media (max-width: 576px) {
+	.verification-panel {
+		margin-top: 0;
+	}
+
+	.confirmation-card {
+		padding: 14px;
+	}
+
+	.scan-actions .btn {
+		width: 100%;
+	}
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+	const scanMode = "{{ scan_mode }}" === "true";
+	const startCameraBtn = document.getElementById("startCameraBtn");
+	const captureBtn = document.getElementById("captureBtn");
+	const video = document.getElementById("scanVideo");
+	const canvas = document.getElementById("captureCanvas");
+	const statusEl = document.getElementById("scanStatus");
+	const companyIdInput = document.getElementById("companyIdInput");
+
+	if (!scanMode) {
+		return;
+	}
+
+	if (!startCameraBtn || !captureBtn || !video || !canvas || !statusEl) {
+		return;
+	}
+
+	let streamRef = null;
+
+	function setStatus(message, variant) {
+		statusEl.textContent = message;
+		if (variant === "error") {
+			statusEl.style.background = "#fef2f2";
+			statusEl.style.borderColor = "#fecaca";
+			statusEl.style.color = "#991b1b";
+			return;
+		}
+		if (variant === "success") {
+			statusEl.style.background = "#ecfdf5";
+			statusEl.style.borderColor = "#bbf7d0";
+			statusEl.style.color = "#166534";
+			return;
+		}
+		statusEl.style.background = "#eef2ff";
+		statusEl.style.borderColor = "#c7d2fe";
+		statusEl.style.color = "#312e81";
+	}
+
+	async function startCamera() {
+		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+			setStatus("Camera is not supported on this browser.", "error");
+			return;
+		}
+
+		try {
+			if (streamRef) {
+				streamRef.getTracks().forEach(track => track.stop());
+			}
+
+			streamRef = await navigator.mediaDevices.getUserMedia({
+				video: { facingMode: { ideal: "user" } },
+				audio: false
+			});
+			video.srcObject = streamRef;
+			captureBtn.disabled = false;
+			setStatus("Camera ready. Keep your face centered and tap Capture & Verify.");
+		} catch (error) {
+			setStatus("Unable to access camera. Please allow permission and try again.", "error");
+		}
+	}
+
+	async function captureAndVerify() {
+		const companyId = (companyIdInput.value || "").trim();
+
+		if (!streamRef) {
+			setStatus("Start camera before capturing.", "error");
+			return;
+		}
+
+		const width = video.videoWidth || 640;
+		const height = video.videoHeight || 480;
+		canvas.width = width;
+		canvas.height = height;
+		const ctx = canvas.getContext("2d");
+		ctx.drawImage(video, 0, 0, width, height);
+
+		const capturedImage = canvas.toDataURL("image/jpeg", 0.92);
+		setStatus("Verifying face... Please wait.");
+
+		try {
+			const response = await fetch("/verify-face", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				credentials: "same-origin",
+				body: JSON.stringify({
+					company_id: companyId,
+					captured_image: capturedImage
+				})
+			});
+
+			const result = await response.json();
+			if (!response.ok || !result.success) {
+				setStatus(result.message || "Face verification failed.", "error");
+				return;
+			}
+
+			if (result.matched) {
+				setStatus("Face matched. Meal confirmed for " + (result.employee_name || result.employee_id || "employee") + ".", "success");
+			} else {
+				setStatus("Face identified but below threshold. Please retry.", "error");
+			}
+		} catch (error) {
+			setStatus("Server error during verification. Please retry.", "error");
+		}
+	}
+
+	startCameraBtn.addEventListener("click", startCamera);
+	captureBtn.addEventListener("click", captureAndVerify);
+
+	startCamera();
+
+	window.addEventListener("beforeunload", function () {
+		if (streamRef) {
+			streamRef.getTracks().forEach(track => track.stop());
+		}
+	});
+});
+</script>
+{% endblock %}

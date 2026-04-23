@@ -99,6 +99,10 @@
                                    class="btn btn-sm btn-outline" title="View Employee Details">
                                     <i class="bi bi-eye"></i>
                                 </a>
+                                          <a href="{{ url_for('company.attendance_employee_report', employee_id=employee.emp_id) }}"
+                                              class="btn btn-sm btn-outline" title="View Attendance Report">
+                                                <i class="bi bi-bar-chart"></i>
+                                          </a>
                                 {% if employee.status == 'pending' %}
                                 <a href="{{ url_for('company.edit_employee', employee_id=employee.id) }}"
                                    class="btn btn-sm btn-complete-work" title="Complete Work Details">

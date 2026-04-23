@@ -338,6 +338,44 @@
             font-size: 0.9rem;
         }
 
+        .meal-feedback.meal-yes {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .meal-feedback.meal-no {
+            border-color: #fecaca;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        .meal-qr-card {
+            margin-top: 10px;
+            border: 1px solid #dbe3ef;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .meal-qr-card h6 {
+            margin-bottom: 8px;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .meal-qr-image {
+            width: 180px;
+            height: 180px;
+            max-width: 100%;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            padding: 6px;
+            background: #ffffff;
+        }
+
         .menu-display {
             margin-top: 10px;
             border: 1px solid #dbe3ef;
@@ -388,6 +426,11 @@
 
             .camera-container {
                 height: 220px;
+            }
+
+            .meal-qr-image {
+                width: 160px;
+                height: 160px;
             }
 
             .captured-preview img {
@@ -481,6 +524,7 @@
         let detectionErrorStreak = 0;
         let locationDetectionStarted = false;
         let cameraAutoStarted = false;
+        let pendingAttendanceInfo = null;
         
         const companyId = parseInt('{{ company_id|default("0") }}') || 0;
         
@@ -875,24 +919,18 @@
             .then(data => {
                 if (data.success) {
                     faceVerified = true;
-                    faceStatus.innerHTML = `<i class="bi bi-check-circle me-2"></i>Attendance marked successfully`;
+                    faceStatus.innerHTML = `<i class="bi bi-check-circle me-2"></i>Attendance recorded. Please select meal option.`;
                     faceStatus.className = 'status-message status-success';
+                    pendingAttendanceInfo = {
+                        employee_name: data.employee_name,
+                        company_name: data.company_name,
+                        timestamp: data.timestamp,
+                    };
+
+                    document.getElementById('successMessage').style.display = 'none';
+                    document.getElementById('successMessage').innerHTML = '';
 
                     checkRequirements();
-
-                    const successHtml = `
-                        <div class="success-card">
-                            <i class="bi bi-check-circle-fill text-success" style="font-size: 2.4rem;"></i>
-                            <h4>Attendance marked successfully</h4>
-                            <div>
-                                <strong>Employee:</strong> ${data.employee_name}<br>
-                                <strong>Company:</strong> ${data.company_name}<br>
-                                <strong>Time:</strong> ${data.timestamp}
-                            </div>
-                        </div>
-                    `;
-                    document.getElementById('successMessage').innerHTML = successHtml;
-                    document.getElementById('successMessage').style.display = 'block';
 
                     document.querySelectorAll('.form-section').forEach(section => {
                         section.style.display = 'none';
@@ -921,9 +959,11 @@
             const promptSection = document.getElementById('mealPromptSection');
             const resultSection = document.getElementById('mealResultSection');
             const menuSection = document.getElementById('menuDisplaySection');
+            const successSection = document.getElementById('successMessage');
 
             resultSection.style.display = 'none';
             menuSection.style.display = 'none';
+            successSection.style.display = 'none';
 
             promptSection.innerHTML = `
                 <div class="meal-prompt-card">
@@ -941,6 +981,7 @@
             const promptSection = document.getElementById('mealPromptSection');
             const resultSection = document.getElementById('mealResultSection');
             const menuSection = document.getElementById('menuDisplaySection');
+            const successSection = document.getElementById('successMessage');
 
             promptSection.querySelectorAll('button').forEach(btn => {
                 btn.disabled = true;
@@ -963,11 +1004,44 @@
                     throw new Error(data.message || 'Unable to save meal response');
                 }
 
-                resultSection.innerHTML = `<div class="meal-feedback"><i class="bi bi-check2-circle me-2"></i>${data.message}</div>`;
+                const mealSelected = data.meal_selected || (status === 'Coming' ? 'YES' : 'NO');
+                const isMealYes = mealSelected === 'YES';
+                const attendanceInfo = pendingAttendanceInfo || {};
+
+                let resultHtml = `
+                    <div class="meal-feedback ${isMealYes ? 'meal-yes' : 'meal-no'}">
+                        <div><i class="bi bi-check2-circle me-2"></i>Attendance marked successfully</div>
+                        <div><i class="bi ${isMealYes ? 'bi-cup-hot' : 'bi-x-octagon'} me-2"></i>Meal Selected: ${mealSelected}</div>
+                    </div>
+                `;
+
+                if (isMealYes && data.show_qr && data.qr_image_b64) {
+                    resultHtml += `
+                        <div class="meal-qr-card">
+                            <h6><i class="bi bi-qr-code me-2"></i>Meal Confirmation QR</h6>
+                            <img src="data:image/png;base64,${data.qr_image_b64}" alt="Meal confirmation QR" class="meal-qr-image">
+                        </div>
+                    `;
+                }
+
+                successSection.innerHTML = `
+                    <div class="success-card">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 2.4rem;"></i>
+                        <h4>Attendance marked successfully</h4>
+                        <div>
+                            <strong>Employee:</strong> ${attendanceInfo.employee_name || employeeId}<br>
+                            <strong>Company:</strong> ${attendanceInfo.company_name || ''}<br>
+                            <strong>Time:</strong> ${attendanceInfo.timestamp || ''}
+                        </div>
+                    </div>
+                `;
+                successSection.style.display = 'block';
+
+                resultSection.innerHTML = resultHtml;
                 resultSection.style.display = 'block';
                 promptSection.style.display = 'none';
 
-                if (status === 'Coming') {
+                if (isMealYes) {
                     renderTodayMenu(data.menu);
                 } else {
                     menuSection.style.display = 'none';

@@ -5,132 +5,222 @@
 {% block content %}
 <div class="attendance-reports-page px-4 py-4">
     <div class="attendance-reports-shell">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-        <div>
-            <h1 class="h3 mb-1 fw-bold">Attendance Reports</h1>
-            <p class="text-muted mb-0">Employee attendance overview</p>
-        </div>
-        <div class="d-flex gap-2 reports-actions">
-            <button class="btn btn-success btn-sm" onclick="exportAttendance()">
-                <i class="bi bi-download me-1"></i>Export
-            </button>
-        </div>
-    </div>
-
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
-            <div class="summary-card">
-                <div class="summary-label">Today</div>
-                <div class="summary-value text-primary">{{ today_count }}</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="summary-card">
-                <div class="summary-label">Total</div>
-                <div class="summary-value text-success">{{ total_employees }}</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="summary-card">
-                <div class="summary-label">Rate</div>
-                <div class="summary-value text-info">{{ "%.0f"|format((today_count / total_employees * 100) if total_employees > 0 else 0) }}%</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="summary-card">
-                <div class="summary-label">Absent</div>
-                <div class="summary-value text-warning">{{ (total_employees - today_count) if total_employees >= today_count else 0 }}</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-body py-3">
-            <h6 class="reports-filter-heading mb-3">Filters</h6>
-            <div class="row g-3 align-items-end">
-                <div class="col-12 col-md-6 col-lg-3">
-                    <label class="form-label small mb-1">From Date</label>
-                    <input type="date" id="dateFrom" class="form-control form-control-sm">
-                </div>
-                <div class="col-12 col-md-6 col-lg-3">
-                    <label class="form-label small mb-1">To Date</label>
-                    <input type="date" id="dateTo" class="form-control form-control-sm">
-                </div>
-                <div class="col-12 col-md-6 col-lg-3">
-                    <label class="form-label small mb-1">Employee ID</label>
-                    <input type="text" id="employeeFilter" class="form-control form-control-sm" placeholder="Enter ID">
-                </div>
-                <div class="col-12 col-md-6 col-lg-3">
-                    <label class="form-label small mb-1">Status</label>
-                    <select id="statusFilter" class="form-select form-select-sm">
-                        <option value="">All</option>
-                        <option value="present">Present</option>
-                        <option value="absent">Absent</option>
-                        <option value="late">Late</option>
-                    </select>
-                </div>
-                <div class="col-12 d-flex justify-content-lg-end gap-2">
-                    <button class="btn btn-primary btn-sm reports-filter-btn" onclick="applyFilters()">
-                        <i class="bi bi-funnel me-1"></i>Apply
-                    </button>
-                    <button class="btn btn-outline-secondary btn-sm reports-filter-btn" onclick="clearFilters()">
-                        <i class="bi bi-x-circle me-1"></i>Clear
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row g-3">
-        <div class="col-12">
-            <div class="card h-100">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-table me-2"></i>Attendance Table</h5>
-                </div>
-                <div class="card-body p-0">
-                    {% if recent_attendance %}
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Name</th>
-                                    <th>Date</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for record in recent_attendance %}
-                                <tr>
-                                    <td class="fw-bold text-primary">{{ record.employee_id }}</td>
-                                    <td>{{ record.employee_name }}</td>
-                                    <td class="text-muted">{{ record.date.strftime('%d %b %Y') if record.date else 'N/A' }}</td>
-                                    <td>
-                                        <span class="badge rounded-pill bg-{{ 'success' if record.status == 'present' else 'warning' if record.status == 'late' else 'danger' }}">
-                                            {{ record.status|title }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+            <div>
+                <h1 class="h3 mb-1 fw-bold">Attendance Reports</h1>
+                <p class="text-muted mb-0">
+                    {% if selected_employee %}
+                    Individual report for {{ selected_employee.name }} ({{ selected_employee.emp_id }})
                     {% else %}
-                    <div class="text-center py-5">
-                        <i class="bi bi-inbox display-1 text-muted opacity-25"></i>
-                        <h5 class="text-muted mt-3">No attendance data available</h5>
-                        <p class="text-muted">No records found for the selected filters.</p>
-                        {% if total_employees == 0 %}
-                        <a href="{{ url_for('company.add_employee') }}" class="btn btn-primary">
-                            <i class="bi bi-plus-circle me-2"></i>Add Employee
-                        </a>
+                    Employee-wise summary. Select an employee to view detailed report.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="d-flex gap-2 reports-actions">
+                <button class="btn btn-success btn-sm" onclick="exportAttendance()">
+                    <i class="bi bi-download me-1"></i>Export
+                </button>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="summary-card">
+                    <div class="summary-label">Today</div>
+                    <div class="summary-value text-primary">{{ today_count }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="summary-card">
+                    <div class="summary-label">Employees</div>
+                    <div class="summary-value text-success">{{ total_employees }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="summary-card">
+                    <div class="summary-label">Today Rate</div>
+                    <div class="summary-value text-info">{{ "%.0f"|format((today_count / total_employees * 100) if total_employees > 0 else 0) }}%</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="summary-card">
+                    <div class="summary-label">Absent Today</div>
+                    <div class="summary-value text-warning">{{ (total_employees - today_count) if total_employees >= today_count else 0 }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body py-3">
+                <h6 class="reports-filter-heading mb-3">Filters</h6>
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <label class="form-label small mb-1">From Date</label>
+                        <input type="date" id="dateFrom" class="form-control form-control-sm" value="{{ filters.date_from }}">
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <label class="form-label small mb-1">To Date</label>
+                        <input type="date" id="dateTo" class="form-control form-control-sm" value="{{ filters.date_to }}">
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <label class="form-label small mb-1">Employee ID</label>
+                        <select id="employeeFilter" class="form-select form-select-sm">
+                            <option value="">Select Employee</option>
+                            {% for employee in employee_options %}
+                            <option value="{{ employee.emp_id }}" {% if filters.employee_id == employee.emp_id %}selected{% endif %}>
+                                {{ employee.name }} ({{ employee.emp_id }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <label class="form-label small mb-1">Employee Name</label>
+                        <input type="text" id="employeeNameFilter" class="form-control form-control-sm" placeholder="Search by name" value="{{ filters.employee_name }}">
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <label class="form-label small mb-1">Status</label>
+                        <select id="statusFilter" class="form-select form-select-sm">
+                            <option value="" {% if not filters.status %}selected{% endif %}>All</option>
+                            <option value="present" {% if filters.status == 'present' %}selected{% endif %}>Present</option>
+                            <option value="absent" {% if filters.status == 'absent' %}selected{% endif %}>Absent</option>
+                            <option value="late" {% if filters.status == 'late' %}selected{% endif %}>Late</option>
+                        </select>
+                    </div>
+                    <div class="col-12 d-flex justify-content-lg-end gap-2">
+                        <button class="btn btn-primary btn-sm reports-filter-btn" onclick="applyFilters()">
+                            <i class="bi bi-funnel me-1"></i>Apply
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm reports-filter-btn" onclick="clearFilters()">
+                            <i class="bi bi-x-circle me-1"></i>Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if candidate_employees %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Matching Employees</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% for employee in candidate_employees %}
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <div class="employee-summary-card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="mb-1">{{ employee.name }}</h6>
+                                    <p class="text-muted small mb-0">ID: {{ employee.emp_id }}</p>
+                                </div>
+                            </div>
+                            <a class="btn btn-sm btn-primary" href="{{ url_for('company.attendance_employee_report', employee_id=employee.emp_id, date_from=filters.date_from, date_to=filters.date_to, status=filters.status) }}">
+                                View Report
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if selected_employee %}
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h5 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>{{ selected_employee.name }} ({{ selected_employee.emp_id }})</h5>
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('company.attendance_employee_report', employee_id=selected_employee.emp_id, date_from=filters.date_from, date_to=filters.date_to, status=filters.status) }}">Open Dedicated Page</a>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if recent_attendance %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Check In</th>
+                                        <th>Check Out</th>
+                                        <th>Status</th>
+                                        <th>Meal Status</th>
+                                        <th>Meal Taken</th>
+                                        <th>Meal Confirmed</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for record in recent_attendance %}
+                                    <tr>
+                                        <td class="text-muted">{{ record.date.strftime('%d %b %Y') if record.date else 'N/A' }}</td>
+                                        <td>{{ record.check_in_time.strftime('%H:%M:%S') if record.check_in_time else 'N/A' }}</td>
+                                        <td>{{ record.check_out_time.strftime('%H:%M:%S') if record.check_out_time else 'N/A' }}</td>
+                                        <td>
+                                            <span class="badge rounded-pill bg-{{ 'success' if record.status == 'present' else 'warning' if record.status == 'late' else 'danger' }}">
+                                                {{ record.status|title }}
+                                            </span>
+                                        </td>
+                                        <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_status == 'YES' else 'secondary' }}">{{ record.meal_status }}</span></td>
+                                        <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_taken == 'YES' else 'secondary' }}">{{ record.meal_taken }}</span></td>
+                                        <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_confirmed == 'YES' else 'secondary' }}">{{ record.meal_confirmed }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-inbox display-1 text-muted opacity-25"></i>
+                            <h5 class="text-muted mt-3">No attendance data for selected employee</h5>
+                            <p class="text-muted">Try changing date or status filters.</p>
+                        </div>
                         {% endif %}
                     </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
-    </div>
+        {% else %}
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Employee Summary</h5>
+            </div>
+            <div class="card-body">
+                {% if summary_by_employee %}
+                <div class="row g-3">
+                    {% for employee in summary_by_employee %}
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <div class="employee-summary-card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="mb-1">{{ employee.employee_name }}</h6>
+                                    <p class="text-muted small mb-0">ID: {{ employee.emp_id }}</p>
+                                </div>
+                            </div>
+                            <div class="employee-summary-stats mb-3">
+                                <span class="mini-pill">Present: {{ employee.present_days or 0 }}</span>
+                                <span class="mini-pill">Late: {{ employee.late_days or 0 }}</span>
+                                <span class="mini-pill">Absent: {{ employee.absent_days or 0 }}</span>
+                            </div>
+                            <p class="small text-muted mb-3">Last attendance: {{ employee.last_attendance_date.strftime('%d %b %Y') if employee.last_attendance_date else 'No records' }}</p>
+                            <a class="btn btn-sm btn-primary" href="{{ url_for('company.attendance_employee_report', employee_id=employee.emp_id, date_from=filters.date_from, date_to=filters.date_to, status=filters.status) }}">View Report</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox display-1 text-muted opacity-25"></i>
+                    <h5 class="text-muted mt-3">No employee summary available</h5>
+                    <p class="text-muted">Add employees or adjust filters.</p>
+                    {% if total_employees == 0 %}
+                    <a href="{{ url_for('company.add_employee') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Add Employee
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -212,6 +302,29 @@
     max-height: 520px;
 }
 
+.employee-summary-card {
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 14px;
+    height: 100%;
+}
+
+.employee-summary-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.mini-pill {
+    border-radius: 999px;
+    background: #eef4ff;
+    color: #2456a6;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
 @media (max-width: 768px) {
     .attendance-reports-page .reports-actions {
         width: 100%;
@@ -225,45 +338,48 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const today = new Date();
-    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-
     const dateToInput = document.getElementById('dateTo');
     const dateFromInput = document.getElementById('dateFrom');
-
-    if (dateToInput && !dateToInput.value) {
-        dateToInput.value = today.toISOString().split('T')[0];
+    const hasAnyDate = Boolean((dateToInput && dateToInput.value) || (dateFromInput && dateFromInput.value));
+    if (!hasAnyDate) {
+        const today = new Date();
+        const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        if (dateToInput) {
+            dateToInput.value = today.toISOString().split('T')[0];
+        }
+        if (dateFromInput) {
+            dateFromInput.value = lastWeek.toISOString().split('T')[0];
+        }
     }
-
-    if (dateFromInput && !dateFromInput.value) {
-        dateFromInput.value = lastWeek.toISOString().split('T')[0];
-    }
-
-    document.querySelectorAll('.attendance-progress-bar').forEach(function (bar) {
-        const progress = Number(bar.dataset.progress || 0);
-        bar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
-    });
 });
 
 function applyFilters() {
     const dateFrom = document.getElementById('dateFrom').value;
     const dateTo = document.getElementById('dateTo').value;
     const employeeId = document.getElementById('employeeFilter').value;
+    const employeeName = document.getElementById('employeeNameFilter').value;
     const status = document.getElementById('statusFilter').value;
 
     const params = new URLSearchParams();
     if (dateFrom) params.append('date_from', dateFrom);
     if (dateTo) params.append('date_to', dateTo);
     if (employeeId) params.append('employee_id', employeeId);
+    if (employeeName) params.append('employee_name', employeeName);
     if (status) params.append('status', status);
 
-    window.location.href = '/company/attendance/reports?' + params.toString();
+    if (employeeId) {
+        window.location.href = '/company/attendance/report/' + encodeURIComponent(employeeId) + '?' + params.toString();
+        return;
+    }
+
+    window.location.href = '/company/attendance/reports' + (params.toString() ? '?' + params.toString() : '');
 }
 
 function clearFilters() {
     document.getElementById('dateFrom').value = '';
     document.getElementById('dateTo').value = '';
     document.getElementById('employeeFilter').value = '';
+    document.getElementById('employeeNameFilter').value = '';
     document.getElementById('statusFilter').value = '';
 
     window.location.href = '/company/attendance/reports';
@@ -277,12 +393,14 @@ function exportAttendance() {
     const dateFrom = document.getElementById('dateFrom').value;
     const dateTo = document.getElementById('dateTo').value;
     const employeeId = document.getElementById('employeeFilter').value;
+    const employeeName = document.getElementById('employeeNameFilter').value;
     const status = document.getElementById('statusFilter').value;
 
     const params = new URLSearchParams();
     if (dateFrom) params.append('date_from', dateFrom);
     if (dateTo) params.append('date_to', dateTo);
     if (employeeId) params.append('employee_id', employeeId);
+    if (employeeName) params.append('employee_name', employeeName);
     if (status) params.append('status', status);
     params.append('export', 'csv');
 

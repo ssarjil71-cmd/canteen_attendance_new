@@ -6,6 +6,7 @@ from flask import Blueprint, flash, jsonify, redirect, render_template, request,
 from werkzeug.security import generate_password_hash
 
 from database.db_connection import get_db_connection
+from module_access import has_module, module_required
 
 company = Blueprint("company", __name__, url_prefix="/company")
 
@@ -20,6 +21,7 @@ def company_required(function):
 
 @company.route("/attendance/qr")
 @company_required
+@module_required("attendance")
 def attendance_qr_page():
     import os
     from flask import current_app
@@ -89,6 +91,8 @@ def company_dashboard_stats():
 
 
 def _get_company_dashboard_stats(company_id):
+    attendance_enabled = has_module(company_id, "attendance")
+
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
@@ -125,16 +129,18 @@ def _get_company_dashboard_stats(company_id):
     total_roles = cursor.fetchone()["count"]
 
     today = datetime.now().date()
-    cursor.execute(
-        """
-        SELECT status, COUNT(*) AS count
-        FROM attendance
-        WHERE company_id = %s AND date = %s
-        GROUP BY status
-        """,
-        (company_id, today),
-    )
-    attendance_rows = cursor.fetchall()
+    attendance_rows = []
+    if attendance_enabled:
+        cursor.execute(
+            """
+            SELECT status, COUNT(*) AS count
+            FROM attendance
+            WHERE company_id = %s AND date = %s
+            GROUP BY status
+            """,
+            (company_id, today),
+        )
+        attendance_rows = cursor.fetchall()
 
     cursor.close()
     connection.close()
@@ -172,103 +178,294 @@ def _get_company_dashboard_stats(company_id):
         "insights": {
             "manager_coverage": manager_coverage,
         },
+        "modules": {
+            "attendance": attendance_enabled,
+            "canteen_management": has_module(company_id, "canteen_management"),
+            "salary_slip_management": has_module(company_id, "salary_slip_management"),
+        },
         "generated_at": datetime.now().isoformat(),
+    }
+
+
+def _attendance_column_exists(connection, column_name):
+    cursor = connection.cursor()
+    cursor.execute("SHOW COLUMNS FROM attendance LIKE %s", (column_name,))
+    exists = cursor.fetchone() is not None
+    cursor.close()
+    return exists
+
+
+def _attendance_meal_select_clause(connection):
+    meal_status_expr = "COALESCE(a.meal_status, 'NO') AS meal_status" if _attendance_column_exists(connection, "meal_status") else "'NO' AS meal_status"
+    meal_taken_expr = "COALESCE(a.meal_taken, 'NO') AS meal_taken" if _attendance_column_exists(connection, "meal_taken") else "'NO' AS meal_taken"
+    meal_confirmed_expr = "COALESCE(a.meal_confirmed, 'NO') AS meal_confirmed" if _attendance_column_exists(connection, "meal_confirmed") else "'NO' AS meal_confirmed"
+    return meal_status_expr, meal_taken_expr, meal_confirmed_expr
+
+
+def _normalize_attendance_filters(args):
+    date_from = (args.get("date_from") or "").strip()
+    date_to = (args.get("date_to") or "").strip()
+    employee_id = (args.get("employee_id") or "").strip()
+    employee_name = (args.get("employee_name") or "").strip()
+    status = (args.get("status") or "").strip().lower()
+    if status not in {"present", "absent", "late"}:
+        status = ""
+    return {
+        "date_from": date_from,
+        "date_to": date_to,
+        "employee_id": employee_id,
+        "employee_name": employee_name,
+        "status": status,
     }
 
 
 # Attendance Reports Route
 @company.route("/attendance/reports")
 @company_required
+@module_required("attendance")
 def attendance_reports():
     company_id = session.get("company_id")
-    
-    # Get filter parameters
-    date_from = request.args.get('date_from')
-    date_to = request.args.get('date_to')
-    employee_id = request.args.get('employee_id')
-    status = request.args.get('status')
-    
+
+    filters = _normalize_attendance_filters(request.args)
+
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    
+
+    meal_status_expr, meal_taken_expr, meal_confirmed_expr = _attendance_meal_select_clause(connection)
+
     # Get total employees count
     cursor.execute("SELECT COUNT(*) as count FROM employees WHERE company_id = %s", (company_id,))
     total_employees = cursor.fetchone()['count']
-    
+
     # Get today's attendance count
     from datetime import date
     today = date.today()
-    
+
     cursor.execute("""
         SELECT COUNT(*) as count 
         FROM attendance 
         WHERE company_id = %s AND date = %s
     """, (company_id, today))
     today_count = cursor.fetchone()['count']
-    
-    # Build query for attendance records with filters
-    query = """
-        SELECT a.employee_id, e.name as employee_name, a.date, a.check_in_time, 
-               a.status, a.location_verified, a.face_verified
-        FROM attendance a
-        JOIN employees e ON a.employee_id = e.emp_id AND a.company_id = e.company_id
-        WHERE a.company_id = %s
-    """
-    params = [company_id]
-    
-    # Apply filters
-    if date_from:
-        query += " AND a.date >= %s"
-        params.append(date_from)
-    
-    if date_to:
-        query += " AND a.date <= %s"
-        params.append(date_to)
-    
-    if employee_id:
-        query += " AND a.employee_id LIKE %s"
-        params.append(f"%{employee_id}%")
-    
-    if status:
-        query += " AND a.status = %s"
-        params.append(status)
-    
-    query += " ORDER BY a.date DESC, a.check_in_time DESC LIMIT 50"
-    
-    cursor.execute(query, params)
-    recent_attendance = cursor.fetchall()
-    
+
+    cursor.execute(
+        """
+        SELECT e.emp_id, e.name
+        FROM employees e
+        WHERE e.company_id = %s
+        ORDER BY e.name ASC, e.emp_id ASC
+        """,
+        (company_id,),
+    )
+    employee_options = cursor.fetchall()
+
+    selected_employee = None
+    candidate_employees = []
+    recent_attendance = []
+    summary_by_employee = []
+
+    if filters["employee_id"]:
+        cursor.execute(
+            """
+            SELECT e.emp_id, e.name
+            FROM employees e
+            WHERE e.company_id = %s AND e.emp_id = %s
+            """,
+            (company_id, filters["employee_id"]),
+        )
+        selected_employee = cursor.fetchone()
+    elif filters["employee_name"]:
+        cursor.execute(
+            """
+            SELECT e.emp_id, e.name
+            FROM employees e
+            WHERE e.company_id = %s AND e.name LIKE %s
+            ORDER BY e.name ASC, e.emp_id ASC
+            LIMIT 25
+            """,
+            (company_id, f"%{filters['employee_name']}%"),
+        )
+        candidate_employees = cursor.fetchall()
+
+    if selected_employee:
+        report_query = f"""
+            SELECT a.employee_id, e.name as employee_name, a.date, a.check_in_time,
+                   a.check_out_time, a.status,
+                   {meal_status_expr}, {meal_taken_expr}, {meal_confirmed_expr},
+                   a.location_verified, a.face_verified
+            FROM attendance a
+            JOIN employees e ON a.employee_id = e.emp_id AND a.company_id = e.company_id
+            WHERE a.company_id = %s AND a.employee_id = %s
+        """
+        report_params = [company_id, selected_employee["emp_id"]]
+
+        if filters["date_from"]:
+            report_query += " AND a.date >= %s"
+            report_params.append(filters["date_from"])
+
+        if filters["date_to"]:
+            report_query += " AND a.date <= %s"
+            report_params.append(filters["date_to"])
+
+        if filters["status"]:
+            report_query += " AND a.status = %s"
+            report_params.append(filters["status"])
+
+        report_query += " ORDER BY a.date DESC, a.check_in_time DESC LIMIT 200"
+        cursor.execute(report_query, report_params)
+        recent_attendance = cursor.fetchall()
+    else:
+        summary_query = """
+            SELECT
+                e.emp_id,
+                e.name AS employee_name,
+                COUNT(a.id) AS total_days,
+                SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS present_days,
+                SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) AS late_days,
+                SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) AS absent_days,
+                MAX(a.date) AS last_attendance_date
+            FROM employees e
+            LEFT JOIN attendance a
+                ON a.employee_id = e.emp_id
+               AND a.company_id = e.company_id
+            WHERE e.company_id = %s
+        """
+        summary_params = [company_id]
+
+        if filters["date_from"]:
+            summary_query += " AND (a.date IS NULL OR a.date >= %s)"
+            summary_params.append(filters["date_from"])
+
+        if filters["date_to"]:
+            summary_query += " AND (a.date IS NULL OR a.date <= %s)"
+            summary_params.append(filters["date_to"])
+
+        if filters["status"]:
+            summary_query += " AND (a.id IS NULL OR a.status = %s)"
+            summary_params.append(filters["status"])
+
+        if filters["employee_name"]:
+            summary_query += " AND e.name LIKE %s"
+            summary_params.append(f"%{filters['employee_name']}%")
+
+        summary_query += " GROUP BY e.emp_id, e.name ORDER BY e.name ASC"
+        cursor.execute(summary_query, summary_params)
+        summary_by_employee = cursor.fetchall()
+
     cursor.close()
     connection.close()
-    
+
     return render_template(
         "company/attendance_reports.html",
         today_count=today_count,
         total_employees=total_employees,
-        recent_attendance=recent_attendance
+        recent_attendance=recent_attendance,
+        selected_employee=selected_employee,
+        summary_by_employee=summary_by_employee,
+        employee_options=employee_options,
+        candidate_employees=candidate_employees,
+        filters=filters,
+    )
+
+
+@company.route("/attendance/report/<employee_id>")
+@company_required
+@module_required("attendance")
+def attendance_employee_report(employee_id):
+    company_id = session.get("company_id")
+    filters = _normalize_attendance_filters(request.args)
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    meal_status_expr, meal_taken_expr, meal_confirmed_expr = _attendance_meal_select_clause(connection)
+
+    cursor.execute(
+        """
+        SELECT e.emp_id, e.name, e.department, e.shift
+        FROM employees e
+        WHERE e.company_id = %s AND e.emp_id = %s
+        """,
+        (company_id, employee_id),
+    )
+    employee = cursor.fetchone()
+
+    if not employee:
+        cursor.close()
+        connection.close()
+        flash("Employee not found for this company.", "error")
+        return redirect(url_for("company.attendance_reports"))
+
+    query = f"""
+        SELECT a.employee_id, e.name AS employee_name, a.date, a.check_in_time,
+               a.check_out_time, a.status,
+               {meal_status_expr}, {meal_taken_expr}, {meal_confirmed_expr},
+               a.location_verified, a.face_verified
+        FROM attendance a
+        JOIN employees e ON a.employee_id = e.emp_id AND a.company_id = e.company_id
+        WHERE a.company_id = %s AND a.employee_id = %s
+    """
+    params = [company_id, employee_id]
+
+    if filters["date_from"]:
+        query += " AND a.date >= %s"
+        params.append(filters["date_from"])
+
+    if filters["date_to"]:
+        query += " AND a.date <= %s"
+        params.append(filters["date_to"])
+
+    if filters["status"]:
+        query += " AND a.status = %s"
+        params.append(filters["status"])
+
+    query += " ORDER BY a.date DESC, a.check_in_time DESC"
+    cursor.execute(query, params)
+    records = cursor.fetchall()
+
+    stats = {
+        "total": len(records),
+        "present": sum(1 for row in records if row.get("status") == "present"),
+        "late": sum(1 for row in records if row.get("status") == "late"),
+        "absent": sum(1 for row in records if row.get("status") == "absent"),
+        "meal_yes": sum(1 for row in records if (row.get("meal_status") or "NO").upper() == "YES"),
+        "meal_taken_yes": sum(1 for row in records if (row.get("meal_taken") or "NO").upper() == "YES"),
+        "meal_confirmed_yes": sum(1 for row in records if (row.get("meal_confirmed") or "NO").upper() == "YES"),
+    }
+
+    cursor.close()
+    connection.close()
+
+    return render_template(
+        "company/attendance_employee_report.html",
+        employee=employee,
+        records=records,
+        stats=stats,
+        filters=filters,
     )
 
 
 # Attendance Export Route
 @company.route("/attendance/export")
 @company_required
+@module_required("attendance")
 def attendance_export():
     company_id = session.get("company_id")
     
     # Get filter parameters
-    date_from = request.args.get('date_from')
-    date_to = request.args.get('date_to')
-    employee_id = request.args.get('employee_id')
-    status = request.args.get('status')
+    filters = _normalize_attendance_filters(request.args)
     export_format = request.args.get('export', 'csv')
     
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
     
+    meal_status_expr, meal_taken_expr, meal_confirmed_expr = _attendance_meal_select_clause(connection)
+
     # Build query for attendance data with filters
-    query = """
+    query = f"""
         SELECT a.employee_id, e.name as employee_name, a.date, a.check_in_time, 
-               a.check_out_time, a.status, a.location_verified, a.face_verified
+               a.check_out_time, a.status, {meal_status_expr}, {meal_taken_expr}, {meal_confirmed_expr},
+               a.location_verified, a.face_verified
         FROM attendance a
         JOIN employees e ON a.employee_id = e.emp_id AND a.company_id = e.company_id
         WHERE a.company_id = %s
@@ -276,21 +473,25 @@ def attendance_export():
     params = [company_id]
     
     # Apply filters
-    if date_from:
+    if filters["date_from"]:
         query += " AND a.date >= %s"
-        params.append(date_from)
+        params.append(filters["date_from"])
     
-    if date_to:
+    if filters["date_to"]:
         query += " AND a.date <= %s"
-        params.append(date_to)
+        params.append(filters["date_to"])
     
-    if employee_id:
-        query += " AND a.employee_id LIKE %s"
-        params.append(f"%{employee_id}%")
+    if filters["employee_id"]:
+        query += " AND a.employee_id = %s"
+        params.append(filters["employee_id"])
+
+    if filters["employee_name"]:
+        query += " AND e.name LIKE %s"
+        params.append(f"%{filters['employee_name']}%")
     
-    if status:
+    if filters["status"]:
         query += " AND a.status = %s"
-        params.append(status)
+        params.append(filters["status"])
     
     query += " ORDER BY a.date DESC, a.check_in_time DESC"
     
@@ -311,7 +512,7 @@ def attendance_export():
         # Write header
         writer.writerow([
             'Employee ID', 'Employee Name', 'Date', 'Check In', 'Check Out', 
-            'Status', 'Location Verified', 'Face Verified'
+            'Status', 'Meal Status', 'Meal Taken', 'Meal Confirmed', 'Location Verified', 'Face Verified'
         ])
         
         # Write data
@@ -323,6 +524,9 @@ def attendance_export():
                 record['check_in_time'].strftime('%H:%M:%S') if record['check_in_time'] else 'N/A',
                 record['check_out_time'].strftime('%H:%M:%S') if record['check_out_time'] else 'N/A',
                 record['status'],
+                record.get('meal_status', 'NO'),
+                record.get('meal_taken', 'NO'),
+                record.get('meal_confirmed', 'NO'),
                 'Yes' if record['location_verified'] else 'No',
                 'Yes' if record['face_verified'] else 'No'
             ])
@@ -883,6 +1087,7 @@ def add_employee():
         department_id = request.form.get("department_id", "").strip()
         shift_id = request.form.get("shift_id", "").strip()
         joining_date = request.form.get("joining_date", "").strip()
+        basic_salary = request.form.get("basic_salary", "0").strip()
 
         # Validation
         errors = []
@@ -909,6 +1114,11 @@ def add_employee():
             errors.append("Shift is required.")
         if not joining_date:
             errors.append("Joining date is required.")
+        try:
+            basic_salary_value = max(float(basic_salary or 0), 0.0)
+        except ValueError:
+            errors.append("Basic salary must be a valid number.")
+            basic_salary_value = 0.0
             
         # Database validation
         if not errors:
@@ -1032,13 +1242,13 @@ def add_employee():
             """
             INSERT INTO employees (
                 name, emp_id, email, gender, dob, phone, address, role, employee_role,
-                department, shift, joining_date, company, company_id, image_path, status
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                department, shift, joining_date, basic_salary, company, company_id, image_path, status
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 name, emp_id, email or None, gender, dob_obj, phone,
                 address, role, employee_role, department_name,
-                shift_name, joining_date_obj, company_name, company_id,
+                shift_name, joining_date_obj, basic_salary_value, company_name, company_id,
                 image_path, 'active'
             ),
         )
@@ -1176,7 +1386,7 @@ def edit_employee(employee_id):
         """
         SELECT e.id, e.name, e.emp_id, e.email, e.gender, e.dob, e.phone, e.address,
                e.role, e.employee_role, e.department, e.shift, e.joining_date, 
-               e.status, e.created_at, e.company_id,
+             e.status, e.created_at, e.company_id, e.basic_salary,
                d.id as department_id, s.id as shift_id
         FROM employees e
         LEFT JOIN departments d ON e.department = d.name AND d.company_id = %s
@@ -1211,6 +1421,7 @@ def edit_employee(employee_id):
         department_id = request.form.get("department_id", "").strip()
         shift_id = request.form.get("shift_id", "").strip()
         joining_date = request.form.get("joining_date", "").strip()
+        basic_salary = request.form.get("basic_salary", "0").strip()
 
         # Validation
         errors = []
@@ -1233,6 +1444,11 @@ def edit_employee(employee_id):
             errors.append("Shift is required.")
         if not joining_date:
             errors.append("Joining date is required.")
+        try:
+            basic_salary_value = max(float(basic_salary or 0), 0.0)
+        except ValueError:
+            errors.append("Basic salary must be a valid number.")
+            basic_salary_value = 0.0
             
         # Database validation
         if not errors:
@@ -1310,7 +1526,7 @@ def edit_employee(employee_id):
             UPDATE employees SET
                 name = %s, emp_id = %s, email = %s, gender = %s, dob = %s, phone = %s, 
                 address = %s, role = %s, employee_role = %s, department = %s, 
-                shift = %s, joining_date = %s, company = %s,
+                shift = %s, joining_date = %s, basic_salary = %s, company = %s,
                 status = CASE WHEN status = 'pending' THEN 'active' ELSE status END,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = %s AND company_id = %s
@@ -1318,7 +1534,7 @@ def edit_employee(employee_id):
             (
                 name, emp_id, email or None, gender, dob_obj, phone or None,
                 address or None, role, employee_role, department_name,
-                shift_name, joining_date_obj, company_name, employee_id, company_id
+                shift_name, joining_date_obj, basic_salary_value, company_name, employee_id, company_id
             ),
         )
         
@@ -1700,6 +1916,7 @@ def add_role():
 
 @company.route("/add_canteen", methods=["GET", "POST"])
 @company_required
+@module_required("canteen_management")
 def add_canteen():
     company_id = session.get("company_id")
 

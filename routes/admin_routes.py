@@ -9,6 +9,42 @@ from database.db_connection import get_db_connection
 admin = Blueprint('admin', __name__)
 
 
+def _ensure_attendance_submodule_columns(connection):
+	cursor = connection.cursor()
+	cursor.execute("SHOW COLUMNS FROM companies LIKE 'attendance_qr_generation_enabled'")
+	has_qr_generation = cursor.fetchone() is not None
+	cursor.execute("SHOW COLUMNS FROM companies LIKE 'attendance_qr_scanner_enabled'")
+	has_qr_scanner = cursor.fetchone() is not None
+
+	if not has_qr_generation:
+		cursor.execute("ALTER TABLE companies ADD COLUMN attendance_qr_generation_enabled TINYINT(1) NOT NULL DEFAULT 1")
+	if not has_qr_scanner:
+		cursor.execute("ALTER TABLE companies ADD COLUMN attendance_qr_scanner_enabled TINYINT(1) NOT NULL DEFAULT 1")
+
+	cursor.close()
+	if not has_qr_generation or not has_qr_scanner:
+		connection.commit()
+
+
+def _ensure_canteen_submodule_columns(connection):
+	cursor = connection.cursor()
+	cols = {
+		"canteen_qr_generate_enabled": "TINYINT(1) NOT NULL DEFAULT 1",
+		"canteen_qr_scan_enabled": "TINYINT(1) NOT NULL DEFAULT 1",
+		"canteen_face_verify_enabled": "TINYINT(1) NOT NULL DEFAULT 1",
+		"canteen_reports_enabled": "TINYINT(1) NOT NULL DEFAULT 1",
+	}
+	added = False
+	for col, definition in cols.items():
+		cursor.execute(f"SHOW COLUMNS FROM companies LIKE '{col}'")
+		if cursor.fetchone() is None:
+			cursor.execute(f"ALTER TABLE companies ADD COLUMN {col} {definition}")
+			added = True
+	cursor.close()
+	if added:
+		connection.commit()
+
+
 def admin_required(function):
 	@wraps(function)
 	def wrapper(*args, **kwargs):
@@ -123,9 +159,25 @@ def add_company():
 		longitude = request.form.get("longitude", "").strip()
 		radius = request.form.get("radius", "").strip()
 		attendance_module_enabled = 1 if request.form.get("attendance_module_enabled") else 0
+		attendance_qr_generation_enabled = 1 if request.form.get("attendance_qr_generation_enabled") else 0
+		attendance_qr_scanner_enabled = 1 if request.form.get("attendance_qr_scanner_enabled") else 0
 		canteen_module_enabled = 1 if request.form.get("canteen_module_enabled") else 0
+		canteen_qr_generate_enabled = 1 if request.form.get("canteen_qr_generate_enabled") else 0
+		canteen_qr_scan_enabled = 1 if request.form.get("canteen_qr_scan_enabled") else 0
+		canteen_face_verify_enabled = 1 if request.form.get("canteen_face_verify_enabled") else 0
+		canteen_reports_enabled = 1 if request.form.get("canteen_reports_enabled") else 0
 		salary_slip_module_enabled = 1 if request.form.get("salary_slip_module_enabled") else 0
 		logo_file = request.files.get('logo')
+
+		if not attendance_module_enabled:
+			attendance_qr_generation_enabled = 0
+			attendance_qr_scanner_enabled = 0
+
+		if not canteen_module_enabled:
+			canteen_qr_generate_enabled = 0
+			canteen_qr_scan_enabled = 0
+			canteen_face_verify_enabled = 0
+			canteen_reports_enabled = 0
 
 		if not (attendance_module_enabled or canteen_module_enabled or salary_slip_module_enabled):
 			flash("Please select at least one module.", "error")
@@ -153,6 +205,7 @@ def add_company():
 
 		connection = get_db_connection()
 		cursor = connection.cursor(dictionary=True)
+		_ensure_attendance_submodule_columns(connection)
 		
 		# Check if email already exists
 		cursor.execute("SELECT id FROM companies WHERE email = %s", (email,))
@@ -204,10 +257,13 @@ def add_company():
 		cursor.execute(
 			"""
 			INSERT INTO companies
-			(company_name, company_code, company_type_id, address, email, phone, city, state, pincode, 
-			 gst_number, logo, latitude, longitude, radius, password, 
-			 attendance_module_enabled, canteen_module_enabled, salary_slip_module_enabled, status)
-			VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+			(company_name, company_code, company_type_id, address, email, phone, city, state, pincode,
+			 gst_number, logo, latitude, longitude, radius, password,
+			 attendance_module_enabled, attendance_qr_generation_enabled, attendance_qr_scanner_enabled,
+			 canteen_module_enabled, canteen_qr_generate_enabled, canteen_qr_scan_enabled,
+			 canteen_face_verify_enabled, canteen_reports_enabled,
+			 salary_slip_module_enabled, status)
+			VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 			""",
 			(
 				company_name,
@@ -226,7 +282,13 @@ def add_company():
 				int(radius) if radius else 100,
 				password,
 				attendance_module_enabled,
+				attendance_qr_generation_enabled,
+				attendance_qr_scanner_enabled,
 				canteen_module_enabled,
+				canteen_qr_generate_enabled,
+				canteen_qr_scan_enabled,
+				canteen_face_verify_enabled,
+				canteen_reports_enabled,
 				salary_slip_module_enabled,
 				'active'
 			),
@@ -368,6 +430,7 @@ def view_companies():
 def company_details(company_id):
 	connection = get_db_connection()
 	cursor = connection.cursor(dictionary=True)
+	_ensure_attendance_submodule_columns(connection)
 
 	cursor.execute(
 		"""
@@ -395,6 +458,7 @@ def company_details(company_id):
 def edit_company(company_id):
 	connection = get_db_connection()
 	cursor = connection.cursor(dictionary=True)
+	_ensure_attendance_submodule_columns(connection)
 
 	cursor.execute("SELECT * FROM companies WHERE id = %s", (company_id,))
 	company = cursor.fetchone()
@@ -433,9 +497,28 @@ def edit_company(company_id):
 		longitude = request.form.get("longitude", "").strip()
 		radius = request.form.get("radius", "").strip()
 		attendance_module_enabled = 1 if request.form.get("attendance_module_enabled") else 0
+		attendance_qr_generation_enabled = 1 if request.form.get("attendance_qr_generation_enabled") else 0
+		attendance_qr_scanner_enabled = 1 if request.form.get("attendance_qr_scanner_enabled") else 0
 		canteen_module_enabled = 1 if request.form.get("canteen_module_enabled") else 0
+		canteen_qr_generate_enabled = 1 if request.form.get("canteen_qr_generate_enabled") else 0
+		canteen_qr_scan_enabled = 1 if request.form.get("canteen_qr_scan_enabled") else 0
+		canteen_face_verify_enabled = 1 if request.form.get("canteen_face_verify_enabled") else 0
+		canteen_reports_enabled = 1 if request.form.get("canteen_reports_enabled") else 0
 		salary_slip_module_enabled = 1 if request.form.get("salary_slip_module_enabled") else 0
 		logo_file = request.files.get('logo')
+
+		if not attendance_module_enabled:
+			attendance_qr_generation_enabled = 0
+			attendance_qr_scanner_enabled = 0
+
+		if not canteen_module_enabled:
+			canteen_qr_generate_enabled = 0
+			canteen_qr_scan_enabled = 0
+			canteen_face_verify_enabled = 0
+			canteen_reports_enabled = 0
+
+		_ensure_attendance_submodule_columns(connection)
+		_ensure_canteen_submodule_columns(connection)
 
 		if not (attendance_module_enabled or canteen_module_enabled or salary_slip_module_enabled):
 			flash("Please select at least one module.", "error")
@@ -674,7 +757,13 @@ def edit_company(company_id):
 				longitude = %s,
 				radius = %s,
 				attendance_module_enabled = %s,
+				attendance_qr_generation_enabled = %s,
+				attendance_qr_scanner_enabled = %s,
 				canteen_module_enabled = %s,
+				canteen_qr_generate_enabled = %s,
+				canteen_qr_scan_enabled = %s,
+				canteen_face_verify_enabled = %s,
+				canteen_reports_enabled = %s,
 				salary_slip_module_enabled = %s
 			WHERE id = %s
 			""",
@@ -695,7 +784,13 @@ def edit_company(company_id):
 				longitude or None,
 				int(radius) if radius else 100,
 				attendance_module_enabled,
+				attendance_qr_generation_enabled,
+				attendance_qr_scanner_enabled,
 				canteen_module_enabled,
+				canteen_qr_generate_enabled,
+				canteen_qr_scan_enabled,
+				canteen_face_verify_enabled,
+				canteen_reports_enabled,
 				salary_slip_module_enabled,
 				company_id,
 			),

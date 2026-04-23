@@ -15,6 +15,8 @@ def get_db_connection():
             autocommit=False,
             charset="utf8mb4",
             collation="utf8mb4_unicode_ci",
+            connection_timeout=Config.DB_CONNECTION_TIMEOUT,
+            ssl_disabled=Config.DB_SSL_DISABLED,
         )
 
         if connection.is_connected():

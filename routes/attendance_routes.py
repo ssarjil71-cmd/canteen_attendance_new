@@ -7,6 +7,7 @@ from math import radians, cos, sin, asin, sqrt
 import json
 
 import boto3
+import qrcode
 from flask import Blueprint, request, jsonify, current_app, render_template
 from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 from PIL import Image
@@ -14,6 +15,7 @@ from PIL import Image
 AWS_REKOGNITION_AVAILABLE = True
 
 from database.db_connection import get_db_connection
+from module_access import has_module, has_submodule
 
 attendance = Blueprint("attendance", __name__, url_prefix="/attendance")
 
@@ -24,6 +26,15 @@ FACE_VERIFICATION_CONFIG = {
     'min_face_confidence': 85.0,
     'description': 'AWS Rekognition based face detection and comparison'
 }
+
+
+def _attendance_module_disabled_response(company_id):
+    if has_module(company_id, "attendance"):
+        return None
+    return jsonify({
+        'success': False,
+        'message': 'Attendance module is disabled for this company'
+    }), 403
 
 
 def _attendance_has_meal_status(connection):
@@ -58,6 +69,140 @@ def _ensure_attendance_meal_taken(connection):
     cursor.execute("ALTER TABLE attendance ADD COLUMN meal_taken ENUM('YES', 'NO') DEFAULT 'NO' AFTER meal_status")
     cursor.close()
     connection.commit()
+
+
+def _table_exists(connection, table_name):
+    cursor = connection.cursor()
+    cursor.execute("SHOW TABLES LIKE %s", (table_name,))
+    exists = cursor.fetchone() is not None
+    cursor.close()
+    return exists
+
+
+def _ensure_meal_qr_token_table(connection):
+    if _table_exists(connection, "meal_qr_tokens"):
+        return
+
+    cursor = connection.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS meal_qr_tokens (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            attendance_id INT NOT NULL,
+            employee_id VARCHAR(100) NOT NULL,
+            company_id INT NOT NULL,
+            qr_date DATE NOT NULL,
+            token VARCHAR(128) NOT NULL,
+            payload TEXT NOT NULL,
+            issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            consumed_at DATETIME NULL,
+            is_active TINYINT(1) DEFAULT 1,
+            UNIQUE KEY uk_meal_qr_attendance (attendance_id),
+            UNIQUE KEY uk_meal_qr_token (token),
+            INDEX idx_meal_qr_company_date (company_id, qr_date),
+            INDEX idx_meal_qr_employee_date (employee_id, qr_date),
+            CONSTRAINT fk_meal_qr_attendance FOREIGN KEY (attendance_id)
+              REFERENCES attendance(id) ON DELETE CASCADE,
+            CONSTRAINT fk_meal_qr_company FOREIGN KEY (company_id)
+              REFERENCES companies(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.close()
+    connection.commit()
+
+
+def _build_qr_base64(payload_text):
+    buffer = io.BytesIO()
+    qr = qrcode.QRCode(version=1, box_size=8, border=3)
+    qr.add_data(payload_text)
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="black", back_color="white")
+    image.save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def _deactivate_today_qr_tokens(cursor, employee_id, company_id, response_date):
+    cursor.execute(
+        """
+        UPDATE meal_qr_tokens
+        SET is_active = 0
+        WHERE employee_id = %s
+          AND company_id = %s
+          AND qr_date = %s
+          AND consumed_at IS NULL
+        """,
+        (employee_id, company_id, response_date),
+    )
+
+
+def _get_or_create_today_meal_qr(cursor, employee_id, company_id, response_date):
+    cursor.execute(
+        """
+        SELECT id, check_in_time
+        FROM attendance
+        WHERE employee_id = %s
+          AND company_id = %s
+          AND DATE(COALESCE(check_in_time, date)) = %s
+        ORDER BY check_in_time DESC, id DESC
+        LIMIT 1
+        """,
+        (employee_id, company_id, response_date),
+    )
+    attendance_row = cursor.fetchone()
+    if not attendance_row:
+        return None
+
+    attendance_id = attendance_row['id']
+    cursor.execute(
+        """
+        SELECT token, payload
+        FROM meal_qr_tokens
+        WHERE attendance_id = %s
+          AND qr_date = %s
+          AND is_active = 1
+        LIMIT 1
+        """,
+        (attendance_id, response_date),
+    )
+    existing_qr = cursor.fetchone()
+
+    if existing_qr:
+        return {
+            'token': existing_qr['token'],
+            'payload': existing_qr['payload'],
+            'qr_image_b64': _build_qr_base64(existing_qr['payload']),
+            'attendance_id': attendance_id,
+        }
+
+    issued_at = datetime.now()
+    token = uuid.uuid4().hex
+    payload_obj = {
+        'employee_id': employee_id,
+        'company_id': int(company_id),
+        'attendance_id': attendance_id,
+        'date_time': issued_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'token': token,
+    }
+    payload_text = json.dumps(payload_obj, separators=(',', ':'))
+    expires_at = datetime.combine(response_date, datetime.max.time()).replace(microsecond=0)
+
+    cursor.execute(
+        """
+        INSERT INTO meal_qr_tokens (
+            attendance_id, employee_id, company_id, qr_date, token, payload, expires_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """,
+        (attendance_id, employee_id, company_id, response_date, token, payload_text, expires_at),
+    )
+
+    return {
+        'token': token,
+        'payload': payload_text,
+        'qr_image_b64': _build_qr_base64(payload_text),
+        'attendance_id': attendance_id,
+    }
 
 
 def _rekognition_client():
@@ -220,6 +365,10 @@ def auto_mark_attendance():
                 'success': False,
                 'message': 'Location and face image are required'
             }), 400
+
+        module_check = _attendance_module_disabled_response(company_id)
+        if module_check:
+            return module_check
 
         if not AWS_REKOGNITION_AVAILABLE:
             return jsonify({
@@ -401,9 +550,16 @@ def meal_response():
                 'message': 'Invalid meal response payload'
             }), 400
 
+        module_check = _attendance_module_disabled_response(company_id)
+        if module_check:
+            return module_check
+
+        qr_generation_enabled = has_submodule(company_id, "attendance", "qr_generation")
+
         response_date = date.today()
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
+        _ensure_meal_qr_token_table(connection)
 
         cursor.execute("SELECT id FROM canteen WHERE company_id = %s", (company_id,))
         canteen = cursor.fetchone()
@@ -439,6 +595,7 @@ def meal_response():
             )
 
         menu_payload = None
+        qr_payload = None
         if status == "Coming":
             cursor.execute(
                 """
@@ -456,6 +613,20 @@ def meal_response():
                     'evening': today_menu['evening_item'],
                 }
 
+            if qr_generation_enabled:
+                qr_payload = _get_or_create_today_meal_qr(cursor, employee_id, company_id, response_date)
+                if not qr_payload:
+                    cursor.close()
+                    connection.close()
+                    return jsonify({
+                        'success': False,
+                        'message': 'Attendance record not found for today. Please mark attendance first.'
+                    }), 400
+            else:
+                _deactivate_today_qr_tokens(cursor, employee_id, company_id, response_date)
+        else:
+            _deactivate_today_qr_tokens(cursor, employee_id, company_id, response_date)
+
         connection.commit()
         current_app.logger.info(
             "Meal response saved for employee_id=%s company_id=%s attendance_status=%s",
@@ -470,12 +641,19 @@ def meal_response():
             return jsonify({
                 'success': True,
                 'status': status,
-                'message': 'Okay, you are marked as not attending meal'
+                'meal_selected': 'NO',
+                'show_qr': False,
+                'message': 'Meal selection saved'
             })
 
         return jsonify({
             'success': True,
             'status': status,
+            'meal_selected': 'YES',
+            'show_qr': bool(qr_generation_enabled and qr_payload),
+            'qr_image_b64': qr_payload['qr_image_b64'] if qr_payload else None,
+            'qr_token': qr_payload['token'] if qr_payload else None,
+            'qr_data': qr_payload['payload'] if qr_payload else None,
             'menu': menu_payload,
             'message': 'Meal response saved'
         })
@@ -556,6 +734,9 @@ def face_threshold_config():
 @attendance.route("/portal/<int:company_id>")
 def attendance_portal(company_id):
     """Public attendance portal for employees"""
+    if not has_module(company_id, "attendance"):
+        return render_template("attendance/error.html", message="Attendance module is disabled for this company."), 403
+
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
     
@@ -585,10 +766,15 @@ def employee_attendance():
         # Get specific company
         cursor.execute("SELECT * FROM companies WHERE id = %s", (company_id,))
         company = cursor.fetchone()
+        if company and not has_module(company_id, "attendance"):
+            cursor.close()
+            connection.close()
+            return render_template("attendance/error.html", message="Attendance module is disabled for this company."), 403
     else:
         # Get first available company (for QR codes without company_id)
-        cursor.execute("SELECT * FROM companies ORDER BY id LIMIT 1")
-        company = cursor.fetchone()
+        cursor.execute("SELECT * FROM companies ORDER BY id")
+        companies = cursor.fetchall()
+        company = next((row for row in companies if has_module(row['id'], "attendance")), None)
         if company:
             company_id = company['id']
     
@@ -596,7 +782,7 @@ def employee_attendance():
     connection.close()
     
     if not company:
-        return "No company found", 404
+        return "No company found with attendance enabled", 404
     
     return render_template("attendance/portal.html", company=company, company_id=company_id)
 
@@ -609,6 +795,10 @@ def verify_location():
         company_id = data.get('company_id')
         employee_lat = float(data.get('latitude'))
         employee_lon = float(data.get('longitude'))
+
+        module_check = _attendance_module_disabled_response(company_id)
+        if module_check:
+            return module_check
         
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
@@ -795,7 +985,7 @@ def verify_face():
         
         # Get employee's stored image path
         cursor.execute(
-            "SELECT id, name, image_path FROM employees WHERE emp_id = %s", 
+            "SELECT id, name, image_path, company_id FROM employees WHERE emp_id = %s", 
             (employee_id,)
         )
         employee = cursor.fetchone()
@@ -808,6 +998,12 @@ def verify_face():
                 'success': False,
                 'message': 'Employee not found. Please check your Employee ID.'
             })
+
+        if not has_module(employee.get('company_id'), "attendance"):
+            return jsonify({
+                'success': False,
+                'message': 'Attendance module is disabled for this company'
+            }), 403
         
         if not employee['image_path']:
             return jsonify({
@@ -1129,6 +1325,14 @@ def attendance_status(employee_id):
                 'already_marked': False,
                 'message': 'Employee not found'
             })
+
+        if not has_module(employee['company_id'], "attendance"):
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Attendance module is disabled for this company'
+            }), 403
         
         # Check today's attendance
         today = date.today()
@@ -1185,6 +1389,14 @@ def attendance_history(employee_id):
             cursor.close()
             connection.close()
             return jsonify({'success': False, 'message': 'Employee not found'}), 404
+
+        if not has_module(employee['company_id'], "attendance"):
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Attendance module is disabled for this company'
+            }), 403
         
         # Get attendance records for last 30 days
         cursor.execute(

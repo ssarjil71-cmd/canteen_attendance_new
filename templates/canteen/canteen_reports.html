@@ -59,6 +59,8 @@
                             <th>Employee ID</th>
                             <th>Department</th>
                             <th>Meal Status</th>
+                            <th>Meal Confirmed</th>
+                            <th>Face Verified</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -75,11 +77,25 @@
                                         <span class="badge bg-danger">NO</span>
                                     {% endif %}
                                 </td>
+                                <td>
+                                    {% if row.meal_confirmed_label == 'YES' %}
+                                        <span class="badge bg-success">YES</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">NO</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if row.face_verified_label == 'YES' %}
+                                        <span class="badge bg-success">YES</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">NO</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">No attendance records found for the selected filter.</td>
+                                <td colspan="6" class="text-center text-muted py-4">No attendance records found for the selected filter.</td>
                             </tr>
                         {% endif %}
                     </tbody>

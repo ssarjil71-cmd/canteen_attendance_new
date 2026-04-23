@@ -93,10 +93,30 @@
 					<input type="checkbox" name="attendance_module_enabled" value="1" {% if company.attendance_module_enabled %}checked{% endif %}>
 					Attendance
 				</label>
+				</div>
 				<label class="checkbox-item">
-					<input type="checkbox" name="canteen_module_enabled" value="1" {% if company.canteen_module_enabled %}checked{% endif %}>
+					<input type="checkbox" name="canteen_module_enabled" value="1" id="canteenModuleToggle" {% if company.canteen_module_enabled %}checked{% endif %}>
 					Canteen Management
 				</label>
+				<div id="canteenSubmoduleGroup" class="ms-4 mt-2 mb-2" style="display: none;">
+					<div class="small text-muted mb-1">Canteen Sub-Modules</div>
+					<label class="checkbox-item">
+						<input type="checkbox" name="canteen_qr_generate_enabled" value="1" {% if company.canteen_qr_generate_enabled %}checked{% endif %}>
+						Meal QR Generation
+					</label>
+					<label class="checkbox-item">
+						<input type="checkbox" name="canteen_qr_scan_enabled" value="1" {% if company.canteen_qr_scan_enabled %}checked{% endif %}>
+						Meal QR Scanner
+					</label>
+					<label class="checkbox-item">
+						<input type="checkbox" name="canteen_face_verify_enabled" value="1" {% if company.canteen_face_verify_enabled %}checked{% endif %}>
+						Face Verification
+					</label>
+					<label class="checkbox-item">
+						<input type="checkbox" name="canteen_reports_enabled" value="1" {% if company.canteen_reports_enabled %}checked{% endif %}>
+						Meal Reports
+					</label>
+				</div>
 				<label class="checkbox-item">
 					<input type="checkbox" name="salary_slip_module_enabled" value="1" {% if company.salary_slip_module_enabled %}checked{% endif %}>
 					Salary Slip Management
@@ -126,6 +146,29 @@
 	}
 
 	if (editCompanyForm) {
+
+		const canteenToggle = document.getElementById('canteenModuleToggle');
+		const canteenSubmoduleGroup = document.getElementById('canteenSubmoduleGroup');
+		const canteenSubmoduleInputs = canteenSubmoduleGroup
+			? canteenSubmoduleGroup.querySelectorAll('input[type="checkbox"]')
+			: [];
+
+		function syncCanteenSubmodules() {
+			if (!canteenToggle || !canteenSubmoduleGroup) return;
+			if (canteenToggle.checked) {
+				canteenSubmoduleGroup.style.display = 'block';
+				canteenSubmoduleInputs.forEach(function(input) { input.disabled = false; });
+			} else {
+				canteenSubmoduleGroup.style.display = 'none';
+				canteenSubmoduleInputs.forEach(function(input) { input.checked = false; input.disabled = true; });
+			}
+		}
+
+		syncCanteenSubmodules();
+		if (canteenToggle) {
+			canteenToggle.addEventListener('change', syncCanteenSubmodules);
+		}
+
 		editCompanyForm.addEventListener('submit', function (event) {
 			const selectedModules = editCompanyForm.querySelectorAll('input[name="attendance_module_enabled"], input[name="canteen_module_enabled"], input[name="salary_slip_module_enabled"]');
 			const hasSelectedModule = Array.from(selectedModules).some(function (moduleInput) {

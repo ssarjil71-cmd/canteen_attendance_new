@@ -92,6 +92,8 @@ def _ensure_core_tables(connection):
             email VARCHAR(150) NOT NULL,
             password VARCHAR(255) NOT NULL,
             attendance_module_enabled TINYINT(1) NOT NULL DEFAULT 1,
+            attendance_qr_generation_enabled TINYINT(1) NOT NULL DEFAULT 1,
+            attendance_qr_scanner_enabled TINYINT(1) NOT NULL DEFAULT 1,
             canteen_module_enabled TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -238,6 +240,94 @@ def _ensure_core_tables(connection):
         """
     )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS attendance (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            employee_id VARCHAR(100) NOT NULL,
+            company_id INT NOT NULL,
+            date DATE NOT NULL,
+            check_in_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            check_out_time TIMESTAMP NULL,
+            meal_status ENUM('YES', 'NO') DEFAULT 'NO',
+            face_image VARCHAR(500) NULL,
+            latitude DECIMAL(10, 8) NULL,
+            longitude DECIMAL(11, 8) NULL,
+            location_verified TINYINT(1) DEFAULT 0,
+            face_verified TINYINT(1) DEFAULT 0,
+            status ENUM('present', 'absent', 'late') DEFAULT 'present',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_employee_date (employee_id, date),
+            INDEX idx_company_date (company_id, date),
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS meal_qr_tokens (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            attendance_id INT NOT NULL,
+            employee_id VARCHAR(100) NOT NULL,
+            company_id INT NOT NULL,
+            qr_date DATE NOT NULL,
+            token VARCHAR(128) NOT NULL,
+            payload TEXT NOT NULL,
+            issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            consumed_at DATETIME NULL,
+            is_active TINYINT(1) DEFAULT 1,
+            UNIQUE KEY uk_meal_qr_attendance (attendance_id),
+            UNIQUE KEY uk_meal_qr_token (token),
+            INDEX idx_meal_qr_company_date (company_id, qr_date),
+            INDEX idx_meal_qr_employee_date (employee_id, qr_date),
+            CONSTRAINT fk_meal_qr_attendance FOREIGN KEY (attendance_id) REFERENCES attendance(id) ON DELETE CASCADE,
+            CONSTRAINT fk_meal_qr_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS salary (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            employee_id INT NOT NULL,
+            company_id INT NOT NULL,
+            month TINYINT NOT NULL,
+            year SMALLINT NOT NULL,
+            total_days INT NOT NULL DEFAULT 0,
+            present_days INT NOT NULL DEFAULT 0,
+            basic_salary DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            hra DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            bonus DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            pf_employee DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            pf_employer DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            deductions DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            gross_salary DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            net_salary DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_salary_emp_month_year (employee_id, company_id, month, year),
+            CONSTRAINT fk_salary_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+            CONSTRAINT fk_salary_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS salary_slips (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            salary_id INT NOT NULL UNIQUE,
+            pdf_path VARCHAR(500) NULL,
+            generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_salary_slips_salary FOREIGN KEY (salary_id) REFERENCES salary(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     connection.commit()
     cursor.close()
 
@@ -261,10 +351,30 @@ def _apply_schema_updates(connection):
         cursor.execute("ALTER TABLE companies ADD COLUMN password VARCHAR(255) NULL")
     if not _column_exists(cursor, "companies", "attendance_module_enabled"):
         cursor.execute("ALTER TABLE companies ADD COLUMN attendance_module_enabled TINYINT(1) NOT NULL DEFAULT 1")
+    if not _column_exists(cursor, "companies", "attendance_qr_generation_enabled"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN attendance_qr_generation_enabled TINYINT(1) NOT NULL DEFAULT 1")
+    if not _column_exists(cursor, "companies", "attendance_qr_scanner_enabled"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN attendance_qr_scanner_enabled TINYINT(1) NOT NULL DEFAULT 1")
     if not _column_exists(cursor, "companies", "canteen_module_enabled"):
         cursor.execute("ALTER TABLE companies ADD COLUMN canteen_module_enabled TINYINT(1) NOT NULL DEFAULT 1")
     if not _column_exists(cursor, "companies", "salary_slip_module_enabled"):
         cursor.execute("ALTER TABLE companies ADD COLUMN salary_slip_module_enabled TINYINT(1) NOT NULL DEFAULT 0")
+
+    # Canteen sub-modules
+    if not _column_exists(cursor, "companies", "canteen_qr_generate_enabled"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN canteen_qr_generate_enabled TINYINT(1) NOT NULL DEFAULT 1")
+    if not _column_exists(cursor, "companies", "canteen_qr_scan_enabled"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN canteen_qr_scan_enabled TINYINT(1) NOT NULL DEFAULT 1")
+    if not _column_exists(cursor, "companies", "canteen_face_verify_enabled"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN canteen_face_verify_enabled TINYINT(1) NOT NULL DEFAULT 1")
+    if not _column_exists(cursor, "companies", "canteen_reports_enabled"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN canteen_reports_enabled TINYINT(1) NOT NULL DEFAULT 1")
+
+    # Backfill NULL values for companies created before these columns existed
+    cursor.execute("UPDATE companies SET canteen_qr_generate_enabled = 1 WHERE canteen_qr_generate_enabled IS NULL")
+    cursor.execute("UPDATE companies SET canteen_qr_scan_enabled = 1 WHERE canteen_qr_scan_enabled IS NULL")
+    cursor.execute("UPDATE companies SET canteen_face_verify_enabled = 1 WHERE canteen_face_verify_enabled IS NULL")
+    cursor.execute("UPDATE companies SET canteen_reports_enabled = 1 WHERE canteen_reports_enabled IS NULL")
 
     # Add additional profile fields
     if not _column_exists(cursor, "companies", "phone"):
@@ -342,6 +452,54 @@ def _apply_schema_updates(connection):
         cursor.execute("ALTER TABLE employees ADD COLUMN registration_longitude DECIMAL(11, 8) NULL")
     if not _column_exists(cursor, "employees", "registration_location_verified"):
         cursor.execute("ALTER TABLE employees ADD COLUMN registration_location_verified TINYINT(1) DEFAULT 0")
+
+    # Add basic_salary to employees if missing
+    if not _column_exists(cursor, "employees", "basic_salary"):
+        cursor.execute("ALTER TABLE employees ADD COLUMN basic_salary DECIMAL(10, 2) NOT NULL DEFAULT 0")
+
+    # Migrate salary table to full schema if it exists with old structure
+    if _table_exists(cursor, "salary") and not _column_exists(cursor, "salary", "month"):
+        cursor.execute("DROP TABLE IF EXISTS salary_slips")
+        cursor.execute("DROP TABLE IF EXISTS salary")
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS salary (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            employee_id INT NOT NULL,
+            company_id INT NOT NULL,
+            month TINYINT NOT NULL,
+            year SMALLINT NOT NULL,
+            total_days INT NOT NULL DEFAULT 0,
+            present_days INT NOT NULL DEFAULT 0,
+            basic_salary DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            hra DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            bonus DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            pf_employee DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            pf_employer DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            deductions DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            gross_salary DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            net_salary DECIMAL(10, 2) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_salary_emp_month_year (employee_id, company_id, month, year),
+            CONSTRAINT fk_salary_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+            CONSTRAINT fk_salary_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS salary_slips (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            salary_id INT NOT NULL UNIQUE,
+            pdf_path VARCHAR(500) NULL,
+            generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_salary_slips_salary FOREIGN KEY (salary_id) REFERENCES salary(id) ON DELETE CASCADE
+        )
+        """
+    )
 
     # Create attendance table
     cursor.execute(

@@ -222,6 +222,10 @@
 				<div class="value module-badges">
 					<span class="module-badge {{ 'enabled' if company.attendance_module_enabled else 'disabled' }}">Attendance {{ 'Enabled' if company.attendance_module_enabled else 'Disabled' }}</span>
 					<span class="module-badge {{ 'enabled' if company.canteen_module_enabled else 'disabled' }}">Canteen {{ 'Enabled' if company.canteen_module_enabled else 'Disabled' }}</span>
+					<span class="module-badge {{ 'enabled' if company.canteen_qr_generate_enabled and company.canteen_module_enabled else 'disabled' }}">Meal QR Generation {{ 'Enabled' if company.canteen_qr_generate_enabled and company.canteen_module_enabled else 'Disabled' }}</span>
+					<span class="module-badge {{ 'enabled' if company.canteen_qr_scan_enabled and company.canteen_module_enabled else 'disabled' }}">Meal QR Scanner {{ 'Enabled' if company.canteen_qr_scan_enabled and company.canteen_module_enabled else 'Disabled' }}</span>
+					<span class="module-badge {{ 'enabled' if company.canteen_face_verify_enabled and company.canteen_module_enabled else 'disabled' }}">Face Verification {{ 'Enabled' if company.canteen_face_verify_enabled and company.canteen_module_enabled else 'Disabled' }}</span>
+					<span class="module-badge {{ 'enabled' if company.canteen_reports_enabled and company.canteen_module_enabled else 'disabled' }}">Meal Reports {{ 'Enabled' if company.canteen_reports_enabled and company.canteen_module_enabled else 'Disabled' }}</span>
 					<span class="module-badge {{ 'enabled' if company.salary_slip_module_enabled else 'disabled' }}">Salary Slip {{ 'Enabled' if company.salary_slip_module_enabled else 'Disabled' }}</span>
 				</div>
 			</div>

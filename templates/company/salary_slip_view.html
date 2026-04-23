@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Salary Slip{% endblock %}
+
+{% block content %}
+<div class="panel form-panel">
+    <div class="panel-header">
+        <div class="panel-title">
+            <h2><i class="bi bi-file-earmark-text me-2"></i>Salary Slip</h2>
+            <p>{{ salary.employee_name }} ({{ salary.emp_id }}) - {{ month_name[salary.month] }} {{ salary.year }}</p>
+        </div>
+        <div class="panel-actions">
+            <a href="{{ url_for('salary.salary_records') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Back to Records
+            </a>
+            <a href="{{ url_for('salary.download_salary', salary_id=salary.id) }}" class="btn btn-primary">
+                <i class="bi bi-download me-2"></i>Download PDF
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="form-section h-100">
+                <div class="section-header">
+                    <h4><i class="bi bi-building me-2"></i>Company Details</h4>
+                </div>
+                <p class="mb-1"><strong>Name:</strong> {{ salary.company_name }}</p>
+                <p class="mb-1"><strong>Address:</strong> {{ salary.address or 'N/A' }}</p>
+                <p class="mb-0"><strong>Email:</strong> {{ salary.email or 'N/A' }}</p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-section h-100">
+                <div class="section-header">
+                    <h4><i class="bi bi-person me-2"></i>Employee Details</h4>
+                </div>
+                <p class="mb-1"><strong>Name:</strong> {{ salary.employee_name }}</p>
+                <p class="mb-1"><strong>Employee ID:</strong> {{ salary.emp_id }}</p>
+                <p class="mb-1"><strong>Department:</strong> {{ salary.department or 'N/A' }}</p>
+                <p class="mb-0"><strong>Role:</strong> {{ salary.role or 'N/A' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <div class="section-header">
+            <h4><i class="bi bi-calendar-check me-2"></i>Attendance Summary</h4>
+        </div>
+        <div class="row text-center">
+            <div class="col-md-4">
+                <div class="p-2 border rounded">Total Days<br><strong>{{ salary.total_days }}</strong></div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-2 border rounded">Present Days<br><strong>{{ salary.present_days }}</strong></div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-2 border rounded">Absent Days<br><strong>{{ (salary.total_days - salary.present_days) if salary.total_days >= salary.present_days else 0 }}</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <div class="section-header">
+            <h4><i class="bi bi-calculator me-2"></i>Salary Breakdown</h4>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle mb-0">
+                <tbody>
+                    <tr><th>Basic Salary</th><td>{{ '%.2f'|format(salary.basic_salary or 0) }}</td></tr>
+                    <tr><th>HRA</th><td>{{ '%.2f'|format(salary.hra or 0) }}</td></tr>
+                    <tr><th>Bonus</th><td>{{ '%.2f'|format(salary.bonus or 0) }}</td></tr>
+                    <tr><th>PF (Employee)</th><td>{{ '%.2f'|format(salary.pf_employee or 0) }}</td></tr>
+                    <tr><th>PF (Employer Contribution)</th><td>{{ '%.2f'|format(salary.pf_employer or 0) }}</td></tr>
+                    <tr><th>Other Deductions</th><td>{{ '%.2f'|format(salary.deductions or 0) }}</td></tr>
+                    <tr><th>Gross Salary</th><td>{{ '%.2f'|format(salary.gross_salary or 0) }}</td></tr>
+                    <tr class="table-success"><th>Net Salary</th><td><strong>{{ '%.2f'|format(salary.net_salary or 0) }}</strong></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

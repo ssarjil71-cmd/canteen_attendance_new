@@ -101,9 +101,10 @@
 			<label class="form-label required-label">Modules</label>
 			<div class="checkbox-group">
 				<label class="checkbox-item">
-					<input type="checkbox" name="attendance_module_enabled" value="1">
+					<input type="checkbox" name="attendance_module_enabled" value="1" {% if request.form.get('attendance_module_enabled') %}checked{% endif %}>
 					Attendance Management
 				</label>
+				</div>
 				<label class="checkbox-item">
 					<input type="checkbox" name="canteen_module_enabled" value="1">
 					Canteen Management
@@ -156,6 +157,7 @@
 	}
 
 	if (addCompanyForm) {
+
 		addCompanyForm.addEventListener('submit', function (event) {
 			const selectedModules = addCompanyForm.querySelectorAll('input[name="attendance_module_enabled"], input[name="canteen_module_enabled"], input[name="salary_slip_module_enabled"]');
 			const hasSelectedModule = Array.from(selectedModules).some(function (moduleInput) {

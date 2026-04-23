@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Attendance Report{% endblock %}
+
+{% block content %}
+<div class="attendance-employee-page px-4 py-4">
+    <div class="attendance-employee-shell">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+            <div>
+                <h1 class="h3 mb-1 fw-bold">Employee Attendance Report</h1>
+                <p class="text-muted mb-0">{{ employee.name }} ({{ employee.emp_id }})</p>
+            </div>
+            <div class="d-flex gap-2 reports-actions">
+                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('company.attendance_reports') }}">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+                <button class="btn btn-success btn-sm" onclick="exportAttendance()">
+                    <i class="bi bi-download me-1"></i>Export
+                </button>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-2">
+                <div class="summary-card">
+                    <div class="summary-label">Total</div>
+                    <div class="summary-value text-primary">{{ stats.total }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="summary-card">
+                    <div class="summary-label">Present</div>
+                    <div class="summary-value text-success">{{ stats.present }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="summary-card">
+                    <div class="summary-label">Late</div>
+                    <div class="summary-value text-warning">{{ stats.late }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="summary-card">
+                    <div class="summary-label">Absent</div>
+                    <div class="summary-value text-danger">{{ stats.absent }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="summary-card">
+                    <div class="summary-label">Meal Taken</div>
+                    <div class="summary-value text-info">{{ stats.meal_taken_yes }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="summary-card">
+                    <div class="summary-label">Meal Confirmed</div>
+                    <div class="summary-value text-secondary">{{ stats.meal_confirmed_yes }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body py-3">
+                <h6 class="reports-filter-heading mb-3">Filters</h6>
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small mb-1">From Date</label>
+                        <input type="date" id="dateFrom" class="form-control form-control-sm" value="{{ filters.date_from }}">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small mb-1">To Date</label>
+                        <input type="date" id="dateTo" class="form-control form-control-sm" value="{{ filters.date_to }}">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small mb-1">Status</label>
+                        <select id="statusFilter" class="form-select form-select-sm">
+                            <option value="" {% if not filters.status %}selected{% endif %}>All</option>
+                            <option value="present" {% if filters.status == 'present' %}selected{% endif %}>Present</option>
+                            <option value="absent" {% if filters.status == 'absent' %}selected{% endif %}>Absent</option>
+                            <option value="late" {% if filters.status == 'late' %}selected{% endif %}>Late</option>
+                        </select>
+                    </div>
+                    <div class="col-12 d-flex justify-content-lg-end gap-2">
+                        <button class="btn btn-primary btn-sm reports-filter-btn" onclick="applyFilters()">
+                            <i class="bi bi-funnel me-1"></i>Apply
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm reports-filter-btn" onclick="clearFilters()">
+                            <i class="bi bi-x-circle me-1"></i>Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-table me-2"></i>Date-wise Attendance</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if records %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Check In</th>
+                                <th>Check Out</th>
+                                <th>Meal Status</th>
+                                <th>Meal Taken</th>
+                                <th>Meal Confirmed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in records %}
+                            <tr>
+                                <td class="text-muted">{{ record.date.strftime('%d %b %Y') if record.date else 'N/A' }}</td>
+                                <td>
+                                    <span class="badge rounded-pill bg-{{ 'success' if record.status == 'present' else 'warning' if record.status == 'late' else 'danger' }}">
+                                        {{ record.status|title }}
+                                    </span>
+                                </td>
+                                <td>{{ record.check_in_time.strftime('%H:%M:%S') if record.check_in_time else 'N/A' }}</td>
+                                <td>{{ record.check_out_time.strftime('%H:%M:%S') if record.check_out_time else 'N/A' }}</td>
+                                <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_status == 'YES' else 'secondary' }}">{{ record.meal_status }}</span></td>
+                                <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_taken == 'YES' else 'secondary' }}">{{ record.meal_taken }}</span></td>
+                                <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_confirmed == 'YES' else 'secondary' }}">{{ record.meal_confirmed }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox display-1 text-muted opacity-25"></i>
+                    <h5 class="text-muted mt-3">No attendance records found</h5>
+                    <p class="text-muted">Try adjusting date range or status filter.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.attendance-employee-page {
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 68px);
+}
+
+.attendance-employee-shell {
+    max-width: 1120px;
+    margin: 0 auto;
+}
+
+.summary-card {
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    min-height: 88px;
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+}
+
+.summary-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+}
+
+.summary-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.attendance-employee-page .card {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+}
+
+.attendance-employee-page .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.attendance-employee-page .table th,
+.attendance-employee-page .table td {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.attendance-employee-page .table-responsive {
+    max-height: 600px;
+}
+
+@media (max-width: 768px) {
+    .reports-actions {
+        width: 100%;
+    }
+
+    .reports-actions .btn {
+        flex: 1;
+    }
+}
+</style>
+
+<script>
+function applyFilters() {
+    const dateFrom = document.getElementById('dateFrom').value;
+    const dateTo = document.getElementById('dateTo').value;
+    const status = document.getElementById('statusFilter').value;
+
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    if (status) params.append('status', status);
+
+    window.location.href = '{{ url_for("company.attendance_employee_report", employee_id=employee.emp_id) }}' + (params.toString() ? '?' + params.toString() : '');
+}
+
+function clearFilters() {
+    window.location.href = '{{ url_for("company.attendance_employee_report", employee_id=employee.emp_id) }}';
+}
+
+function exportAttendance() {
+    const dateFrom = document.getElementById('dateFrom').value;
+    const dateTo = document.getElementById('dateTo').value;
+    const status = document.getElementById('statusFilter').value;
+
+    const params = new URLSearchParams();
+    params.append('employee_id', '{{ employee.emp_id }}');
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    if (status) params.append('status', status);
+    params.append('export', 'csv');
+
+    window.location.href = '{{ url_for("company.attendance_export") }}?' + params.toString();
+}
+</script>
+{% endblock %}

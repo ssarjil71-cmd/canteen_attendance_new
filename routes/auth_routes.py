@@ -6,6 +6,7 @@ from flask import Blueprint, current_app, flash, redirect, render_template, requ
 from werkzeug.security import check_password_hash
 
 from database.db_connection import get_db_connection
+from module_access import has_module, module_required, update_module_flags_in_session
 
 auth = Blueprint('auth', __name__)
 
@@ -24,6 +25,52 @@ def _attendance_has_meal_taken(connection):
 	has_column = cursor.fetchone() is not None
 	cursor.close()
 	return has_column
+
+
+def _attendance_has_meal_confirmed(connection):
+	cursor = connection.cursor()
+	cursor.execute("SHOW COLUMNS FROM attendance LIKE 'meal_confirmed'")
+	has_column = cursor.fetchone() is not None
+	cursor.close()
+	return has_column
+
+
+def _ensure_meal_confirmed_column(connection):
+	if _attendance_has_meal_confirmed(connection):
+		return
+	cursor = connection.cursor()
+	cursor.execute("ALTER TABLE attendance ADD COLUMN meal_confirmed ENUM('YES', 'NO') DEFAULT 'NO' AFTER meal_taken")
+	cursor.close()
+	connection.commit()
+
+
+def _attendance_has_face_verified(connection):
+	cursor = connection.cursor()
+	cursor.execute("SHOW COLUMNS FROM attendance LIKE 'face_verified'")
+	has_column = cursor.fetchone() is not None
+	cursor.close()
+	return has_column
+
+
+def _table_exists(connection, table_name):
+	cursor = connection.cursor()
+	cursor.execute("SHOW TABLES LIKE %s", (table_name,))
+	exists = cursor.fetchone() is not None
+	cursor.close()
+	return exists
+
+
+def _ensure_canteen_reports_face_verified_column(connection):
+	if not _table_exists(connection, "canteen_reports"):
+		return
+
+	cursor = connection.cursor()
+	cursor.execute("SHOW COLUMNS FROM canteen_reports LIKE 'face_verified'")
+	has_column = cursor.fetchone() is not None
+	if not has_column:
+		cursor.execute("ALTER TABLE canteen_reports ADD COLUMN face_verified VARCHAR(10) DEFAULT 'NO'")
+		connection.commit()
+	cursor.close()
 
 
 ROLE_LOGIN_SELECT_MAP = {
@@ -121,6 +168,23 @@ def role_login(role):
 		session["role"] = role
 		session["company_id"] = user.get("company_id")
 
+		if role == "canteen" and not has_module(user.get("company_id"), "canteen_management"):
+			session.clear()
+			login_error = "Canteen Management module is disabled for your company."
+			flash(login_error, "error")
+			return render_template("auth/login.html", role=role, login_error=login_error)
+
+		if role in {"company", "canteen"} and session.get("company_id"):
+			update_module_flags_in_session(session.get("company_id"))
+		else:
+			session.pop("company_modules", None)
+			session.pop("company_submodules", None)
+			session.pop("attendance_module_enabled", None)
+			session.pop("attendance_qr_generation_enabled", None)
+			session.pop("attendance_qr_scanner_enabled", None)
+			session.pop("canteen_module_enabled", None)
+			session.pop("salary_slip_module_enabled", None)
+
 		flash(f"Welcome back, {user['username']}!", "success")
 		return redirect(url_for("auth.redirect_dashboard"))
 
@@ -141,6 +205,7 @@ def redirect_dashboard():
 
 @auth.route("/canteen/dashboard")
 @login_required(["canteen"])
+@module_required("canteen_management")
 def canteen_dashboard():
 	company_id = session.get("company_id")
 	canteen_id = session.get("user_id")
@@ -214,6 +279,9 @@ def canteen_meal_scan():
 	if not company_id:
 		return render_template("attendance/error.html", message="Invalid meal scan link. Missing company information."), 400
 
+	if not has_module(company_id, "canteen_management"):
+		return render_template("attendance/error.html", message="Canteen Management module is disabled for this company."), 403
+
 	connection = get_db_connection()
 	cursor = connection.cursor(dictionary=True)
 	cursor.execute("SELECT id, company_name FROM companies WHERE id = %s", (company_id,))
@@ -261,6 +329,7 @@ def canteen_meal_scan():
 
 @auth.route("/canteen/menu/add", methods=["GET", "POST"])
 @login_required(["canteen"])
+@module_required("canteen_management")
 def add_menu():
 	canteen_id = session.get("user_id")
 
@@ -300,6 +369,7 @@ def add_menu():
 
 @auth.route("/canteen/menu/view")
 @login_required(["canteen"])
+@module_required("canteen_management")
 def view_menu():
 	canteen_id = session.get("user_id")
 	connection = get_db_connection()
@@ -322,6 +392,7 @@ def view_menu():
 
 @auth.route("/canteen/reports")
 @login_required(["canteen"])
+@module_required("canteen_management")
 def canteen_reports():
 	company_id = session.get("company_id")
 	if not company_id:
@@ -340,7 +411,13 @@ def canteen_reports():
 		cursor.execute("ALTER TABLE attendance ADD COLUMN meal_status ENUM('YES', 'NO') DEFAULT 'NO' AFTER check_out_time")
 	if not _attendance_has_meal_taken(connection):
 		cursor.execute("ALTER TABLE attendance ADD COLUMN meal_taken ENUM('YES', 'NO') DEFAULT 'NO' AFTER meal_status")
+	if not _attendance_has_meal_confirmed(connection):
+		_ensure_meal_confirmed_column(connection)
 		connection.commit()
+	if not _attendance_has_face_verified(connection):
+		cursor.execute("ALTER TABLE attendance ADD COLUMN face_verified TINYINT(1) DEFAULT 0 AFTER meal_confirmed")
+		connection.commit()
+	_ensure_canteen_reports_face_verified_column(connection)
 
 	count_query = (
 		"""
@@ -384,6 +461,8 @@ def canteen_reports():
 			e.department,
 			COALESCE(a.meal_status, 'NO') AS meal_status,
 			COALESCE(a.meal_taken, 'NO') AS meal_taken,
+			COALESCE(a.meal_confirmed, 'NO') AS meal_confirmed,
+			CASE WHEN COALESCE(a.face_verified, 0) = 1 THEN 'YES' ELSE 'NO' END AS face_verified,
 			a.check_in_time
 		FROM attendance a
 		JOIN employees e
@@ -418,6 +497,8 @@ def canteen_reports():
 	for row in reports:
 		row["meal_status_label"] = "YES" if (row.get("meal_status") or "").strip().upper() == "YES" else "NO"
 		row["meal_taken_label"] = "YES" if (row.get("meal_taken") or "").strip().upper() == "YES" else "NO"
+		row["meal_confirmed_label"] = "YES" if (row.get("meal_confirmed") or "").strip().upper() == "YES" else "NO"
+		row["face_verified_label"] = "YES" if (row.get("face_verified") or "").strip().upper() == "YES" else "NO"
 
 	return render_template(
 		"canteen/canteen_reports.html",

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Meal QR Scanner</title>
+    <link href="/static/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-a: #0f172a;
+            --bg-b: #1d4ed8;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --ok-bg: #ecfdf5;
+            --ok-text: #166534;
+            --err-bg: #fef2f2;
+            --err-text: #991b1b;
+            --info-bg: #eef2ff;
+            --info-text: #312e81;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at top right, #2563eb 0%, var(--bg-a) 48%, #0b1220 100%);
+            color: #0f172a;
+            padding: 14px;
+        }
+
+        .scanner-shell {
+            max-width: 680px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 16px 40px rgba(2, 6, 23, 0.32);
+        }
+
+        .scanner-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .scanner-title {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .scanner-subtitle {
+            margin: 3px 0 0;
+            color: #475569;
+            font-size: 0.94rem;
+        }
+
+        .scanner-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        #qrReader {
+            width: 100%;
+            min-height: 330px;
+            border-radius: 14px;
+            border: 1px dashed #cbd5e1;
+            background: #f8fafc;
+            overflow: hidden;
+            padding: 8px;
+        }
+
+        #qrReader > div {
+            border: 0 !important;
+        }
+
+        .scan-status {
+            margin-top: 10px;
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid #c7d2fe;
+            background: var(--info-bg);
+            color: var(--info-text);
+            font-weight: 600;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .scan-status.success {
+            border-color: #bbf7d0;
+            background: var(--ok-bg);
+            color: var(--ok-text);
+        }
+
+        .scan-status.error {
+            border-color: #fecaca;
+            background: var(--err-bg);
+            color: var(--err-text);
+        }
+
+        .scanner-footer {
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 0;
+            }
+
+            .scanner-shell {
+                min-height: 100vh;
+                border-radius: 0;
+                padding: 14px;
+            }
+
+            .scanner-title {
+                font-size: 1.12rem;
+            }
+
+            .scanner-actions {
+                grid-template-columns: 1fr;
+            }
+
+            #qrReader {
+                min-height: 420px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="scanner-shell">
+        <div class="scanner-head">
+            <div>
+                <h1 class="scanner-title"><i class="bi bi-camera me-2"></i>Scan Meal QR</h1>
+                <p class="scanner-subtitle">Scan employee QR to confirm meal taken for today.</p>
+            </div>
+            <span class="badge text-bg-light border">Company #{{ company_id }}</span>
+        </div>
+
+        <div class="scanner-actions">
+            <button id="startScannerBtn" type="button" class="btn btn-primary">
+                <i class="bi bi-qr-code-scan me-2"></i>Start QR Scanner
+            </button>
+            <button id="stopScannerBtn" type="button" class="btn btn-outline-secondary" disabled>
+                <i class="bi bi-stop-circle me-2"></i>Stop Scanner
+            </button>
+        </div>
+
+        <div id="qrReader"></div>
+        <div id="scanStatus" class="scan-status">
+            <i class="bi bi-info-circle"></i>
+            <span>Ready to scan.</span>
+        </div>
+
+        <div class="scanner-footer">
+            <div class="text-muted small">Camera permission is required for scanning.</div>
+            <a href="{{ dashboard_url }}" class="btn btn-sm btn-outline-dark">
+                <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </main>
+
+    <script src="/static/vendor/html5-qrcode/html5-qrcode.min.js"></script>
+    <script>
+        (function () {
+            const companyId = {{ company_id|int }};
+            const startBtn = document.getElementById("startScannerBtn");
+            const stopBtn = document.getElementById("stopScannerBtn");
+            const statusEl = document.getElementById("scanStatus");
+            let scanner = null;
+            let scannerRunning = false;
+            let requestBusy = false;
+            let scanLocked = false;
+
+            function setStatus(message, variant, iconClass) {
+                statusEl.className = "scan-status";
+                if (variant === "success") {
+                    statusEl.classList.add("success");
+                } else if (variant === "error") {
+                    statusEl.classList.add("error");
+                }
+                statusEl.innerHTML = "<i class='bi " + (iconClass || "bi-info-circle") + "'></i><span>" + message + "</span>";
+            }
+
+            async function stopScanner() {
+                if (scanner && scannerRunning) {
+                    try {
+                        await scanner.stop();
+                    } catch (error) {
+                        // Ignore stop failures.
+                    }
+                }
+                if (scanner) {
+                    try {
+                        await scanner.clear();
+                    } catch (error) {
+                        // Ignore clear failures.
+                    }
+                }
+                scannerRunning = false;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+
+            async function verifyQr(decodedText) {
+                if (requestBusy || scanLocked) {
+                    return;
+                }
+                scanLocked = true;
+                requestBusy = true;
+
+                try {
+                    await stopScanner();
+                    setStatus("QR detected. Verifying...", "info", "bi-hourglass-split");
+
+                    const response = await fetch("/scan-meal", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "same-origin",
+                        body: JSON.stringify({ qr_data: decodedText, company_id: companyId })
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok || !result.success) {
+                        setStatus(result.message || "Invalid or already used QR.", "error", "bi-x-circle");
+                        return;
+                    }
+
+                    setStatus(result.message || "Meal Confirmed", "success", "bi-check-circle");
+                    setTimeout(function () {
+                        window.location.href = "{{ dashboard_url }}";
+                    }, 1200);
+                } catch (error) {
+                    setStatus("Server error while confirming meal.", "error", "bi-exclamation-triangle");
+                } finally {
+                    requestBusy = false;
+                    if (!scannerRunning) {
+                        scanLocked = false;
+                    }
+                }
+            }
+
+            async function startScanner() {
+                if (typeof Html5Qrcode === "undefined") {
+                    setStatus("Scanner library failed to load.", "error", "bi-exclamation-octagon");
+                    return;
+                }
+
+                if (scannerRunning) {
+                    return;
+                }
+
+                if (!scanner) {
+                    scanner = new Html5Qrcode("qrReader");
+                }
+
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                setStatus("Starting camera...", "info", "bi-camera-video");
+
+                try {
+                    await scanner.start(
+                        { facingMode: "environment" },
+                        { fps: 12, qrbox: { width: 260, height: 260 } },
+                        verifyQr,
+                        function () {}
+                    );
+                    scannerRunning = true;
+                    scanLocked = false;
+                    setStatus("Scanner started. Point at meal QR.", "info", "bi-upc-scan");
+                } catch (error) {
+                    scannerRunning = false;
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    scanLocked = false;
+                    setStatus("Unable to access camera. Allow permission and retry.", "error", "bi-camera-video-off");
+                }
+            }
+
+            startBtn.addEventListener("click", startScanner);
+            stopBtn.addEventListener("click", function () {
+                stopScanner().then(function () {
+                    setStatus("Scanner stopped.", "info", "bi-pause-circle");
+                });
+            });
+
+            startScanner();
+
+            window.addEventListener("beforeunload", function () {
+                stopScanner();
+            });
+        })();
+    </script>
+</body>
+</html>

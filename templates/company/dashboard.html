@@ -3,6 +3,7 @@
 {% block title %}Company Dashboard{% endblock %}
 
 {% block content %}
+{% set attendance_enabled = dashboard_stats.modules.attendance if dashboard_stats and dashboard_stats.modules is defined else True %}
 <div class="panel dashboard-panel" id="companyDashboard" data-dashboard-stats='{{ dashboard_stats|tojson }}'>
     <div class="dashboard-head">
         <div>
@@ -12,36 +13,38 @@
     </div>
 
     <div class="dashboard-metrics-grid">
-        <article class="metric-card metric-card-attendance">
-            <div class="metric-card-head">
-                <span class="metric-pill">Today Attendance</span>
-                <i class="bi bi-pie-chart metric-icon"></i>
-            </div>
-            <div class="attendance-chart-wrap">
-                <canvas id="attendancePieChart" aria-label="Attendance pie chart" role="img"></canvas>
-            </div>
-            <div class="attendance-legend" id="attendanceLegend">
-                <div class="attendance-legend-item">
-                    <span class="legend-dot present-dot"></span>
-                    <span>Present</span>
-                    <strong id="presentCount">0</strong>
+        {% if attendance_enabled %}
+            <article class="metric-card metric-card-attendance">
+                <div class="metric-card-head">
+                    <span class="metric-pill">Today Attendance</span>
+                    <i class="bi bi-pie-chart metric-icon"></i>
                 </div>
-                <div class="attendance-legend-item">
-                    <span class="legend-dot absent-dot"></span>
-                    <span>Absent</span>
-                    <strong id="absentCount">0</strong>
+                <div class="attendance-chart-wrap">
+                    <canvas id="attendancePieChart" aria-label="Attendance pie chart" role="img"></canvas>
                 </div>
-                <div class="attendance-legend-item">
-                    <span class="legend-dot late-dot"></span>
-                    <span>Late</span>
-                    <strong id="lateCount">0</strong>
+                <div class="attendance-legend" id="attendanceLegend">
+                    <div class="attendance-legend-item">
+                        <span class="legend-dot present-dot"></span>
+                        <span>Present</span>
+                        <strong id="presentCount">0</strong>
+                    </div>
+                    <div class="attendance-legend-item">
+                        <span class="legend-dot absent-dot"></span>
+                        <span>Absent</span>
+                        <strong id="absentCount">0</strong>
+                    </div>
+                    <div class="attendance-legend-item">
+                        <span class="legend-dot late-dot"></span>
+                        <span>Late</span>
+                        <strong id="lateCount">0</strong>
+                    </div>
                 </div>
-            </div>
-            <div class="attendance-meta">
-                <span>Attendance Rate</span>
-                <strong id="attendanceRate">0%</strong>
-            </div>
-        </article>
+                <div class="attendance-meta">
+                    <span>Attendance Rate</span>
+                    <strong id="attendanceRate">0%</strong>
+                </div>
+            </article>
+        {% endif %}
 
         <article class="metric-card metric-card-kpi metric-card-employees">
             <div class="metric-card-head">

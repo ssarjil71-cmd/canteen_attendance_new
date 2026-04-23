@@ -50,6 +50,10 @@
                 View Companies
             </a>
         {% elif session.get('role') == 'company' %}
+            {% set company_modules = session.get('company_modules', {}) %}
+            {% set attendance_enabled = company_modules.get('attendance', session.get('attendance_module_enabled', False)) %}
+            {% set canteen_enabled = company_modules.get('canteen_management', session.get('canteen_module_enabled', False)) %}
+            {% set salary_enabled = company_modules.get('salary_slip_management', session.get('salary_slip_module_enabled', False)) %}
             <a href="/company/dashboard" class="sidebar-link">
                 <i class="bi bi-building" style="margin-right: 12px;"></i>
                 Company Home
@@ -94,24 +98,45 @@
                     View Roles
                 </a>
             </div>
-            <div class="sidebar-section">
-                <div class="sidebar-title">Attendance Management</div>
-                <a href="/company/attendance/qr" class="sidebar-link">
-                    <i class="bi bi-qr-code" style="margin-right: 12px;"></i>
-                    Attendance QR Code
-                </a>
-                <a href="/company/attendance/reports" class="sidebar-link">
-                    <i class="bi bi-clipboard-data" style="margin-right: 12px;"></i>
-                    Attendance Reports
-                </a>
-            </div>
-            <div class="sidebar-section">
-                <div class="sidebar-title">Canteen Management</div>
-                <a href="/company/add_canteen" class="sidebar-link">
-                    <i class="bi bi-shop-window" style="margin-right: 12px;"></i>
-                    Add Canteen
-                </a>
-            </div>
+            {% if attendance_enabled %}
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Attendance Management</div>
+                    <a href="/company/attendance/qr" class="sidebar-link">
+                        <i class="bi bi-qr-code" style="margin-right: 12px;"></i>
+                        Attendance QR Code
+                    </a>
+                    <a href="/company/attendance/reports" class="sidebar-link">
+                        <i class="bi bi-clipboard-data" style="margin-right: 12px;"></i>
+                        Attendance Reports
+                    </a>
+                </div>
+            {% endif %}
+            {% if canteen_enabled %}
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Canteen Management</div>
+                    <a href="/company/add_canteen" class="sidebar-link">
+                        <i class="bi bi-shop-window" style="margin-right: 12px;"></i>
+                        Add Canteen
+                    </a>
+                </div>
+            {% endif %}
+            {% if salary_enabled %}
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Salary Management</div>
+                    <a href="/company/salary/generate" class="sidebar-link">
+                        <i class="bi bi-cash-coin" style="margin-right: 12px;"></i>
+                        Generate Salary
+                    </a>
+                    <a href="/company/salary_records" class="sidebar-link">
+                        <i class="bi bi-table" style="margin-right: 12px;"></i>
+                        Salary Records
+                    </a>
+                    <a href="/company/salary_records" class="sidebar-link">
+                        <i class="bi bi-file-earmark-arrow-down" style="margin-right: 12px;"></i>
+                        Download Salary Slip
+                    </a>
+                </div>
+            {% endif %}
             <div class="sidebar-section">
                 <div class="sidebar-title">Company Profile</div>
                 <a href="/company/profile" class="sidebar-link">
@@ -120,25 +145,36 @@
                 </a>
             </div>
         {% elif session.get('role') == 'canteen' %}
-            <a href="/canteen/dashboard" class="sidebar-link">
-                <i class="bi bi-shop" style="margin-right: 12px;"></i>
-                Canteen Home
-            </a>
-            <div class="sidebar-section">
-                <div class="sidebar-title">Menu Management</div>
-                <a href="/canteen/menu/add" class="sidebar-link">
-                    <i class="bi bi-journal-plus" style="margin-right: 12px;"></i>
-                    Add Menu
+            {% set company_modules = session.get('company_modules', {}) %}
+            {% set canteen_enabled = company_modules.get('canteen_management', session.get('canteen_module_enabled', False)) %}
+            {% if canteen_enabled %}
+                <a href="/canteen/dashboard" class="sidebar-link">
+                    <i class="bi bi-shop" style="margin-right: 12px;"></i>
+                    Canteen Home
                 </a>
-                <a href="/canteen/menu/view" class="sidebar-link">
-                    <i class="bi bi-journal-text" style="margin-right: 12px;"></i>
-                    View Menu
-                </a>
-                <a href="/canteen/reports" class="sidebar-link">
-                    <i class="bi bi-table" style="margin-right: 12px;"></i>
-                    Canteen Reports
-                </a>
-            </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Menu Management</div>
+                    <a href="/canteen/menu/add" class="sidebar-link">
+                        <i class="bi bi-journal-plus" style="margin-right: 12px;"></i>
+                        Add Menu
+                    </a>
+                    <a href="/canteen/menu/view" class="sidebar-link">
+                        <i class="bi bi-journal-text" style="margin-right: 12px;"></i>
+                        View Menu
+                    </a>
+                    <a href="/canteen/reports" class="sidebar-link">
+                        <i class="bi bi-table" style="margin-right: 12px;"></i>
+                        Canteen Reports
+                    </a>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Meal Confirmation</div>
+                    <a href="/meal-confirmation/dashboard" class="sidebar-link">
+                        <i class="bi bi-graph-up" style="margin-right: 12px;"></i>
+                        Confirmation Dashboard
+                    </a>
+                </div>
+            {% endif %}
         {% else %}
             <a href="/dashboard" class="sidebar-link">
                 <i class="bi bi-speedometer2" style="margin-right: 12px;"></i>
