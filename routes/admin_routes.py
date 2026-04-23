@@ -800,6 +800,11 @@ def edit_company(company_id):
 		connection.close()
 
 		flash("Company updated successfully.", "success")
+		# Refresh session module flags if the logged-in company is the one being edited
+		from flask import session as _session
+		from module_access import update_module_flags_in_session
+		if _session.get("role") in {"company", "canteen"} and str(_session.get("company_id")) == str(company_id):
+			update_module_flags_in_session(company_id)
 		return redirect(url_for("admin.company_details", company_id=company_id))
 
 	cursor.close()

@@ -158,6 +158,12 @@ def salary_generate_page():
     )
     employees = cursor.fetchall()
 
+    cursor.execute(
+        "SELECT id, name FROM departments WHERE company_id = %s ORDER BY name ASC",
+        (company_id,),
+    )
+    departments = cursor.fetchall()
+
     cursor.close()
     connection.close()
 
@@ -165,6 +171,7 @@ def salary_generate_page():
     return render_template(
         "company/salary_generate.html",
         employees=employees,
+        departments=departments,
         current_month=today.month,
         current_year=today.year,
     )
@@ -200,135 +207,21 @@ def generate_salary():
     cursor = connection.cursor(dictionary=True)
     try:
         cursor.execute(
-            """
-            SELECT id, name, emp_id, department, role, basic_salary
-            FROM employees
-            WHERE id = %s AND company_id = %s
-            """,
+            "SELECT id, name, emp_id, department, role, basic_salary FROM employees WHERE id = %s AND company_id = %s",
             (employee_id, company_id),
         )
         employee = cursor.fetchone()
-
         if not employee:
             flash("Employee not found for this company.", "error")
             return redirect(url_for("salary.salary_generate_page"))
 
-        cursor.execute(
-            """
-            SELECT COUNT(*) AS present_days
-            FROM attendance
-            WHERE company_id = %s
-              AND employee_id = %s
-              AND YEAR(date) = %s
-              AND MONTH(date) = %s
-              AND LOWER(TRIM(status)) IN ('present', 'late')
-            """,
-            (company_id, employee["emp_id"], year, month),
-        )
-        attendance_row = cursor.fetchone() or {"present_days": 0}
-        present_days = int(attendance_row.get("present_days") or 0)
-
-        # Fallback: try matching by numeric employee PK (in case emp_id was stored as int)
-        if present_days == 0:
-            cursor.execute(
-                """
-                SELECT COUNT(*) AS present_days
-                FROM attendance
-                WHERE company_id = %s
-                  AND employee_id = %s
-                  AND YEAR(date) = %s
-                  AND MONTH(date) = %s
-                  AND LOWER(TRIM(status)) IN ('present', 'late')
-                """,
-                (company_id, str(employee["id"]), year, month),
-            )
-            alt_row = cursor.fetchone() or {"present_days": 0}
-            present_days = max(present_days, int(alt_row.get("present_days") or 0))
-
-        current_app.logger.info(
-            "Attendance lookup: company_id=%s emp_id=%s emp_pk=%s month=%s/%s → present_days=%s",
-            company_id, employee["emp_id"], employee["id"], month, year, present_days,
-        )
-
-        total_days = monthrange(year, month)[1]
-        configured_basic = _to_amount(employee.get("basic_salary"), 0.0)
-        per_day_rate_calc = round(configured_basic / total_days, 2) if total_days > 0 else 0.0
-
-        if salary_mode == "per_day":
-            if per_day_rate <= 0:
-                per_day_rate = per_day_rate_calc
-            basic_salary = round(per_day_rate * present_days, 2)
-        else:
-            # Fixed mode: pay full configured basic salary (not prorated)
-            basic_salary = configured_basic
-
-        hra = round(basic_salary * 0.20, 2)
-        pf_employee = round(basic_salary * 0.12, 2)
-        pf_employer = round(basic_salary * 0.12, 2)
-        gross_salary = round(basic_salary + hra + bonus, 2)
-        net_salary = round(gross_salary - (pf_employee + deductions), 2)
-
-        cursor.execute(
-            """
-            INSERT INTO salary (
-                employee_id, company_id, month, year, total_days, present_days,
-                basic_salary, hra, bonus, pf_employee, pf_employer, deductions,
-                gross_salary, net_salary
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE
-                total_days = VALUES(total_days),
-                present_days = VALUES(present_days),
-                basic_salary = VALUES(basic_salary),
-                hra = VALUES(hra),
-                bonus = VALUES(bonus),
-                pf_employee = VALUES(pf_employee),
-                pf_employer = VALUES(pf_employer),
-                deductions = VALUES(deductions),
-                gross_salary = VALUES(gross_salary),
-                net_salary = VALUES(net_salary),
-                updated_at = CURRENT_TIMESTAMP
-            """,
-            (
-                employee_id, company_id, month, year, total_days, present_days,
-                basic_salary, hra, bonus, pf_employee, pf_employer, deductions,
-                gross_salary, net_salary,
-            ),
-        )
-
-        cursor.execute(
-            """
-            SELECT s.*, e.name, e.emp_id
-            FROM salary s
-            INNER JOIN employees e ON e.id = s.employee_id
-            WHERE s.employee_id = %s AND s.company_id = %s AND s.month = %s AND s.year = %s
-            """,
-            (employee_id, company_id, month, year),
-        )
-        salary_row = cursor.fetchone()
-
-        if not salary_row:
-            flash("Unable to fetch salary after generation. Please try again.", "error")
-            return redirect(url_for("salary.salary_generate_page"))
-
-        cursor.execute(
-            "SELECT id, company_name, address, email FROM companies WHERE id = %s",
-            (company_id,),
-        )
+        cursor.execute("SELECT id, company_name, address, email FROM companies WHERE id = %s", (company_id,))
         company = cursor.fetchone() or {}
 
-        payload = _build_salary_payload(company, employee, salary_row)
-        absolute_pdf_path, relative_pdf_path = _render_salary_pdf(payload, salary_row["id"])
-
-        cursor.execute(
-            """
-            INSERT INTO salary_slips (salary_id, pdf_path)
-            VALUES (%s, %s)
-            ON DUPLICATE KEY UPDATE
-                pdf_path = VALUES(pdf_path),
-                generated_at = CURRENT_TIMESTAMP
-            """,
-            (salary_row["id"], relative_pdf_path),
-        )
+        salary_row = _compute_and_save_salary(cursor, connection, company_id, company, employee, month, year, salary_mode, bonus, deductions, per_day_rate)
+        if not salary_row:
+            flash("Unable to generate salary. Please try again.", "error")
+            return redirect(url_for("salary.salary_generate_page"))
 
         connection.commit()
         saved_salary_id = salary_row["id"]
@@ -342,6 +235,153 @@ def generate_salary():
 
     flash("Salary generated successfully and salary slip PDF created.", "success")
     return redirect(url_for("salary.salary_slip_view", salary_id=saved_salary_id))
+
+
+def _compute_and_save_salary(cursor, connection, company_id, company, employee, month, year, salary_mode, bonus, deductions, per_day_rate):
+    """Compute salary for one employee and upsert into DB. Returns salary_row or None."""
+    total_days = monthrange(year, month)[1]
+    configured_basic = _to_amount(employee.get("basic_salary"), 0.0)
+    per_day_rate_calc = round(configured_basic / total_days, 2) if total_days > 0 else 0.0
+
+    # Attendance count
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS present_days FROM attendance
+        WHERE company_id = %s AND employee_id = %s
+          AND YEAR(date) = %s AND MONTH(date) = %s
+          AND LOWER(TRIM(status)) IN ('present', 'late')
+        """,
+        (company_id, employee["emp_id"], year, month),
+    )
+    present_days = int((cursor.fetchone() or {}).get("present_days") or 0)
+    if present_days == 0:
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS present_days FROM attendance
+            WHERE company_id = %s AND employee_id = %s
+              AND YEAR(date) = %s AND MONTH(date) = %s
+              AND LOWER(TRIM(status)) IN ('present', 'late')
+            """,
+            (company_id, str(employee["id"]), year, month),
+        )
+        present_days = max(present_days, int((cursor.fetchone() or {}).get("present_days") or 0))
+
+    if salary_mode == "per_day":
+        rate = per_day_rate if per_day_rate > 0 else per_day_rate_calc
+        basic_salary = round(rate * present_days, 2)
+    else:
+        basic_salary = configured_basic
+
+    hra = round(basic_salary * 0.20, 2)
+    pf_employee = round(basic_salary * 0.12, 2)
+    pf_employer = round(basic_salary * 0.12, 2)
+    gross_salary = round(basic_salary + hra + bonus, 2)
+    net_salary = round(gross_salary - (pf_employee + deductions), 2)
+
+    cursor.execute(
+        """
+        INSERT INTO salary (
+            employee_id, company_id, month, year, total_days, present_days,
+            basic_salary, hra, bonus, pf_employee, pf_employer, deductions,
+            gross_salary, net_salary
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON DUPLICATE KEY UPDATE
+            total_days=VALUES(total_days), present_days=VALUES(present_days),
+            basic_salary=VALUES(basic_salary), hra=VALUES(hra), bonus=VALUES(bonus),
+            pf_employee=VALUES(pf_employee), pf_employer=VALUES(pf_employer),
+            deductions=VALUES(deductions), gross_salary=VALUES(gross_salary),
+            net_salary=VALUES(net_salary), updated_at=CURRENT_TIMESTAMP
+        """,
+        (employee["id"], company_id, month, year, total_days, present_days,
+         basic_salary, hra, bonus, pf_employee, pf_employer, deductions, gross_salary, net_salary),
+    )
+
+    cursor.execute(
+        """
+        SELECT s.*, e.name, e.emp_id FROM salary s
+        INNER JOIN employees e ON e.id = s.employee_id
+        WHERE s.employee_id = %s AND s.company_id = %s AND s.month = %s AND s.year = %s
+        """,
+        (employee["id"], company_id, month, year),
+    )
+    salary_row = cursor.fetchone()
+    if not salary_row:
+        return None
+
+    payload = _build_salary_payload(company, employee, salary_row)
+    _, relative_pdf_path = _render_salary_pdf(payload, salary_row["id"])
+
+    cursor.execute(
+        """
+        INSERT INTO salary_slips (salary_id, pdf_path) VALUES (%s, %s)
+        ON DUPLICATE KEY UPDATE pdf_path=VALUES(pdf_path), generated_at=CURRENT_TIMESTAMP
+        """,
+        (salary_row["id"], relative_pdf_path),
+    )
+    return salary_row
+
+
+@salary_bp.route("/generate_salary_department", methods=["POST"])
+@company_required
+@module_required("salary_slip_management")
+def generate_salary_department():
+    company_id = session.get("company_id")
+    department_id = request.form.get("department_id", type=int)
+    month = request.form.get("month", type=int)
+    year = request.form.get("year", type=int)
+    salary_mode = request.form.get("salary_mode", "fixed").strip().lower()
+    bonus = _to_amount(request.form.get("bonus"), 0.0)
+    deductions = _to_amount(request.form.get("deductions"), 0.0)
+    per_day_rate = _to_amount(request.form.get("per_day_rate"), 0.0)
+
+    if not department_id or not month or not year:
+        flash("Department, month, and year are required.", "error")
+        return redirect(url_for("salary.salary_generate_page"))
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT id, name FROM departments WHERE id = %s AND company_id = %s", (department_id, company_id))
+        dept = cursor.fetchone()
+        if not dept:
+            flash("Department not found.", "error")
+            return redirect(url_for("salary.salary_generate_page"))
+
+        cursor.execute(
+            """
+            SELECT id, name, emp_id, department, role, basic_salary
+            FROM employees
+            WHERE company_id = %s AND department = %s AND status IN ('active', 'registered', 'pending')
+            ORDER BY name ASC
+            """,
+            (company_id, dept["name"]),
+        )
+        employees = cursor.fetchall()
+
+        if not employees:
+            flash(f"No active employees found in department '{dept['name']}'.", "error")
+            return redirect(url_for("salary.salary_generate_page"))
+
+        cursor.execute("SELECT id, company_name, address, email FROM companies WHERE id = %s", (company_id,))
+        company = cursor.fetchone() or {}
+
+        count = 0
+        for emp in employees:
+            result = _compute_and_save_salary(cursor, connection, company_id, company, emp, month, year, salary_mode, bonus, deductions, per_day_rate)
+            if result:
+                count += 1
+
+        connection.commit()
+
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        cursor.close()
+        connection.close()
+
+    flash(f"Salary generated for {count} employee(s) in '{dept['name']}' department.", "success")
+    return redirect(url_for("salary.salary_records"))
 
 
 @salary_bp.route("/salary_records", methods=["GET"])

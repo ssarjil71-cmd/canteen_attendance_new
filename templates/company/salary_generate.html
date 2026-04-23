@@ -1,7 +1,5 @@
 {% extends "base.html" %}
-
 {% block title %}Generate Salary{% endblock %}
-
 {% block content %}
 <div class="panel form-panel">
     <div class="panel-header">
@@ -16,13 +14,30 @@
         </div>
     </div>
 
-    <form method="POST" action="{{ url_for('salary.generate_salary') }}" class="salary-form">
+    <!-- Mode toggle -->
+    <div class="form-section" style="padding-bottom: 0;">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Generation Mode <span class="required">*</span></label>
+                <div style="display:flex; gap:12px; margin-top:6px;">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;">
+                        <input type="radio" name="gen_mode" value="single" id="modeSingle" checked> Single Employee
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;">
+                        <input type="radio" name="gen_mode" value="department" id="modeDept"> Department Wise
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Single employee form -->
+    <form id="singleForm" method="POST" action="{{ url_for('salary.generate_salary') }}" class="salary-form">
         <div class="form-section">
             <div class="section-header">
                 <h4><i class="bi bi-person-badge me-2"></i>Employee and Period</h4>
                 <p class="section-desc">Select employee and salary month.</p>
             </div>
-
             <div class="form-row">
                 <div class="form-group">
                     <label for="employee_id">Employee <span class="required">*</span></label>
@@ -30,7 +45,7 @@
                         <option value="">Select Employee</option>
                         {% for employee in employees %}
                         <option value="{{ employee.id }}" data-salary="{{ employee.basic_salary or 0 }}">
-                            {{ employee.name }} ({{ employee.emp_id }}) - {{ employee.department or 'General' }}
+                            {{ employee.name }} ({{ employee.emp_id }}) — {{ employee.department or 'General' }}
                         </option>
                         {% endfor %}
                     </select>
@@ -43,14 +58,22 @@
                     </select>
                 </div>
             </div>
-
             <div class="form-row">
                 <div class="form-group">
                     <label for="month">Month <span class="required">*</span></label>
                     <select id="month" name="month" required>
-                        {% for m in range(1, 13) %}
-                        <option value="{{ m }}" {{ 'selected' if m == current_month else '' }}>{{ m }}</option>
-                        {% endfor %}
+                        <option value="1" {{ 'selected' if current_month == 1 else '' }}>January</option>
+                        <option value="2" {{ 'selected' if current_month == 2 else '' }}>February</option>
+                        <option value="3" {{ 'selected' if current_month == 3 else '' }}>March</option>
+                        <option value="4" {{ 'selected' if current_month == 4 else '' }}>April</option>
+                        <option value="5" {{ 'selected' if current_month == 5 else '' }}>May</option>
+                        <option value="6" {{ 'selected' if current_month == 6 else '' }}>June</option>
+                        <option value="7" {{ 'selected' if current_month == 7 else '' }}>July</option>
+                        <option value="8" {{ 'selected' if current_month == 8 else '' }}>August</option>
+                        <option value="9" {{ 'selected' if current_month == 9 else '' }}>September</option>
+                        <option value="10" {{ 'selected' if current_month == 10 else '' }}>October</option>
+                        <option value="11" {{ 'selected' if current_month == 11 else '' }}>November</option>
+                        <option value="12" {{ 'selected' if current_month == 12 else '' }}>December</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -58,23 +81,19 @@
                     <input type="number" id="year" name="year" value="{{ current_year }}" min="2000" max="2100" required>
                 </div>
             </div>
-
-            <div class="form-row" id="perDayRateRow" style="display: none;">
+            <div class="form-row" id="perDayRateRow" style="display:none;">
                 <div class="form-group">
                     <label for="per_day_rate">Per Day Rate</label>
-                    <input type="number" id="per_day_rate" name="per_day_rate" min="0" step="0.01" placeholder="Enter daily rate">
-                    <small class="form-text text-muted">Leave empty to auto-derive from basic salary and total days in month.</small>
+                    <input type="number" id="per_day_rate" name="per_day_rate" min="0" step="0.01" placeholder="Auto-derived if empty">
                 </div>
                 <div class="form-group"></div>
             </div>
         </div>
-
         <div class="form-section">
             <div class="section-header">
                 <h4><i class="bi bi-calculator me-2"></i>Earnings and Deductions</h4>
                 <p class="section-desc">Optional custom amounts. HRA and PF are auto-calculated from basic salary.</p>
             </div>
-
             <div class="form-row">
                 <div class="form-group">
                     <label for="bonus">Bonus</label>
@@ -86,10 +105,84 @@
                 </div>
             </div>
         </div>
-
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">
-                <i class="bi bi-file-earmark-pdf me-2"></i>Generate Salary and Slip
+                <i class="bi bi-file-earmark-pdf me-2"></i>Generate Salary Slip
+            </button>
+            <a href="{{ url_for('company.company_dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Back
+            </a>
+        </div>
+    </form>
+
+    <!-- Department-wise form -->
+    <form id="deptForm" method="POST" action="{{ url_for('salary.generate_salary_department') }}" class="salary-form" style="display:none;">
+        <div class="form-section">
+            <div class="section-header">
+                <h4><i class="bi bi-diagram-3 me-2"></i>Department and Period</h4>
+                <p class="section-desc">Generate salary for all active employees in a department at once.</p>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="department_id">Department <span class="required">*</span></label>
+                    <select id="department_id" name="department_id" required>
+                        <option value="">Select Department</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dept_salary_mode">Salary Mode <span class="required">*</span></label>
+                    <select id="dept_salary_mode" name="salary_mode" required>
+                        <option value="fixed" selected>Fixed Monthly (From Employee Basic Salary)</option>
+                        <option value="per_day">Per Day (Attendance Based)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dept_month">Month <span class="required">*</span></label>
+                    <select id="dept_month" name="month" required>
+                        <option value="1" {{ 'selected' if current_month == 1 else '' }}>January</option>
+                        <option value="2" {{ 'selected' if current_month == 2 else '' }}>February</option>
+                        <option value="3" {{ 'selected' if current_month == 3 else '' }}>March</option>
+                        <option value="4" {{ 'selected' if current_month == 4 else '' }}>April</option>
+                        <option value="5" {{ 'selected' if current_month == 5 else '' }}>May</option>
+                        <option value="6" {{ 'selected' if current_month == 6 else '' }}>June</option>
+                        <option value="7" {{ 'selected' if current_month == 7 else '' }}>July</option>
+                        <option value="8" {{ 'selected' if current_month == 8 else '' }}>August</option>
+                        <option value="9" {{ 'selected' if current_month == 9 else '' }}>September</option>
+                        <option value="10" {{ 'selected' if current_month == 10 else '' }}>October</option>
+                        <option value="11" {{ 'selected' if current_month == 11 else '' }}>November</option>
+                        <option value="12" {{ 'selected' if current_month == 12 else '' }}>December</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dept_year">Year <span class="required">*</span></label>
+                    <input type="number" id="dept_year" name="year" value="{{ current_year }}" min="2000" max="2100" required>
+                </div>
+            </div>
+        </div>
+        <div class="form-section">
+            <div class="section-header">
+                <h4><i class="bi bi-calculator me-2"></i>Earnings and Deductions</h4>
+                <p class="section-desc">Applied uniformly to all employees in the department.</p>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dept_bonus">Bonus</label>
+                    <input type="number" id="dept_bonus" name="bonus" min="0" step="0.01" value="0">
+                </div>
+                <div class="form-group">
+                    <label for="dept_deductions">Other Deductions</label>
+                    <input type="number" id="dept_deductions" name="deductions" min="0" step="0.01" value="0">
+                </div>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-people me-2"></i>Generate for All in Department
             </button>
             <a href="{{ url_for('company.company_dashboard') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-2"></i>Back
@@ -100,15 +193,29 @@
 
 <script>
 (function () {
+    const modeSingle = document.getElementById('modeSingle');
+    const modeDept   = document.getElementById('modeDept');
+    const singleForm = document.getElementById('singleForm');
+    const deptForm   = document.getElementById('deptForm');
     const modeSelect = document.getElementById('salary_mode');
-    const perDayRow = document.getElementById('perDayRateRow');
+    const perDayRow  = document.getElementById('perDayRateRow');
 
-    function togglePerDayRate() {
+    function toggleForms() {
+        const isDept = modeDept.checked;
+        singleForm.style.display = isDept ? 'none' : 'block';
+        deptForm.style.display   = isDept ? 'block' : 'none';
+    }
+
+    function togglePerDay() {
         perDayRow.style.display = modeSelect.value === 'per_day' ? 'grid' : 'none';
     }
 
-    modeSelect.addEventListener('change', togglePerDayRate);
-    togglePerDayRate();
+    modeSingle.addEventListener('change', toggleForms);
+    modeDept.addEventListener('change', toggleForms);
+    modeSelect.addEventListener('change', togglePerDay);
+
+    toggleForms();
+    togglePerDay();
 })();
 </script>
 {% endblock %}
