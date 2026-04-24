@@ -6,9 +6,16 @@
 {% set attendance_enabled = dashboard_stats.modules.attendance if dashboard_stats and dashboard_stats.modules is defined else True %}
 <div class="panel dashboard-panel" id="companyDashboard" data-dashboard-stats='{{ dashboard_stats|tojson }}'>
     <div class="dashboard-head">
-        <div>
-            <h2 class="company-dashboard-title mb-2">Company Dashboard</h2>
-            <p class="company-dashboard-subtitle mb-0">Real-time view of workforce and attendance health.</p>
+        <div class="dashboard-head-left">
+            {% if company_info and company_info.logo %}
+            <img src="{{ url_for('static', filename='uploads/logos/' + company_info.logo) }}" alt="Company Logo" class="company-dashboard-logo">
+            {% endif %}
+            <div>
+                <h2 class="company-dashboard-title mb-2">
+                    {{ company_info.company_name if company_info and company_info.company_name else 'Company Dashboard' }}
+                </h2>
+                <p class="company-dashboard-subtitle mb-0">Real-time view of workforce and attendance health.</p>
+            </div>
         </div>
     </div>
 
@@ -95,6 +102,22 @@
 .company-dashboard-subtitle {
     color: #4a607f;
     font-weight: 500;
+}
+
+.dashboard-head-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.company-dashboard-logo {
+    height: 60px;
+    width: auto;
+    border-radius: 10px;
+    object-fit: contain;
+    border: 1px solid rgba(13, 110, 253, 0.15);
+    background: #fff;
+    padding: 4px;
 }
 
 .dashboard-panel {

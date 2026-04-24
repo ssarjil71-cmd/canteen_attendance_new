@@ -2,6 +2,7 @@ from flask import Flask, session
 from config import Config
 from database.bootstrap import ensure_database_ready
 from module_access import update_module_flags_in_session
+from database.db_connection import get_db_connection
 
 # Import routes
 from routes.auth_routes import auth
@@ -38,8 +39,26 @@ def sync_company_module_flags():
         try:
             update_module_flags_in_session(company_id)
         except Exception as exc:
-            # Keep request flow alive even if DB is briefly unavailable.
             app.logger.warning("Module flag sync skipped due to DB error: %s", exc)
+
+
+@app.context_processor
+def inject_company_logo():
+    logo = None
+    company_id = session.get("company_id")
+    if company_id and session.get("role") in {"company", "canteen"}:
+        try:
+            connection = get_db_connection()
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("SELECT logo FROM companies WHERE id = %s", (company_id,))
+            row = cursor.fetchone()
+            cursor.close()
+            connection.close()
+            if row:
+                logo = row.get("logo")
+        except Exception:
+            pass
+    return {"company_logo": logo}
 
 if __name__ == "__main__":
     app.run(debug=True)

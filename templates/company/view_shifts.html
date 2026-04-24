@@ -24,6 +24,8 @@
                         <th>Shift Name</th>
                         <th>Schedule</th>
                         <th>Duration</th>
+                        <th>Grace</th>
+                        <th>Half / Full Day</th>
                         <th>Type</th>
                         <th>Created On</th>
                         <th class="col-actions">Actions</th>
@@ -56,6 +58,8 @@
                             {% set duration_mins = (end_minutes - start_minutes) % 60 %}
                             {{ duration_hours }}h {{ duration_mins }}m
                         </td>
+                        <td>{{ shift.grace_time if shift.grace_time is not none else 10 }} min</td>
+                        <td>{{ shift.half_day_hours if shift.half_day_hours is not none else 4 }} / {{ shift.full_day_hours if shift.full_day_hours is not none else 8 }} hrs</td>
                         <td>
                             {% set start_time_str = shift.start_time|string %}
                             {% if ':' in start_time_str %}
@@ -84,13 +88,13 @@
                             <div class="shift-actions">
                                 {% set start_time_str = shift.start_time|string %}
                                 {% if ':' in start_time_str %}
-                                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ shift.start_time.strftime('%H:%M') }}', '{{ shift.end_time.strftime('%H:%M') }}')">
+                                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ shift.start_time.strftime('%H:%M') }}', '{{ shift.end_time.strftime('%H:%M') }}', {{ shift.grace_time if shift.grace_time is not none else 10 }}, {{ shift.half_day_hours if shift.half_day_hours is not none else 4 }}, {{ shift.full_day_hours if shift.full_day_hours is not none else 8 }})">
                                 {% else %}
                                     {% set start_hours = (shift.start_time.total_seconds() // 3600) | int %}
                                     {% set start_minutes = ((shift.start_time.total_seconds() % 3600) // 60) | int %}
                                     {% set end_hours = (shift.end_time.total_seconds() // 3600) | int %}
                                     {% set end_minutes = ((shift.end_time.total_seconds() % 3600) // 60) | int %}
-                                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ '%02d:%02d' | format(start_hours, start_minutes) }}', '{{ '%02d:%02d' | format(end_hours, end_minutes) }}')">
+                                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ '%02d:%02d' | format(start_hours, start_minutes) }}', '{{ '%02d:%02d' | format(end_hours, end_minutes) }}', {{ shift.grace_time if shift.grace_time is not none else 10 }}, {{ shift.half_day_hours if shift.half_day_hours is not none else 4 }}, {{ shift.full_day_hours if shift.full_day_hours is not none else 8 }})">
                                 {% endif %}
                                     <i class="bi bi-pencil me-1"></i>Edit
                                 </button>
@@ -145,6 +149,23 @@
                             <label for="edit_end_time">End Time</label>
                             <input type="time" id="edit_end_time" name="end_time" required>
                         </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit_grace_time">Late Grace (minutes)</label>
+                            <input type="number" id="edit_grace_time" name="grace_time" min="0" max="120">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit_full_day_hours">Full Day Hours</label>
+                            <input type="number" id="edit_full_day_hours" name="full_day_hours" min="1" max="24" step="0.5">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit_half_day_hours">Half Day Hours</label>
+                            <input type="number" id="edit_half_day_hours" name="half_day_hours" min="1" max="24" step="0.5">
+                        </div>
+                        <div class="form-group"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -368,10 +389,13 @@
 </style>
 
 <script>
-function editShift(id, name, startTime, endTime) {
+function editShift(id, name, startTime, endTime, grace, halfDay, fullDay) {
     document.getElementById('edit_shift_name').value = name;
     document.getElementById('edit_start_time').value = startTime;
     document.getElementById('edit_end_time').value = endTime;
+    document.getElementById('edit_grace_time').value = grace;
+    document.getElementById('edit_half_day_hours').value = halfDay;
+    document.getElementById('edit_full_day_hours').value = fullDay;
     document.getElementById('editShiftForm').action = `/company/edit_shift/${id}`;
     new bootstrap.Modal(document.getElementById('editShiftModal')).show();
 }

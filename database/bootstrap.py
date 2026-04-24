@@ -717,6 +717,27 @@ def _apply_schema_updates(connection):
         """
     )
 
+    # Shift table: add grace_time, half_day_hours, full_day_hours
+    if not _column_exists(cursor, "shifts", "grace_time"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN grace_time INT NOT NULL DEFAULT 10 COMMENT 'Late grace in minutes'")
+    if not _column_exists(cursor, "shifts", "half_day_hours"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN half_day_hours DECIMAL(4,2) NOT NULL DEFAULT 4.00")
+    if not _column_exists(cursor, "shifts", "full_day_hours"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN full_day_hours DECIMAL(4,2) NOT NULL DEFAULT 8.00")
+
+    # Attendance table: add working_hours, out_face_image, half_day status
+    if not _column_exists(cursor, "attendance", "working_hours"):
+        cursor.execute("ALTER TABLE attendance ADD COLUMN working_hours DECIMAL(5,2) NULL COMMENT 'Hours worked'")
+    if not _column_exists(cursor, "attendance", "out_face_image"):
+        cursor.execute("ALTER TABLE attendance ADD COLUMN out_face_image VARCHAR(500) NULL")
+    # Extend status enum to include half_day
+    cursor.execute(
+        """
+        ALTER TABLE attendance
+        MODIFY COLUMN status ENUM('present', 'absent', 'late', 'half_day') DEFAULT 'present'
+        """
+    )
+
     connection.commit()
     cursor.close()
 

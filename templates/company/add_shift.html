@@ -35,6 +35,28 @@
                            value="{{ request.form.get('end_time', '') }}" required>
                 </div>
             </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="grace_time">Late Grace Period (minutes)</label>
+                    <input type="number" id="grace_time" name="grace_time" min="0" max="120"
+                           value="{{ request.form.get('grace_time', '10') }}" placeholder="e.g. 10">
+                </div>
+                <div class="form-group">
+                    <label for="full_day_hours">Full Day Hours</label>
+                    <input type="number" id="full_day_hours" name="full_day_hours" min="1" max="24" step="0.5"
+                           value="{{ request.form.get('full_day_hours', '8') }}" placeholder="e.g. 8">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="half_day_hours">Half Day Hours</label>
+                    <input type="number" id="half_day_hours" name="half_day_hours" min="1" max="24" step="0.5"
+                           value="{{ request.form.get('half_day_hours', '4') }}" placeholder="e.g. 4">
+                </div>
+                <div class="form-group"></div>
+            </div>
             
             <div class="shift-preview">
                 <h5><i class="bi bi-eye me-2"></i>Shift Preview</h5>
@@ -50,6 +72,14 @@
                     <div class="preview-item">
                         <span class="preview-label">Schedule:</span>
                         <span class="preview-value" id="preview-schedule">-</span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">Late after:</span>
+                        <span class="preview-value" id="preview-grace">-</span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">Half Day / Full Day:</span>
+                        <span class="preview-value" id="preview-hours">-</span>
                     </div>
                 </div>
             </div>
@@ -246,27 +276,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const previewSchedule = document.getElementById('preview-schedule');
     
     function updatePreview() {
-        // Update shift name
         previewName.textContent = shiftNameInput.value || '-';
         
-        // Update schedule and duration
         if (startTimeInput.value && endTimeInput.value) {
             const startTime = new Date(`2000-01-01T${startTimeInput.value}`);
             const endTime = new Date(`2000-01-01T${endTimeInput.value}`);
-            
-            // Handle overnight shifts
-            if (endTime < startTime) {
-                endTime.setDate(endTime.getDate() + 1);
-            }
-            
-            const duration = (endTime - startTime) / (1000 * 60 * 60); // hours
-            
+            if (endTime < startTime) endTime.setDate(endTime.getDate() + 1);
+            const duration = (endTime - startTime) / (1000 * 60 * 60);
             previewSchedule.textContent = `${formatTime(startTimeInput.value)} - ${formatTime(endTimeInput.value)}`;
-            previewDuration.textContent = `${duration} hours`;
+            previewDuration.textContent = `${duration} hrs`;
         } else {
             previewSchedule.textContent = '-';
             previewDuration.textContent = '-';
         }
+
+        const grace = document.getElementById('grace_time').value;
+        const half = document.getElementById('half_day_hours').value;
+        const full = document.getElementById('full_day_hours').value;
+        document.getElementById('preview-grace').textContent = grace ? `${grace} min after start` : '-';
+        document.getElementById('preview-hours').textContent = (half && full) ? `${half} hrs / ${full} hrs` : '-';
     }
     
     function formatTime(timeString) {
@@ -278,10 +306,12 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${displayHour}:${minutes} ${ampm}`;
     }
     
-    // Add event listeners
     shiftNameInput.addEventListener('input', updatePreview);
     startTimeInput.addEventListener('change', updatePreview);
     endTimeInput.addEventListener('change', updatePreview);
+    document.getElementById('grace_time').addEventListener('input', updatePreview);
+    document.getElementById('half_day_hours').addEventListener('input', updatePreview);
+    document.getElementById('full_day_hours').addEventListener('input', updatePreview);
     
     // Initial preview update
     updatePreview();

@@ -2,7 +2,7 @@ import base64
 import io
 import os
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, time
 from math import radians, cos, sin, asin, sqrt
 import json
 
@@ -43,6 +43,72 @@ def _attendance_has_meal_status(connection):
     has_column = cursor.fetchone() is not None
     cursor.close()
     return has_column
+
+
+def _ensure_attendance_shift_columns(connection):
+    """Add working_hours, out_face_image columns and extend status enum if needed."""
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance' AND COLUMN_NAME = 'working_hours'"
+        )
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("ALTER TABLE attendance ADD COLUMN working_hours DECIMAL(5,2) NULL")
+            connection.commit()
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance' AND COLUMN_NAME = 'out_face_image'"
+        )
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("ALTER TABLE attendance ADD COLUMN out_face_image VARCHAR(500) NULL")
+            connection.commit()
+
+        # Always run MODIFY — MySQL ignores it if enum already contains half_day
+        try:
+            cursor.execute(
+                "ALTER TABLE attendance MODIFY COLUMN status "
+                "ENUM('present','absent','late','half_day') DEFAULT 'present'"
+            )
+            connection.commit()
+        except Exception:
+            pass  # already correct, ignore
+
+        cursor.close()
+    except Exception as e:
+        current_app.logger.error(f"_ensure_attendance_shift_columns error: {e}")
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+
+
+def _ensure_shift_extra_columns(connection):
+    """Add grace_time, half_day_hours, full_day_hours to shifts if missing."""
+    try:
+        cursor = connection.cursor()
+        for col, defn in [
+            ("grace_time", "INT NOT NULL DEFAULT 10"),
+            ("half_day_hours", "DECIMAL(4,2) NOT NULL DEFAULT 4.00"),
+            ("full_day_hours", "DECIMAL(4,2) NOT NULL DEFAULT 8.00"),
+        ]:
+            cursor.execute(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'shifts' AND COLUMN_NAME = %s",
+                (col,)
+            )
+            if cursor.fetchone()[0] == 0:
+                cursor.execute(f"ALTER TABLE shifts ADD COLUMN {col} {defn}")
+        connection.commit()
+        cursor.close()
+    except Exception as e:
+        current_app.logger.error(f"_ensure_shift_extra_columns error: {e}")
+        try:
+            connection.rollback()
+        except Exception:
+            pass
 
 
 def _ensure_attendance_meal_status(connection):
@@ -443,27 +509,15 @@ def auto_mark_attendance():
         confidence = identified['confidence']
 
         today = date.today()
-        # TESTING MODE: Duplicate attendance restriction is temporarily disabled.
-        # Keep this original production logic for future re-enable.
-        # cursor.execute(
-        #     "SELECT id, check_in_time FROM attendance WHERE employee_id = %s AND company_id = %s AND date = %s",
-        #     (employee_id, company_id, today)
-        # )
-        # existing_attendance = cursor.fetchone()
-        # if existing_attendance:
-        #     cursor.close()
-        #     connection.close()
-        #     return jsonify({
-        #         'success': False,
-        #         'already_marked': True,
-        #         'message': f'Attendance already marked today at {existing_attendance["check_in_time"].strftime("%H:%M:%S")}',
-        #         'employee_name': employee_name
-        #     })
+        now = datetime.now()
 
+        # Save face image
         attendance_image_path = None
         _ensure_attendance_meal_status(connection)
+        _ensure_attendance_shift_columns(connection)
+        _ensure_shift_extra_columns(connection)
         try:
-            unique_filename = f"attendance_{employee_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            unique_filename = f"attendance_{employee_id}_{now.strftime('%Y%m%d_%H%M%S')}.jpg"
             uploads_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'faces')
             os.makedirs(uploads_dir, exist_ok=True)
             image_file_path = os.path.join(uploads_dir, unique_filename)
@@ -473,46 +527,170 @@ def auto_mark_attendance():
         except Exception as img_error:
             current_app.logger.error(f"Error saving attendance image: {img_error}")
 
+        # Fetch employee's shift details
         cursor.execute(
             """
-            INSERT INTO attendance (
-                employee_id, company_id, date, check_in_time, meal_status, face_image,
-                latitude, longitude, location_verified, face_verified, status
-            ) VALUES (%s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s, %s)
+            SELECT e.shift,
+                   s.start_time, s.end_time, s.grace_time,
+                   s.half_day_hours, s.full_day_hours
+            FROM employees e
+            LEFT JOIN shifts s ON s.name = e.shift AND s.company_id = %s
+            WHERE e.emp_id = %s AND e.company_id = %s
             """,
-            (
-                employee_id,
-                company_id,
-                today,
-                'NO',
-                attendance_image_path,
-                latitude,
-                longitude,
-                True,
-                True,
-                'present',
-            ),
+            (company_id, employee_id, company_id),
         )
+        emp_shift = cursor.fetchone()
 
-        connection.commit()
-        cursor.close()
-        connection.close()
+        # Defaults when no shift is configured
+        grace_minutes = int(emp_shift['grace_time']) if emp_shift and emp_shift.get('grace_time') is not None else 10
+        half_day_hours = float(emp_shift['half_day_hours']) if emp_shift and emp_shift.get('half_day_hours') is not None else 4.0
+        full_day_hours = float(emp_shift['full_day_hours']) if emp_shift and emp_shift.get('full_day_hours') is not None else 8.0
+        shift_start = emp_shift['start_time'] if emp_shift and emp_shift.get('start_time') is not None else None
 
-        return jsonify({
-            'success': True,
-            'message': 'Attendance marked successfully',
-            'employee_id': employee_id,
-            'employee_name': employee_name,
-            'company_name': company['company_name'],
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'verification_details': {
-                'location_verified': True,
-                'distance': int(distance_m) if distance_m else 0,
-                'face_verified': True,
-                'similarity': round(similarity, 2),
-                'confidence': round(confidence, 1),
-            },
-        })
+        # Normalise shift_start to a datetime.time object
+        if shift_start is not None and hasattr(shift_start, 'total_seconds'):
+            total_sec = int(shift_start.total_seconds())
+            shift_start = time(total_sec // 3600, (total_sec % 3600) // 60)
+
+        # Check for existing IN record today
+        cursor.execute(
+            """
+            SELECT id, check_in_time, check_out_time, status
+            FROM attendance
+            WHERE employee_id = %s AND company_id = %s AND date = %s
+            ORDER BY id DESC LIMIT 1
+            """,
+            (employee_id, company_id, today),
+        )
+        existing = cursor.fetchone()
+
+        if existing is None:
+            # ── FIRST SCAN → mark IN ──────────────────────────────────────
+            # Determine late status
+            initial_status = 'present'
+            if shift_start:
+                grace_deadline = (
+                    datetime.combine(today, shift_start) +
+                    timedelta(minutes=grace_minutes)
+                )
+                if now > grace_deadline:
+                    initial_status = 'late'
+
+            cursor.execute(
+                """
+                INSERT INTO attendance (
+                    employee_id, company_id, date, check_in_time, meal_status,
+                    face_image, latitude, longitude, location_verified, face_verified, status
+                ) VALUES (%s, %s, %s, %s, 'NO', %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    employee_id, company_id, today, now,
+                    attendance_image_path, latitude, longitude,
+                    True, True, initial_status,
+                ),
+            )
+            connection.commit()
+            cursor.close()
+            connection.close()
+
+            return jsonify({
+                'success': True,
+                'scan_type': 'check_in',
+                'message': f'Check-in recorded{"  (Late)" if initial_status == "late" else ""}',
+                'employee_id': employee_id,
+                'employee_name': employee_name,
+                'company_name': company['company_name'],
+                'timestamp': now.strftime('%Y-%m-%d %H:%M:%S'),
+                'status': initial_status,
+                'verification_details': {
+                    'location_verified': True,
+                    'distance': int(distance_m) if distance_m else 0,
+                    'face_verified': True,
+                    'similarity': round(similarity, 2),
+                    'confidence': round(confidence, 1),
+                },
+            })
+
+        elif existing['check_out_time'] is None:
+            # ── SECOND SCAN → mark OUT, calculate working hours & final status ──
+            check_in_dt = existing['check_in_time']
+            if not isinstance(check_in_dt, datetime):
+                check_in_dt = datetime.combine(today, check_in_dt)
+
+            delta_hours = round((now - check_in_dt).total_seconds() / 3600, 2)
+
+            if delta_hours >= full_day_hours:
+                final_status = 'present'
+            elif delta_hours >= half_day_hours:
+                # Use half_day only if the column supports it, else fall back to present
+                final_status = 'half_day'
+            else:
+                final_status = 'absent'
+
+            # Keep 'late' if they were late on check-in and worked a full day
+            if existing['status'] == 'late' and final_status == 'present':
+                final_status = 'late'
+
+            # Safely check if half_day is a valid enum value before using it
+            try:
+                check_cursor = connection.cursor()
+                check_cursor.execute(
+                    "SELECT COLUMN_TYPE FROM information_schema.COLUMNS "
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance' AND COLUMN_NAME = 'status'"
+                )
+                col_type = (check_cursor.fetchone() or [''])[0]
+                check_cursor.close()
+                if 'half_day' not in col_type and final_status == 'half_day':
+                    final_status = 'present'
+            except Exception:
+                if final_status == 'half_day':
+                    final_status = 'present'
+
+            cursor.execute(
+                """
+                UPDATE attendance
+                SET check_out_time = %s,
+                    working_hours   = %s,
+                    out_face_image  = %s,
+                    status          = %s,
+                    updated_at      = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (now, delta_hours, attendance_image_path, final_status, existing['id']),
+            )
+            connection.commit()
+            cursor.close()
+            connection.close()
+
+            return jsonify({
+                'success': True,
+                'scan_type': 'check_out',
+                'message': f'Check-out recorded. Working hours: {delta_hours:.2f} hrs',
+                'employee_id': employee_id,
+                'employee_name': employee_name,
+                'company_name': company['company_name'],
+                'timestamp': now.strftime('%Y-%m-%d %H:%M:%S'),
+                'working_hours': delta_hours,
+                'status': final_status,
+                'verification_details': {
+                    'location_verified': True,
+                    'distance': int(distance_m) if distance_m else 0,
+                    'face_verified': True,
+                    'similarity': round(similarity, 2),
+                    'confidence': round(confidence, 1),
+                },
+            })
+
+        else:
+            # Both IN and OUT already recorded — ignore extra scans
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'already_marked': True,
+                'message': 'Attendance already fully recorded for today (IN + OUT).',
+                'employee_name': employee_name,
+            })
 
     except (NoCredentialsError, PartialCredentialsError):
         current_app.logger.error("AWS credentials are missing for Rekognition")
@@ -527,10 +705,12 @@ def auto_mark_attendance():
             'message': 'AWS Rekognition error while verifying face.'
         }), 500
     except Exception as exc:
-        current_app.logger.error(f"Auto attendance error: {exc}")
+        import traceback
+        traceback.print_exc()
+        current_app.logger.error(f"Auto attendance error: {exc}", exc_info=True)
         return jsonify({
             'success': False,
-            'message': 'Failed to mark attendance due to server error'
+            'message': f'Server error: {str(exc)}'
         }), 500
 
 

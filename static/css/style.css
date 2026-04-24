@@ -597,6 +597,14 @@ select option {
     letter-spacing: 0.5px;
 }
 
+.navbar-company-logo {
+    height: 50px;
+    width: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
 /* User pill */
 .user-pill {
     background: rgba(37, 99, 235, 0.08);

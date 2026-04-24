@@ -1,9 +1,11 @@
+import io
 import os
 from calendar import month_name, monthrange
 from datetime import date, datetime
 from functools import wraps
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, send_file, session, url_for
+import openpyxl
+from flask import Blueprint, current_app, flash, redirect, render_template, request, send_file, session, url_for, make_response
 
 from database.db_connection import get_db_connection
 from module_access import module_required
@@ -533,3 +535,175 @@ def download_salary(salary_id):
     connection.close()
 
     return send_file(absolute_path, as_attachment=True, download_name=f"salary_slip_{salary_id}.pdf")
+
+
+@salary_bp.route("/download_sample_excel", methods=["GET"])
+@company_required
+@module_required("salary_slip_management")
+def download_sample_excel():
+    """Download sample Excel template for bulk salary generation."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Salary Data"
+
+    headers = ["Employee ID", "Name", "Basic Salary", "Present Days", "Absent Days", "Bonus", "Deduction"]
+    ws.append(headers)
+
+    ws.append(["EMP001", "John Doe", "30000", "22", "8", "2000", "500"])
+    ws.append(["EMP002", "Jane Smith", "35000", "25", "5", "1500", "300"])
+
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        ws.column_dimensions[column].width = max_length + 2
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = make_response(output.read())
+    response.headers["Content-Disposition"] = "attachment; filename=salary_template.xlsx"
+    response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    return response
+
+
+@salary_bp.route("/generate_salary_excel", methods=["POST"])
+@company_required
+@module_required("salary_slip_management")
+def generate_salary_excel():
+    """Generate salary slips from uploaded Excel file."""
+    company_id = session.get("company_id")
+
+    if "salary_excel" not in request.files:
+        flash("No file uploaded.", "error")
+        return redirect(url_for("salary.salary_generate_page"))
+
+    file = request.files["salary_excel"]
+    if file.filename == "":
+        flash("No file selected.", "error")
+        return redirect(url_for("salary.salary_generate_page"))
+
+    if not file.filename.endswith((".xlsx", ".xls")):
+        flash("Invalid file format. Please upload an Excel file (.xlsx or .xls).", "error")
+        return redirect(url_for("salary.salary_generate_page"))
+
+    month = request.form.get("excel_month", type=int)
+    year = request.form.get("excel_year", type=int)
+
+    if not month or not year:
+        flash("Month and year are required.", "error")
+        return redirect(url_for("salary.salary_generate_page"))
+
+    try:
+        wb = openpyxl.load_workbook(file)
+        ws = wb.active
+
+        headers = [cell.value for cell in ws[1]]
+        required_columns = ["Employee ID", "Name", "Basic Salary", "Present Days", "Absent Days", "Bonus", "Deduction"]
+
+        for col in required_columns:
+            if col not in headers:
+                flash(f"Missing required column: {col}", "error")
+                return redirect(url_for("salary.salary_generate_page"))
+
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute("SELECT id, company_name, address, email FROM companies WHERE id = %s", (company_id,))
+        company = cursor.fetchone() or {}
+
+        total_days = monthrange(year, month)[1]
+        success_count = 0
+        error_list = []
+
+        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            if not any(row):
+                continue
+
+            try:
+                emp_id = str(row[headers.index("Employee ID")]).strip()
+                name = str(row[headers.index("Name")]).strip()
+                basic_salary = _to_amount(row[headers.index("Basic Salary")], 0.0)
+                present_days = int(row[headers.index("Present Days")] or 0)
+                absent_days = int(row[headers.index("Absent Days")] or 0)
+                bonus = _to_amount(row[headers.index("Bonus")], 0.0)
+                deduction = _to_amount(row[headers.index("Deduction")], 0.0)
+
+                cursor.execute(
+                    "SELECT id, name, emp_id, department, role FROM employees WHERE emp_id = %s AND company_id = %s",
+                    (emp_id, company_id),
+                )
+                employee = cursor.fetchone()
+
+                if not employee:
+                    error_list.append(f"Row {row_idx}: Employee ID '{emp_id}' not found")
+                    continue
+
+                hra = round(basic_salary * 0.20, 2)
+                pf_employee = round(basic_salary * 0.12, 2)
+                pf_employer = round(basic_salary * 0.12, 2)
+                gross_salary = round(basic_salary + hra + bonus, 2)
+                net_salary = round(gross_salary - (pf_employee + deduction), 2)
+
+                cursor.execute(
+                    """
+                    INSERT INTO salary (
+                        employee_id, company_id, month, year, total_days, present_days,
+                        basic_salary, hra, bonus, pf_employee, pf_employer, deductions,
+                        gross_salary, net_salary
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    ON DUPLICATE KEY UPDATE
+                        total_days=VALUES(total_days), present_days=VALUES(present_days),
+                        basic_salary=VALUES(basic_salary), hra=VALUES(hra), bonus=VALUES(bonus),
+                        pf_employee=VALUES(pf_employee), pf_employer=VALUES(pf_employer),
+                        deductions=VALUES(deductions), gross_salary=VALUES(gross_salary),
+                        net_salary=VALUES(net_salary), updated_at=CURRENT_TIMESTAMP
+                    """,
+                    (employee["id"], company_id, month, year, total_days, present_days,
+                     basic_salary, hra, bonus, pf_employee, pf_employer, deduction, gross_salary, net_salary),
+                )
+
+                cursor.execute(
+                    """
+                    SELECT s.*, e.name, e.emp_id FROM salary s
+                    INNER JOIN employees e ON e.id = s.employee_id
+                    WHERE s.employee_id = %s AND s.company_id = %s AND s.month = %s AND s.year = %s
+                    """,
+                    (employee["id"], company_id, month, year),
+                )
+                salary_row = cursor.fetchone()
+
+                if salary_row:
+                    payload = _build_salary_payload(company, employee, salary_row)
+                    _, relative_pdf_path = _render_salary_pdf(payload, salary_row["id"])
+
+                    cursor.execute(
+                        """
+                        INSERT INTO salary_slips (salary_id, pdf_path) VALUES (%s, %s)
+                        ON DUPLICATE KEY UPDATE pdf_path=VALUES(pdf_path), generated_at=CURRENT_TIMESTAMP
+                        """,
+                        (salary_row["id"], relative_pdf_path),
+                    )
+                    success_count += 1
+
+            except Exception as e:
+                error_list.append(f"Row {row_idx}: {str(e)}")
+                continue
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        if error_list:
+            flash(f"Processed {success_count} records. Errors: {'; '.join(error_list[:5])}", "warning")
+        else:
+            flash(f"Successfully generated salary slips for {success_count} employees from Excel.", "success")
+
+        return redirect(url_for("salary.salary_records"))
+
+    except Exception as e:
+        flash(f"Error processing Excel file: {str(e)}", "error")
+        return redirect(url_for("salary.salary_generate_page"))

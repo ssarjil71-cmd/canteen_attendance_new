@@ -8,7 +8,14 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
             <div>
                 <h1 class="h3 mb-1 fw-bold">Employee Attendance Report</h1>
-                <p class="text-muted mb-0">{{ employee.name }} ({{ employee.emp_id }})</p>
+                <p class="text-muted mb-0">
+                    {{ employee.name }} ({{ employee.emp_id }})
+                    {% if joining_date %}
+                    <span class="badge bg-light text-secondary border ms-2" style="font-size:0.75rem;">
+                        <i class="bi bi-calendar-check me-1"></i>Joined: {{ joining_date }}
+                    </span>
+                    {% endif %}
+                </p>
             </div>
             <div class="d-flex gap-2 reports-actions">
                 <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('company.attendance_reports') }}">
@@ -65,11 +72,15 @@
                 <div class="row g-3 align-items-end">
                     <div class="col-12 col-md-4">
                         <label class="form-label small mb-1">From Date</label>
-                        <input type="date" id="dateFrom" class="form-control form-control-sm" value="{{ filters.date_from }}">
+                        <input type="date" id="dateFrom" class="form-control form-control-sm"
+                               value="{{ filters.date_from }}"
+                               {% if joining_date %}min="{{ joining_date }}"{% endif %}>
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label small mb-1">To Date</label>
-                        <input type="date" id="dateTo" class="form-control form-control-sm" value="{{ filters.date_to }}">
+                        <input type="date" id="dateTo" class="form-control form-control-sm"
+                               value="{{ filters.date_to }}"
+                               {% if joining_date %}min="{{ joining_date }}"{% endif %}>
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label small mb-1">Status</label>

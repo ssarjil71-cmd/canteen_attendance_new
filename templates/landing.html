@@ -1,32 +1,930 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Smart Canteen System</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <title>ScanBite — Smart QR Canteen & Attendance System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-light: #eff6ff;
+            --accent: #f97316;
+            --dark: #0f172a;
+            --muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--dark);
+            background: #fff;
+            overflow-x: hidden;
+        }
+
+        /* ── NAVBAR ── */
+        .sb-navbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 5%;
+            height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sb-brand {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+
+        .sb-brand img { height: 48px; width: auto; object-fit: contain; border-radius: 6px; }
+
+        .sb-nav-right {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+
+        .sb-nav-links {
+            display: flex;
+            gap: 28px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .sb-nav-links a {
+            text-decoration: none;
+            color: var(--muted);
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .sb-nav-links a:hover { color: var(--primary); }
+
+        .sb-login-btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 9px 20px;
+            font-weight: 600;
+            font-size: 0.92rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        .sb-login-btn:hover { background: var(--primary-dark); }
+
+        .sb-login-dropdown { position: relative; }
+
+        .sb-login-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            min-width: 180px;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        .sb-login-menu a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            text-decoration: none;
+            color: var(--dark);
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+
+        .sb-login-menu a:hover { background: var(--primary-light); color: var(--primary); }
+        .sb-login-dropdown:hover .sb-login-menu { display: block; }
+
+        /* ── HERO ── */
+        .sb-hero {
+            min-height: 100vh;
+            padding: 120px 5% 80px;
+            background: linear-gradient(135deg, #eff6ff 0%, #f8faff 50%, #fff 100%);
+            display: flex;
+            align-items: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #dbeafe;
+            color: var(--primary);
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            margin-bottom: 20px;
+        }
+
+        .hero-title {
+            font-size: clamp(2rem, 4.5vw, 3.4rem);
+            font-weight: 900;
+            line-height: 1.15;
+            color: var(--dark);
+            margin-bottom: 20px;
+        }
+
+        .hero-title span { color: var(--primary); }
+
+        .hero-desc {
+            font-size: 1.1rem;
+            color: var(--muted);
+            line-height: 1.7;
+            max-width: 520px;
+            margin-bottom: 36px;
+        }
+
+        .hero-btns { display: flex; gap: 14px; flex-wrap: wrap; }
+
+        .btn-primary-sb {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 14px 28px;
+            font-weight: 700;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 16px rgba(37,99,235,0.3);
+        }
+
+        .btn-primary-sb:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(37,99,235,0.4);
+            color: #fff;
+        }
+
+        .btn-outline-sb {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            padding: 12px 28px;
+            font-weight: 700;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-outline-sb:hover {
+            background: var(--primary);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+
+        .hero-visual {
+            background: linear-gradient(135deg, #1e40af, #2563eb, #3b82f6);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 24px 64px rgba(37,99,235,0.25);
+            color: #fff;
+        }
+
+        .hero-visual-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .hero-stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .hero-stat-card {
+            background: rgba(255,255,255,0.12);
+            border-radius: 14px;
+            padding: 16px;
+            backdrop-filter: blur(8px);
+        }
+
+        .hero-stat-card .val {
+            font-size: 1.8rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .hero-stat-card .lbl {
+            font-size: 0.78rem;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+
+        .hero-activity {
+            background: rgba(255,255,255,0.1);
+            border-radius: 14px;
+            padding: 14px 16px;
+        }
+
+        .activity-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0;
+            font-size: 0.85rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .activity-row:last-child { border-bottom: none; }
+
+        .activity-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* ── STATS ── */
+        .sb-stats {
+            background: var(--primary);
+            padding: 60px 5%;
+        }
+
+        .stat-item { text-align: center; color: #fff; }
+        .stat-item .num { font-size: 2.8rem; font-weight: 900; line-height: 1; }
+        .stat-item .label { font-size: 0.95rem; opacity: 0.85; margin-top: 6px; }
+
+        /* ── SECTIONS ── */
+        .sb-section { padding: 90px 5%; }
+        .sb-section-alt { background: #f8faff; }
+
+        .section-badge {
+            display: inline-block;
+            background: #dbeafe;
+            color: var(--primary);
+            border-radius: 999px;
+            padding: 5px 14px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+
+        .section-title {
+            font-size: clamp(1.6rem, 3vw, 2.4rem);
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 14px;
+        }
+
+        .section-desc {
+            color: var(--muted);
+            font-size: 1.05rem;
+            max-width: 560px;
+            line-height: 1.7;
+        }
+
+        /* ── FEATURE CARDS ── */
+        .feature-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px 28px;
+            height: 100%;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 48px rgba(37,99,235,0.12);
+            border-color: #bfdbfe;
+        }
+
+        .feature-icon {
+            width: 56px; height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 18px;
+        }
+
+        .feature-card h5 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .feature-card p {
+            color: var(--muted);
+            font-size: 0.92rem;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        /* ── BENEFITS ── */
+        .benefit-item {
+            display: flex;
+            gap: 18px;
+            align-items: flex-start;
+            padding: 24px;
+            background: #fff;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+
+        .benefit-item:hover {
+            box-shadow: 0 8px 32px rgba(37,99,235,0.1);
+            border-color: #bfdbfe;
+        }
+
+        .benefit-icon {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            background: var(--primary-light);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+
+        .benefit-item h6 { font-weight: 700; margin-bottom: 6px; }
+        .benefit-item p { color: var(--muted); font-size: 0.9rem; margin: 0; line-height: 1.5; }
+
+        /* ── CTA ── */
+        .sb-cta {
+            background: linear-gradient(135deg, #1e40af, #2563eb, #3b82f6);
+            padding: 90px 5%;
+            text-align: center;
+            color: #fff;
+        }
+
+        .sb-cta h2 { font-size: clamp(1.8rem, 3.5vw, 2.8rem); font-weight: 900; margin-bottom: 16px; }
+        .sb-cta p { font-size: 1.1rem; opacity: 0.85; margin-bottom: 36px; }
+
+        .btn-white {
+            background: #fff;
+            color: var(--primary);
+            border: none;
+            border-radius: 12px;
+            padding: 14px 32px;
+            font-weight: 700;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        .btn-white:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.2);
+            color: var(--primary-dark);
+        }
+
+        .btn-outline-white {
+            background: transparent;
+            color: #fff;
+            border: 2px solid rgba(255,255,255,0.6);
+            border-radius: 12px;
+            padding: 12px 28px;
+            font-weight: 700;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-outline-white:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: #fff;
+            color: #fff;
+        }
+
+        /* ── FOOTER ── */
+        .sb-footer {
+            background: #0f172a;
+            color: #94a3b8;
+            padding: 64px 5% 32px;
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .footer-brand img { height: 32px; border-radius: 6px; }
+
+        .footer-tagline {
+            font-size: 0.88rem;
+            line-height: 1.6;
+            max-width: 240px;
+            margin-bottom: 0;
+        }
+
+        .footer-heading {
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+        }
+
+        .footer-links { list-style: none; padding: 0; }
+
+        .footer-links li { margin-bottom: 10px; }
+
+        .footer-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.88rem;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover { color: #fff; }
+
+        .footer-contact p {
+            margin-bottom: 8px;
+            font-size: 0.88rem;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        .footer-contact a {
+            color: #94a3b8;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-contact a:hover { color: #fff; }
+
+        .footer-divider {
+            border-color: #1e293b;
+            margin: 40px 0 24px;
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 0.82rem;
+        }
+
+        /* ── DASHBOARD PREVIEW IMAGE ── */
+        .hero-visual-wrap {
+            position: relative;
+        }
+
+        .dashboard-preview-img {
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(37, 99, 235, 0.18);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: block;
+        }
+
+        .dashboard-preview-img:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 28px 72px rgba(37, 99, 235, 0.26);
+        }
+
+        /* ── ANIMATIONS ── */
+        .fade-up {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ── MOBILE ── */
+        .sb-hamburger { display: none; background: none; border: none; font-size: 1.5rem; color: var(--dark); cursor: pointer; }
+
+        @media (max-width: 991px) {
+            .sb-nav-links { display: none; }
+            .sb-hamburger { display: block; }
+        }
+
+        @media (max-width: 768px) {
+            .sb-hero { padding: 100px 5% 60px; }
+            .hero-visual { margin-top: 40px; }
+            .hero-stat-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
 </head>
-<body class="landing-page">
+<body>
 
-<div class="bg-orb orb-1"></div>
-<div class="bg-orb orb-2"></div>
+<!-- NAVBAR -->
+<nav class="sb-navbar">
+    <a href="/" class="sb-brand">
+        <img src="/static/uploads/logos/scanbite.png" alt="ScanBite" onerror="this.style.display='none'">
+    </a>
 
-<div class="landing-wrapper">
-    <div class="landing-top-nav">
-        <details class="login-dropdown">
-            <summary>Login ▾</summary>
-            <div class="login-dropdown-menu">
-                <a href="/admin/login">Admin Login</a>
-                <a href="/company/login">Company Login</a>
-                <a href="/canteen/login">Canteen Login</a>
+    <div class="sb-nav-right">
+        <ul class="sb-nav-links">
+            <li><a href="#home">Home</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#benefits">Benefits</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+
+        <div class="sb-login-dropdown">
+            <button class="sb-login-btn">
+                <i class="bi bi-person-circle"></i> Login <i class="bi bi-chevron-down" style="font-size:0.7rem;"></i>
+            </button>
+            <div class="sb-login-menu">
+                <a href="/admin/login"><i class="bi bi-shield-lock" style="color:#6366f1;"></i> Admin Login</a>
+                <a href="/company/login"><i class="bi bi-building" style="color:#2563eb;"></i> Company Login</a>
+                <a href="/canteen/login"><i class="bi bi-shop" style="color:#f97316;"></i> Canteen Login</a>
             </div>
-        </details>
-    </div>
+        </div>
 
-    <div class="hero-header">
-        <h1>Smart Canteen & Attendance System</h1>
-        <p>Unified login and operations panel for Admin, Canteen and Company teams.</p>
+        <button class="sb-hamburger" onclick="toggleMobileMenu()"><i class="bi bi-list"></i></button>
     </div>
-</div>
+</nav>
+
+<!-- HERO -->
+<section class="sb-hero" id="home">
+    <div class="container-fluid px-0">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6 fade-up">
+                <div class="hero-badge"><i class="bi bi-stars"></i> Smart Canteen Management</div>
+                <h1 class="hero-title">Transform Your Canteen with <span>ScanBite</span></h1>
+                <p class="hero-desc">Manage attendance, meals, employees &amp; salary in one unified system. Powered by face recognition and QR technology.</p>
+                <div class="hero-btns">
+                    <a href="#features" class="btn-primary-sb"><i class="bi bi-grid-3x3-gap"></i> Explore Features</a>
+                    <a href="https://wa.me/918600006546?text=Hi%20I%20want%20a%20demo%20of%20ScanBite%20Smart%20Canteen%20%26%20Attendance%20System" target="_blank" class="btn-outline-sb"><i class="bi bi-whatsapp"></i> Get Demo</a>
+                </div>
+            </div>
+            <div class="col-lg-6 fade-up" style="transition-delay:0.15s;">
+                <div class="hero-visual-wrap">
+                    <img src="/static/uploads/logos/dashboard_preview.png"
+                         alt="Live Dashboard Preview"
+                         class="dashboard-preview-img"
+                         onerror="this.closest('.hero-visual-wrap').innerHTML=fallbackDashboard()">
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- STATS -->
+<section class="sb-stats">
+    <div class="container">
+        <div class="row g-4 text-center">
+            <div class="col-6 col-md-3 fade-up">
+                <div class="stat-item">
+                    <div class="num">100+</div>
+                    <div class="label">Active Users</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 fade-up" style="transition-delay:0.1s;">
+                <div class="stat-item">
+                    <div class="num">50+</div>
+                    <div class="label">Companies</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 fade-up" style="transition-delay:0.2s;">
+                <div class="stat-item">
+                    <div class="num">10K+</div>
+                    <div class="label">Meals Tracked</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 fade-up" style="transition-delay:0.3s;">
+                <div class="stat-item">
+                    <div class="num">99.9%</div>
+                    <div class="label">Uptime</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FEATURES -->
+<section class="sb-section" id="features">
+    <div class="container">
+        <div class="text-center mb-5 fade-up">
+            <div class="section-badge">Features</div>
+            <h2 class="section-title">Everything You Need in One Place</h2>
+            <p class="section-desc mx-auto">From face-scan attendance to automated salary slips — ScanBite handles it all.</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-sm-6 col-lg-3 fade-up">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background:#dbeafe;color:#2563eb;"><i class="bi bi-qr-code-scan"></i></div>
+                    <h5>QR Attendance</h5>
+                    <p>Employees scan a QR code to open the attendance portal. No app install needed — works on any phone browser.</p>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3 fade-up" style="transition-delay:0.1s;">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background:#ede9fe;color:#7c3aed;"><i class="bi bi-person-bounding-box"></i></div>
+                    <h5>Face Recognition</h5>
+                    <p>AWS Rekognition verifies employee identity in real-time. Prevents buddy punching with 90%+ accuracy.</p>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3 fade-up" style="transition-delay:0.2s;">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background:#dcfce7;color:#16a34a;"><i class="bi bi-cash-coin"></i></div>
+                    <h5>Salary Automation</h5>
+                    <p>Auto-calculate salary from attendance. Generate PDF salary slips with one click — fixed or per-day mode.</p>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3 fade-up" style="transition-delay:0.3s;">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background:#fff7ed;color:#ea580c;"><i class="bi bi-shop-window"></i></div>
+                    <h5>Meal Management</h5>
+                    <p>Employees confirm meals via QR. Canteen gets real-time headcount. Reduce food waste with accurate planning.</p>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3 fade-up" style="transition-delay:0.1s;">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background:#fef9c3;color:#ca8a04;"><i class="bi bi-clock-history"></i></div>
+                    <h5>Shift Management</h5>
+                    <p>Configure shifts with start/end time, grace period, and half/full day thresholds. Auto late-mark on check-in.</p>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3 fade-up" style="transition-delay:0.2s;">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background:#fce7f3;color:#db2777;"><i class="bi bi-people-fill"></i></div>
+                    <h5>Employee Portal</h5>
+                    <p>Self-registration via QR link. Employees submit their own details and face photo — no manual data entry.</p>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3 fade-up" style="transition-delay:0.3s;">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background:#e0f2fe;color:#0284c7;"><i class="bi bi-bar-chart-line"></i></div>
+                    <h5>Reports & Analytics</h5>
+                    <p>Filter attendance by date, employee, status. Export data. View present/absent/late trends at a glance.</p>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3 fade-up" style="transition-delay:0.4s;">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background:#f0fdf4;color:#15803d;"><i class="bi bi-shield-check"></i></div>
+                    <h5>Multi-Role Access</h5>
+                    <p>Separate dashboards for Admin, Company, and Canteen. Each role sees only what they need — secure by design.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- BENEFITS -->
+<section class="sb-section sb-section-alt" id="benefits">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-5 fade-up">
+                <div class="section-badge">Benefits</div>
+                <h2 class="section-title">Why Companies Choose ScanBite</h2>
+                <p class="section-desc">Built for real operations — not just demos. ScanBite saves time, reduces errors, and gives you full visibility.</p>
+            </div>
+            <div class="col-lg-7">
+                <div class="row g-3">
+                    <div class="col-sm-6 fade-up">
+                        <div class="benefit-item">
+                            <div class="benefit-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+                            <div>
+                                <h6>Save Time</h6>
+                                <p>Automate attendance, salary, and meal tracking. What took hours now takes seconds.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 fade-up" style="transition-delay:0.1s;">
+                        <div class="benefit-item">
+                            <div class="benefit-icon"><i class="bi bi-x-circle-fill" style="color:#ef4444;"></i></div>
+                            <div>
+                                <h6>Reduce Manual Work</h6>
+                                <p>No spreadsheets, no paper registers. Everything is digital and auto-calculated.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 fade-up" style="transition-delay:0.2s;">
+                        <div class="benefit-item">
+                            <div class="benefit-icon"><i class="bi bi-activity" style="color:#16a34a;"></i></div>
+                            <div>
+                                <h6>Real-time Tracking</h6>
+                                <p>Live dashboard updates every 30 seconds. Always know who's in, who's out, who's eating.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 fade-up" style="transition-delay:0.3s;">
+                        <div class="benefit-item">
+                            <div class="benefit-icon"><i class="bi bi-lock-fill" style="color:#7c3aed;"></i></div>
+                            <div>
+                                <h6>Secure System</h6>
+                                <p>Face verification + location check on every scan. Role-based access keeps data safe.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 fade-up" style="transition-delay:0.1s;">
+                        <div class="benefit-item">
+                            <div class="benefit-icon"><i class="bi bi-phone-fill" style="color:#0284c7;"></i></div>
+                            <div>
+                                <h6>No App Required</h6>
+                                <p>Employees use any smartphone browser. Scan QR → verify face → done. Zero installation.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 fade-up" style="transition-delay:0.2s;">
+                        <div class="benefit-item">
+                            <div class="benefit-icon"><i class="bi bi-building-check" style="color:#ea580c;"></i></div>
+                            <div>
+                                <h6>Multi-Company Ready</h6>
+                                <p>One admin manages multiple companies. Each company gets isolated data and custom modules.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="sb-cta">
+    <div class="container fade-up">
+        <h2>Start Managing Your Canteen Today</h2>
+        <p>Join companies already using ScanBite to streamline their operations.</p>
+        <div class="d-flex gap-3 justify-content-center flex-wrap">
+            <a href="/company/login" class="btn-white"><i class="bi bi-rocket-takeoff"></i> Get Started</a>
+            <a href="/admin/login" class="btn-outline-white"><i class="bi bi-shield-lock"></i> Admin Access</a>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="sb-footer" id="contact">
+    <div class="container">
+        <div class="row g-5">
+            <div class="col-lg-3 col-md-6">
+                <div class="footer-brand">
+                    <img src="/static/uploads/logos/scanbite.png" alt="ScanBite" onerror="this.style.display='none'">
+                    ScanBite
+                </div>
+                <p class="footer-tagline">Smart QR Canteen &amp; Attendance System. Manage your workforce with ease.</p>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <div class="footer-heading">Product</div>
+                <ul class="footer-links">
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#benefits">Benefits</a></li>
+            <li><a href="https://wa.me/918600006546?text=Hi%20I%20want%20a%20demo%20of%20ScanBite%20Smart%20Canteen%20%26%20Attendance%20System" target="_blank">Get Demo</a></li>
+                </ul>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <div class="footer-heading">Access</div>
+                <ul class="footer-links">
+                    <li><a href="/admin/login">Admin Login</a></li>
+                    <li><a href="/company/login">Company Login</a></li>
+                    <li><a href="/canteen/login">Canteen Login</a></li>
+                </ul>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="footer-heading">Contact</div>
+                <div class="footer-contact">
+                    <p>📍 KK Market, D Wing, Office No. 87–88,<br>Dhankawadi, Pune – 411043,<br>Maharashtra, India</p>
+                    <p>📞 +91 8600004665</p>
+                    <p>📧 aryaneelinfotex@gmail.com</p>
+                    <p>🌐 <a href="https://aryaneelinfotex.in" target="_blank">aryaneelinfotex.in</a></p>
+                </div>
+            </div>
+        </div>
+        <hr class="footer-divider">
+        <div class="footer-bottom">
+            <span>© 2026 ScanBite by Aryaneel Infotex. All rights reserved.</span>
+            <span>Built with ❤️ for modern canteen management.</span>
+        </div>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Scroll fade-in
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.12 });
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+// Mobile menu toggle
+function toggleMobileMenu() {
+    const links = document.querySelector('.sb-nav-links');
+    if (!links) return;
+    if (links.style.display === 'flex') {
+        links.style.display = 'none';
+    } else {
+        links.style.cssText = 'display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#fff;padding:16px 5%;border-bottom:1px solid #e2e8f0;gap:16px;z-index:999;';
+    }
+}
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
+    });
+});
+
+function fallbackDashboard() {
+    return `<div class="hero-visual">
+        <div class="hero-visual-header"><i class="bi bi-speedometer2"></i> Live Dashboard
+            <span style="margin-left:auto;background:rgba(255,255,255,0.2);border-radius:999px;padding:3px 10px;font-size:0.75rem;">● Live</span>
+        </div>
+        <div class="hero-stat-grid">
+            <div class="hero-stat-card"><div class="val">94%</div><div class="lbl">Attendance Rate</div></div>
+            <div class="hero-stat-card"><div class="val">248</div><div class="lbl">Present Today</div></div>
+            <div class="hero-stat-card"><div class="val">186</div><div class="lbl">Meals Confirmed</div></div>
+            <div class="hero-stat-card"><div class="val">12</div><div class="lbl">Departments</div></div>
+        </div>
+        <div class="hero-activity">
+            <div style="font-size:0.78rem;opacity:0.7;margin-bottom:8px;font-weight:600;">RECENT ACTIVITY</div>
+            <div class="activity-row"><div class="activity-dot" style="background:#4ade80;"></div><span>Rahul Sharma — Checked In 09:02 AM</span></div>
+            <div class="activity-row"><div class="activity-dot" style="background:#facc15;"></div><span>Priya Patel — Late Check-In 09:18 AM</span></div>
+            <div class="activity-row"><div class="activity-dot" style="background:#60a5fa;"></div><span>Meal confirmed for 186 employees</span></div>
+            <div class="activity-row"><div class="activity-dot" style="background:#f87171;"></div><span>Salary slip generated — April 2026</span></div>
+        </div>
+    </div>`;
+}
+</script>
+<!-- Floating WhatsApp Button -->
+<a href="https://wa.me/918600006546?text=Hi%20I%20want%20a%20demo%20of%20ScanBite%20Smart%20Canteen%20%26%20Attendance%20System"
+   target="_blank" class="wa-float" title="Chat on WhatsApp">
+    <i class="bi bi-whatsapp"></i>
+</a>
+
+<style>
+.wa-float {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 56px;
+    height: 56px;
+    background: #25d366;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    box-shadow: 0 4px 20px rgba(37,211,102,0.45);
+    z-index: 9999;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-decoration: none;
+}
+.wa-float:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 28px rgba(37,211,102,0.6);
+    color: #fff;
+}
+</style>
 
 </body>
 </html>
+</div>

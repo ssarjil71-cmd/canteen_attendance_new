@@ -2,7 +2,7 @@ from functools import wraps
 from datetime import datetime, time
 import re
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for, send_file
 from werkzeug.security import generate_password_hash
 
 from database.db_connection import get_db_connection
@@ -80,7 +80,15 @@ def attendance_qr_page():
 def company_dashboard():
     company_id = session.get("company_id")
     dashboard_stats = _get_company_dashboard_stats(company_id)
-    return render_template("company/dashboard.html", dashboard_stats=dashboard_stats)
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT company_name, logo FROM companies WHERE id = %s", (company_id,))
+    company_info = cursor.fetchone() or {}
+    cursor.close()
+    connection.close()
+
+    return render_template("company/dashboard.html", dashboard_stats=dashboard_stats, company_info=company_info)
 
 
 @company.route("/dashboard/stats")
@@ -296,6 +304,7 @@ def attendance_reports():
             FROM attendance a
             JOIN employees e ON a.employee_id = e.emp_id AND a.company_id = e.company_id
             WHERE a.company_id = %s AND a.employee_id = %s
+              AND a.date >= COALESCE(e.joining_date, DATE(e.created_at), '2000-01-01')
         """
         report_params = [company_id, selected_employee["emp_id"]]
 
@@ -315,41 +324,46 @@ def attendance_reports():
         cursor.execute(report_query, report_params)
         recent_attendance = cursor.fetchall()
     else:
-        summary_query = """
-            SELECT
-                e.emp_id,
-                e.name AS employee_name,
-                COUNT(a.id) AS total_days,
-                SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS present_days,
-                SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) AS late_days,
-                SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) AS absent_days,
-                MAX(a.date) AS last_attendance_date
-            FROM employees e
-            LEFT JOIN attendance a
+        # Day-wise records — only from each employee's joining_date onward
+        from datetime import timedelta
+        daywise_query = f"""
+            SELECT a.date, a.employee_id, e.name AS employee_name,
+                   a.check_in_time, a.check_out_time, a.status,
+                   {meal_status_expr}
+            FROM attendance a
+            JOIN employees e
                 ON a.employee_id = e.emp_id
                AND a.company_id = e.company_id
-            WHERE e.company_id = %s
+            WHERE a.company_id = %s
+              AND a.date >= COALESCE(e.joining_date, DATE(e.created_at), '2000-01-01')
         """
-        summary_params = [company_id]
+        daywise_params = [company_id]
 
         if filters["date_from"]:
-            summary_query += " AND (a.date IS NULL OR a.date >= %s)"
-            summary_params.append(filters["date_from"])
+            daywise_query += " AND a.date >= %s"
+            daywise_params.append(filters["date_from"])
+        else:
+            daywise_query += " AND a.date >= %s"
+            daywise_params.append((today - timedelta(days=30)).strftime("%Y-%m-%d"))
 
         if filters["date_to"]:
-            summary_query += " AND (a.date IS NULL OR a.date <= %s)"
-            summary_params.append(filters["date_to"])
+            daywise_query += " AND a.date <= %s"
+            daywise_params.append(filters["date_to"])
 
         if filters["status"]:
-            summary_query += " AND (a.id IS NULL OR a.status = %s)"
-            summary_params.append(filters["status"])
+            daywise_query += " AND a.status = %s"
+            daywise_params.append(filters["status"])
+
+        if filters["employee_id"]:
+            daywise_query += " AND a.employee_id = %s"
+            daywise_params.append(filters["employee_id"])
 
         if filters["employee_name"]:
-            summary_query += " AND e.name LIKE %s"
-            summary_params.append(f"%{filters['employee_name']}%")
+            daywise_query += " AND e.name LIKE %s"
+            daywise_params.append(f"%{filters['employee_name']}%")
 
-        summary_query += " GROUP BY e.emp_id, e.name ORDER BY e.name ASC"
-        cursor.execute(summary_query, summary_params)
+        daywise_query += " ORDER BY a.date DESC, e.name ASC LIMIT 500"
+        cursor.execute(daywise_query, daywise_params)
         summary_by_employee = cursor.fetchall()
 
     cursor.close()
@@ -382,7 +396,8 @@ def attendance_employee_report(employee_id):
 
     cursor.execute(
         """
-        SELECT e.emp_id, e.name, e.department, e.shift
+        SELECT e.emp_id, e.name, e.department, e.shift,
+               COALESCE(e.joining_date, DATE(e.created_at)) AS joining_date
         FROM employees e
         WHERE e.company_id = %s AND e.emp_id = %s
         """,
@@ -395,6 +410,24 @@ def attendance_employee_report(employee_id):
         connection.close()
         flash("Employee not found for this company.", "error")
         return redirect(url_for("company.attendance_reports"))
+
+    # Enforce joining_date as the minimum allowed from_date
+    joining_date = employee.get("joining_date")
+    if joining_date:
+        from datetime import date as _date
+        if isinstance(joining_date, str):
+            from datetime import datetime as _dt
+            joining_date = _dt.strptime(joining_date, "%Y-%m-%d").date()
+
+        # If no from_date filter set, default to joining_date
+        if not filters["date_from"]:
+            filters["date_from"] = joining_date.strftime("%Y-%m-%d")
+        else:
+            # Clamp: never show records before joining_date
+            from datetime import datetime as _dt2
+            user_from = _dt2.strptime(filters["date_from"], "%Y-%m-%d").date()
+            if user_from < joining_date:
+                filters["date_from"] = joining_date.strftime("%Y-%m-%d")
 
     query = f"""
         SELECT a.employee_id, e.name AS employee_name, a.date, a.check_in_time,
@@ -442,6 +475,7 @@ def attendance_employee_report(employee_id):
         records=records,
         stats=stats,
         filters=filters,
+        joining_date=joining_date.strftime("%Y-%m-%d") if joining_date else None,
     )
 
 
@@ -509,13 +543,12 @@ def attendance_export():
         output = StringIO()
         writer = csv.writer(output)
         
-        # Write header
         writer.writerow([
-            'Employee ID', 'Employee Name', 'Date', 'Check In', 'Check Out', 
-            'Status', 'Meal Status', 'Meal Taken', 'Meal Confirmed', 'Location Verified', 'Face Verified'
+            'Employee ID', 'Employee Name', 'Date', 'Check In', 'Check Out',
+            'Status', 'Working Hours', 'Meal Status', 'Meal Taken', 'Meal Confirmed',
+            'Location Verified', 'Face Verified'
         ])
         
-        # Write data
         for record in attendance_data:
             writer.writerow([
                 record['employee_id'],
@@ -524,6 +557,7 @@ def attendance_export():
                 record['check_in_time'].strftime('%H:%M:%S') if record['check_in_time'] else 'N/A',
                 record['check_out_time'].strftime('%H:%M:%S') if record['check_out_time'] else 'N/A',
                 record['status'],
+                record.get('working_hours', ''),
                 record.get('meal_status', 'NO'),
                 record.get('meal_taken', 'NO'),
                 record.get('meal_confirmed', 'NO'),
@@ -532,14 +566,98 @@ def attendance_export():
             ])
         
         output.seek(0)
-        
         return Response(
             output.getvalue(),
             mimetype='text/csv',
             headers={'Content-Disposition': 'attachment; filename=attendance_report.csv'}
         )
-    
-    # Default: redirect back to reports
+
+    if export_format == 'excel':
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.utils import get_column_letter
+            import io
+
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Attendance Report"
+
+            # Header style
+            header_font = Font(bold=True, color="FFFFFF", size=11)
+            header_fill = PatternFill("solid", fgColor="2563EB")
+            center = Alignment(horizontal="center", vertical="center")
+            thin = Side(style="thin", color="D1D5DB")
+            border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+            headers = [
+                "Employee ID", "Employee Name", "Date", "Check In", "Check Out",
+                "Status", "Working Hours", "Meal Status", "Location", "Face Verified"
+            ]
+            col_widths = [14, 22, 14, 12, 12, 12, 14, 14, 12, 14]
+
+            for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
+                cell = ws.cell(row=1, column=col_idx, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = center
+                cell.border = border
+                ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+            ws.row_dimensions[1].height = 22
+
+            # Status colors
+            status_fills = {
+                'present': PatternFill("solid", fgColor="D1FAE5"),
+                'late':    PatternFill("solid", fgColor="FEF3C7"),
+                'absent':  PatternFill("solid", fgColor="FEE2E2"),
+                'half_day': PatternFill("solid", fgColor="DBEAFE"),
+            }
+
+            for row_idx, record in enumerate(attendance_data, 2):
+                status = (record.get('status') or '').lower()
+                row_fill = status_fills.get(status)
+
+                values = [
+                    record['employee_id'],
+                    record['employee_name'],
+                    record['date'].strftime('%d/%m/%Y') if record['date'] else '',
+                    record['check_in_time'].strftime('%H:%M:%S') if record['check_in_time'] else '',
+                    record['check_out_time'].strftime('%H:%M:%S') if record['check_out_time'] else '',
+                    record.get('status', '').title(),
+                    record.get('working_hours', ''),
+                    record.get('meal_status', 'NO'),
+                    'Yes' if record.get('location_verified') else 'No',
+                    'Yes' if record.get('face_verified') else 'No',
+                ]
+
+                for col_idx, value in enumerate(values, 1):
+                    cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                    cell.border = border
+                    if row_fill:
+                        cell.fill = row_fill
+
+            # Freeze header row
+            ws.freeze_panes = "A2"
+
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+
+            from datetime import datetime as dt
+            filename = f"attendance_report_{dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+            return send_file(
+                output,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=filename
+            )
+        except ImportError:
+            flash("openpyxl is required for Excel export. Run: pip install openpyxl", "error")
+            return redirect(url_for('company.attendance_reports'))
+
     return redirect(url_for('company.attendance_reports'))
 
 
@@ -820,6 +938,9 @@ def add_shift():
         shift_name = request.form.get("shift_name", "").strip()
         start_time = request.form.get("start_time", "").strip()
         end_time = request.form.get("end_time", "").strip()
+        grace_time = request.form.get("grace_time", "10").strip() or "10"
+        half_day_hours = request.form.get("half_day_hours", "4").strip() or "4"
+        full_day_hours = request.form.get("full_day_hours", "8").strip() or "8"
 
         errors = []
         if not shift_name:
@@ -837,9 +958,8 @@ def add_shift():
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
 
-        # Check if shift name already exists for this company
         cursor.execute(
-            "SELECT id FROM shifts WHERE name = %s AND company_id = %s", 
+            "SELECT id FROM shifts WHERE name = %s AND company_id = %s",
             (shift_name, company_id)
         )
         if cursor.fetchone():
@@ -848,10 +968,12 @@ def add_shift():
             flash("A shift with this name already exists.", "error")
             return render_template("company/add_shift.html")
 
-        # Insert new shift
         cursor.execute(
-            "INSERT INTO shifts (name, start_time, end_time, company_id) VALUES (%s, %s, %s, %s)",
-            (shift_name, start_time, end_time, company_id)
+            """
+            INSERT INTO shifts (name, start_time, end_time, grace_time, half_day_hours, full_day_hours, company_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (shift_name, start_time, end_time, int(grace_time), float(half_day_hours), float(full_day_hours), company_id)
         )
         connection.commit()
         cursor.close()
@@ -872,7 +994,7 @@ def view_shifts():
     cursor = connection.cursor(dictionary=True)
     cursor.execute(
         """
-        SELECT id, name, start_time, end_time, created_at
+        SELECT id, name, start_time, end_time, grace_time, half_day_hours, full_day_hours, created_at
         FROM shifts
         WHERE company_id = %s
         ORDER BY start_time ASC
@@ -984,6 +1106,9 @@ def edit_shift(shift_id):
     shift_name = request.form.get("shift_name", "").strip()
     start_time = request.form.get("start_time", "").strip()
     end_time = request.form.get("end_time", "").strip()
+    grace_time = request.form.get("grace_time", "10").strip() or "10"
+    half_day_hours = request.form.get("half_day_hours", "4").strip() or "4"
+    full_day_hours = request.form.get("full_day_hours", "8").strip() or "8"
 
     errors = []
     if not shift_name:
@@ -1001,9 +1126,8 @@ def edit_shift(shift_id):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
-    # Check if shift name already exists for this company (excluding current shift)
     cursor.execute(
-        "SELECT id FROM shifts WHERE name = %s AND company_id = %s AND id != %s", 
+        "SELECT id FROM shifts WHERE name = %s AND company_id = %s AND id != %s",
         (shift_name, company_id, shift_id)
     )
     if cursor.fetchone():
@@ -1012,17 +1136,21 @@ def edit_shift(shift_id):
         flash("A shift with this name already exists.", "error")
         return redirect(url_for("company.view_shifts"))
 
-    # Update shift
     cursor.execute(
-        "UPDATE shifts SET name = %s, start_time = %s, end_time = %s WHERE id = %s AND company_id = %s",
-        (shift_name, start_time, end_time, shift_id, company_id)
+        """
+        UPDATE shifts
+        SET name = %s, start_time = %s, end_time = %s,
+            grace_time = %s, half_day_hours = %s, full_day_hours = %s
+        WHERE id = %s AND company_id = %s
+        """,
+        (shift_name, start_time, end_time, int(grace_time), float(half_day_hours), float(full_day_hours), shift_id, company_id)
     )
-    
+
     if cursor.rowcount > 0:
         flash("Shift updated successfully!", "success")
     else:
         flash("Shift not found or access denied.", "error")
-    
+
     connection.commit()
     cursor.close()
     connection.close()
