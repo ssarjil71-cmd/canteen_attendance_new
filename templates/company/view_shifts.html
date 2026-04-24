@@ -86,16 +86,25 @@
                         </td>
                         <td>
                             <div class="shift-actions">
-                                {% set start_time_str = shift.start_time|string %}
-                                {% if ':' in start_time_str %}
-                                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ shift.start_time.strftime('%H:%M') }}', '{{ shift.end_time.strftime('%H:%M') }}', {{ shift.grace_time if shift.grace_time is not none else 10 }}, {{ shift.half_day_hours if shift.half_day_hours is not none else 4 }}, {{ shift.full_day_hours if shift.full_day_hours is not none else 8 }})">
-                                {% else %}
-                                    {% set start_hours = (shift.start_time.total_seconds() // 3600) | int %}
-                                    {% set start_minutes = ((shift.start_time.total_seconds() % 3600) // 60) | int %}
-                                    {% set end_hours = (shift.end_time.total_seconds() // 3600) | int %}
-                                    {% set end_minutes = ((shift.end_time.total_seconds() % 3600) // 60) | int %}
-                                    <button class="btn btn-small btn-outline" onclick="editShift({{ shift.id }}, '{{ shift.name }}', '{{ '%02d:%02d' | format(start_hours, start_minutes) }}', '{{ '%02d:%02d' | format(end_hours, end_minutes) }}', {{ shift.grace_time if shift.grace_time is not none else 10 }}, {{ shift.half_day_hours if shift.half_day_hours is not none else 4 }}, {{ shift.full_day_hours if shift.full_day_hours is not none else 8 }})">
-                                {% endif %}
+                                {% macro fmt_time(t) %}
+                                    {%- if t is not none -%}{{ t.strftime('%H:%M') }}{%- else -%}00:00{%- endif -%}
+                                {% endmacro %}
+                                {% set in_s  = fmt_time(shift.in_start   if shift.in_start   is not none else shift.start_time) %}
+                                {% set in_e  = fmt_time(shift.in_end     if shift.in_end     is not none else shift.end_time) %}
+                                {% set out_s = fmt_time(shift.out_start  if shift.out_start  is not none else shift.start_time) %}
+                                {% set out_e = fmt_time(shift.out_end_time if shift.out_end_time is not none else shift.end_time) %}
+                                <button class="btn btn-small btn-outline"
+                                    onclick="editShift(
+                                        {{ shift.id }},
+                                        '{{ shift.name }}',
+                                        '{{ in_s|trim }}',
+                                        '{{ in_e|trim }}',
+                                        '{{ out_s|trim }}',
+                                        '{{ out_e|trim }}',
+                                        {{ shift.grace_time if shift.grace_time is not none else 10 }},
+                                        {{ shift.half_day_hours if shift.half_day_hours is not none else 4 }},
+                                        {{ shift.full_day_hours if shift.full_day_hours is not none else 8 }}
+                                    )">
                                     <i class="bi bi-pencil me-1"></i>Edit
                                 </button>
                                 <form method="POST" action="{{ url_for('company.delete_shift', shift_id=shift.id) }}"
@@ -128,28 +137,55 @@
 
 <!-- Edit Shift Modal -->
 <div class="modal fade" id="editShiftModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Shift</h5>
+                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Shift</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="editShiftForm" method="POST">
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="edit_shift_name">Shift Name</label>
+                        <label for="edit_shift_name">Shift Name <span style="color:#ef4444">*</span></label>
                         <input type="text" id="edit_shift_name" name="shift_name" required>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="edit_start_time">Start Time</label>
-                            <input type="time" id="edit_start_time" name="start_time" required>
+
+                    <div style="background:#f0f4ff;border:1px solid #c7d7f9;border-radius:8px;padding:14px;margin-bottom:16px;">
+                        <div style="font-size:0.85rem;font-weight:700;color:#1e40af;margin-bottom:10px;">
+                            <i class="bi bi-box-arrow-in-right me-1"></i>Check-IN Window
                         </div>
-                        <div class="form-group">
-                            <label for="edit_end_time">End Time</label>
-                            <input type="time" id="edit_end_time" name="end_time" required>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit_in_start">IN Start Time <span style="color:#ef4444">*</span></label>
+                                <input type="time" id="edit_in_start" name="in_start" required>
+                                <small style="color:var(--muted);font-size:0.8rem;">Earliest check-in time</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit_in_end">IN End Time <span style="color:#ef4444">*</span></label>
+                                <input type="time" id="edit_in_end" name="in_end" required>
+                                <small style="color:var(--muted);font-size:0.8rem;">Latest check-in time</small>
+                            </div>
                         </div>
                     </div>
+
+                    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;margin-bottom:16px;">
+                        <div style="font-size:0.85rem;font-weight:700;color:#166534;margin-bottom:10px;">
+                            <i class="bi bi-box-arrow-right me-1"></i>Check-OUT Window
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit_out_start">OUT Start Time <span style="color:#ef4444">*</span></label>
+                                <input type="time" id="edit_out_start" name="out_start" required>
+                                <small style="color:var(--muted);font-size:0.8rem;">Earliest check-out time</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit_out_end">OUT End Time <span style="color:#ef4444">*</span></label>
+                                <input type="time" id="edit_out_end" name="out_end" required>
+                                <small style="color:var(--muted);font-size:0.8rem;">Latest check-out time</small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="edit_grace_time">Late Grace (minutes)</label>
@@ -167,10 +203,14 @@
                         </div>
                         <div class="form-group"></div>
                     </div>
+
+                    <div id="editShiftError" style="display:none;padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#991b1b;font-size:0.88rem;margin-top:8px;"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Update Shift</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>Update Shift
+                    </button>
                 </div>
             </form>
         </div>
@@ -389,16 +429,39 @@
 </style>
 
 <script>
-function editShift(id, name, startTime, endTime, grace, halfDay, fullDay) {
+function editShift(id, name, inStart, inEnd, outStart, outEnd, grace, halfDay, fullDay) {
     document.getElementById('edit_shift_name').value = name;
-    document.getElementById('edit_start_time').value = startTime;
-    document.getElementById('edit_end_time').value = endTime;
+    document.getElementById('edit_in_start').value = inStart;
+    document.getElementById('edit_in_end').value = inEnd;
+    document.getElementById('edit_out_start').value = outStart;
+    document.getElementById('edit_out_end').value = outEnd;
     document.getElementById('edit_grace_time').value = grace;
     document.getElementById('edit_half_day_hours').value = halfDay;
     document.getElementById('edit_full_day_hours').value = fullDay;
+    document.getElementById('editShiftError').style.display = 'none';
     document.getElementById('editShiftForm').action = `/company/edit_shift/${id}`;
     new bootstrap.Modal(document.getElementById('editShiftModal')).show();
 }
+
+document.getElementById('editShiftForm').addEventListener('submit', function(e) {
+    const inStart = document.getElementById('edit_in_start').value;
+    const inEnd = document.getElementById('edit_in_end').value;
+    const outStart = document.getElementById('edit_out_start').value;
+    const outEnd = document.getElementById('edit_out_end').value;
+    const errDiv = document.getElementById('editShiftError');
+    const errors = [];
+
+    if (inStart && inEnd && inStart >= inEnd)
+        errors.push('IN Start must be before IN End.');
+    if (outStart && outEnd && outStart >= outEnd)
+        errors.push('OUT Start must be before OUT End.');
+
+    if (errors.length) {
+        e.preventDefault();
+        errDiv.textContent = errors.join(' ');
+        errDiv.style.display = 'block';
+    }
+});
 
 function confirmDelete(shiftName) {
     return confirm(`Are you sure you want to delete the "${shiftName}" shift? This action cannot be undone.`);

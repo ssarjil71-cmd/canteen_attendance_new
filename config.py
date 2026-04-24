@@ -41,6 +41,9 @@ def _get_or_create_secret_key():
 
 class Config:
     SECRET_KEY = _get_or_create_secret_key()
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    PERMANENT_SESSION_LIFETIME = 86400  # 24 hours
 
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_PORT = int(os.getenv("DB_PORT", "3306"))

@@ -167,6 +167,7 @@ def role_login(role):
 		session["username"] = user["username"]
 		session["role"] = role
 		session["company_id"] = user.get("company_id")
+		session.permanent = True  # persist session across navigation
 
 		if role == "canteen" and not has_module(user.get("company_id"), "canteen_management"):
 			session.clear()

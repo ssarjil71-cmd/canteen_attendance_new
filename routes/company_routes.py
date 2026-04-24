@@ -933,31 +933,48 @@ def delete_department(department_id):
 @company_required
 def add_shift():
     company_id = session.get("company_id")
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    # Fetch departments for dropdown
+    cursor.execute(
+        "SELECT id, name FROM departments WHERE company_id = %s ORDER BY name",
+        (company_id,)
+    )
+    departments = cursor.fetchall()
 
     if request.method == "POST":
         shift_name = request.form.get("shift_name", "").strip()
-        start_time = request.form.get("start_time", "").strip()
-        end_time = request.form.get("end_time", "").strip()
-        grace_time = request.form.get("grace_time", "10").strip() or "10"
+        department_id = request.form.get("department_id", "").strip()
+        in_start = request.form.get("in_start", "").strip()
+        in_end = request.form.get("in_end", "").strip()
+        out_start = request.form.get("out_start", "").strip()
+        out_end = request.form.get("out_end", "").strip()
         half_day_hours = request.form.get("half_day_hours", "4").strip() or "4"
         full_day_hours = request.form.get("full_day_hours", "8").strip() or "8"
 
         errors = []
         if not shift_name:
             errors.append("Shift name is required.")
-        if not start_time:
-            errors.append("Start time is required.")
-        if not end_time:
-            errors.append("End time is required.")
+        if not department_id:
+            errors.append("Department is required.")
+        if not in_start:
+            errors.append("IN Start time is required.")
+        if not in_end:
+            errors.append("IN End time is required.")
+        if not out_start:
+            errors.append("OUT Start time is required.")
+        if not out_end:
+            errors.append("OUT End time is required.")
 
         if errors:
             for error in errors:
                 flash(error, "error")
-            return render_template("company/add_shift.html")
+            cursor.close()
+            connection.close()
+            return render_template("company/add_shift.html", departments=departments)
 
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-
+        # Check for duplicate shift name
         cursor.execute(
             "SELECT id FROM shifts WHERE name = %s AND company_id = %s",
             (shift_name, company_id)
@@ -966,14 +983,24 @@ def add_shift():
             cursor.close()
             connection.close()
             flash("A shift with this name already exists.", "error")
-            return render_template("company/add_shift.html")
+            return render_template("company/add_shift.html", departments=departments)
+
+        # For backward compatibility, also set start_time and end_time
+        start_time = in_start
+        end_time = out_end
 
         cursor.execute(
             """
-            INSERT INTO shifts (name, start_time, end_time, grace_time, half_day_hours, full_day_hours, company_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO shifts (
+                name, start_time, end_time, company_id, department_id,
+                in_start, in_end, out_start, out_end_time,
+                half_day_hours, full_day_hours, status
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'active')
             """,
-            (shift_name, start_time, end_time, int(grace_time), float(half_day_hours), float(full_day_hours), company_id)
+            (shift_name, start_time, end_time, company_id, int(department_id),
+             in_start, in_end, out_start, out_end,
+             float(half_day_hours), float(full_day_hours))
         )
         connection.commit()
         cursor.close()
@@ -982,7 +1009,9 @@ def add_shift():
         flash("Shift added successfully!", "success")
         return redirect(url_for("company.view_shifts"))
 
-    return render_template("company/add_shift.html")
+    cursor.close()
+    connection.close()
+    return render_template("company/add_shift.html", departments=departments)
 
 
 @company.route("/shifts")
@@ -994,7 +1023,9 @@ def view_shifts():
     cursor = connection.cursor(dictionary=True)
     cursor.execute(
         """
-        SELECT id, name, start_time, end_time, grace_time, half_day_hours, full_day_hours, created_at
+        SELECT id, name, start_time, end_time,
+               in_start, in_end, out_start, out_end_time,
+               grace_time, half_day_hours, full_day_hours, created_at
         FROM shifts
         WHERE company_id = %s
         ORDER BY start_time ASC
@@ -1002,28 +1033,19 @@ def view_shifts():
         (company_id,),
     )
     shifts = cursor.fetchall()
-    
-    # Convert timedelta objects to time objects if needed
+
+    # Normalise timedelta → time for all TIME columns
+    def _td_to_time(val):
+        if val is None:
+            return None
+        if hasattr(val, 'total_seconds'):
+            s = int(val.total_seconds())
+            return time(max(0, min(23, s // 3600)), max(0, min(59, (s % 3600) // 60)))
+        return val
+
     for shift in shifts:
-        if hasattr(shift['start_time'], 'total_seconds'):
-            # It's a timedelta object, convert to time
-            total_seconds = int(shift['start_time'].total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            # Ensure hours and minutes are within valid ranges
-            hours = max(0, min(23, hours))
-            minutes = max(0, min(59, minutes))
-            shift['start_time'] = time(hours, minutes)
-            
-        if hasattr(shift['end_time'], 'total_seconds'):
-            # It's a timedelta object, convert to time
-            total_seconds = int(shift['end_time'].total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            # Ensure hours and minutes are within valid ranges
-            hours = max(0, min(23, hours))
-            minutes = max(0, min(59, minutes))
-            shift['end_time'] = time(hours, minutes)
+        for col in ('start_time', 'end_time', 'in_start', 'in_end', 'out_start', 'out_end_time'):
+            shift[col] = _td_to_time(shift.get(col))
     
     cursor.close()
     connection.close()
@@ -1104,8 +1126,10 @@ def edit_department(department_id):
 def edit_shift(shift_id):
     company_id = session.get("company_id")
     shift_name = request.form.get("shift_name", "").strip()
-    start_time = request.form.get("start_time", "").strip()
-    end_time = request.form.get("end_time", "").strip()
+    in_start   = request.form.get("in_start", "").strip()
+    in_end     = request.form.get("in_end", "").strip()
+    out_start  = request.form.get("out_start", "").strip()
+    out_end    = request.form.get("out_end", "").strip()
     grace_time = request.form.get("grace_time", "10").strip() or "10"
     half_day_hours = request.form.get("half_day_hours", "4").strip() or "4"
     full_day_hours = request.form.get("full_day_hours", "8").strip() or "8"
@@ -1113,10 +1137,18 @@ def edit_shift(shift_id):
     errors = []
     if not shift_name:
         errors.append("Shift name is required.")
-    if not start_time:
-        errors.append("Start time is required.")
-    if not end_time:
-        errors.append("End time is required.")
+    if not in_start:
+        errors.append("IN Start time is required.")
+    if not in_end:
+        errors.append("IN End time is required.")
+    if not out_start:
+        errors.append("OUT Start time is required.")
+    if not out_end:
+        errors.append("OUT End time is required.")
+    if in_start and in_end and in_start >= in_end:
+        errors.append("IN Start must be before IN End.")
+    if out_start and out_end and out_start >= out_end:
+        errors.append("OUT Start must be before OUT End.")
 
     if errors:
         for error in errors:
@@ -1139,11 +1171,17 @@ def edit_shift(shift_id):
     cursor.execute(
         """
         UPDATE shifts
-        SET name = %s, start_time = %s, end_time = %s,
+        SET name = %s,
+            start_time = %s, end_time = %s,
+            in_start = %s, in_end = %s,
+            out_start = %s, out_end_time = %s,
             grace_time = %s, half_day_hours = %s, full_day_hours = %s
         WHERE id = %s AND company_id = %s
         """,
-        (shift_name, start_time, end_time, int(grace_time), float(half_day_hours), float(full_day_hours), shift_id, company_id)
+        (shift_name, in_start, out_end,
+         in_start, in_end, out_start, out_end,
+         int(grace_time), float(half_day_hours), float(full_day_hours),
+         shift_id, company_id)
     )
 
     if cursor.rowcount > 0:
@@ -1396,23 +1434,61 @@ def add_employee():
 def view_employees():
     company_id = session.get("company_id")
 
+    search = request.args.get("search", "").strip()
+    status_filter = request.args.get("status", "").strip()
+    dept_filter = request.args.get("department", "").strip()
+
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    cursor.execute(
-        """
-        SELECT e.id, e.name, e.emp_id, e.email, e.gender, e.role, e.employee_role, e.department, 
-               e.shift, e.joining_date, e.phone, e.status, e.created_at
+
+    query = """
+        SELECT e.id, e.name, e.emp_id, e.email, e.gender, e.role, e.employee_role,
+               e.department, e.shift, e.joining_date, e.phone, e.status, e.created_at
         FROM employees e
         WHERE e.company_id = %s
-        ORDER BY e.name ASC, e.id ASC
-        """,
-        (company_id,),
-    )
+    """
+    params = [company_id]
+
+    if search:
+        query += " AND (e.name LIKE %s OR e.email LIKE %s)"
+        params += [f"%{search}%", f"%{search}%"]
+    if status_filter:
+        query += " AND e.status = %s"
+        params.append(status_filter)
+    if dept_filter:
+        query += " AND e.department = %s"
+        params.append(dept_filter)
+
+    query += " ORDER BY e.name ASC, e.id ASC"
+    cursor.execute(query, params)
     employees = cursor.fetchall()
+
+    cursor.execute("SELECT id, name FROM departments WHERE company_id = %s ORDER BY name", (company_id,))
+    departments = cursor.fetchall()
+
+    # Count pending self-registration requests
+    try:
+        cursor.execute(
+            "SELECT COUNT(*) AS cnt FROM employee_requests WHERE company_id = %s AND status = 'pending'",
+            (company_id,),
+        )
+        row = cursor.fetchone()
+        pending_requests_count = row["cnt"] if row else 0
+    except Exception:
+        pending_requests_count = 0
+
     cursor.close()
     connection.close()
 
-    return render_template("company/view_employees.html", employees=employees)
+    return render_template(
+        "company/view_employees.html",
+        employees=employees,
+        departments=departments,
+        pending_requests_count=pending_requests_count,
+        search=search,
+        status_filter=status_filter,
+        dept_filter=dept_filter,
+    )
 
 
 @company.route("/delete_employee/<int:employee_id>", methods=["POST"])
@@ -1438,6 +1514,56 @@ def delete_employee(employee_id):
     cursor.close()
     connection.close()
 
+    return redirect(url_for("company.view_employees"))
+
+
+@company.route("/approve_employee/<int:employee_id>", methods=["POST"])
+@company_required
+def approve_employee(employee_id):
+    company_id = session.get("company_id")
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute(
+        "SELECT id, name FROM employees WHERE id = %s AND company_id = %s AND status = 'pending'",
+        (employee_id, company_id),
+    )
+    emp = cursor.fetchone()
+    if emp:
+        cursor.execute(
+            "UPDATE employees SET status = 'active' WHERE id = %s AND company_id = %s",
+            (employee_id, company_id),
+        )
+        connection.commit()
+        flash(f"Employee '{emp['name']}' has been approved.", "success")
+    else:
+        flash("Employee not found or already processed.", "error")
+    cursor.close()
+    connection.close()
+    return redirect(url_for("company.view_employees"))
+
+
+@company.route("/reject_employee/<int:employee_id>", methods=["POST"])
+@company_required
+def reject_employee(employee_id):
+    company_id = session.get("company_id")
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute(
+        "SELECT id, name FROM employees WHERE id = %s AND company_id = %s AND status = 'pending'",
+        (employee_id, company_id),
+    )
+    emp = cursor.fetchone()
+    if emp:
+        cursor.execute(
+            "UPDATE employees SET status = 'inactive' WHERE id = %s AND company_id = %s",
+            (employee_id, company_id),
+        )
+        connection.commit()
+        flash(f"Employee '{emp['name']}' has been rejected.", "info")
+    else:
+        flash("Employee not found or already processed.", "error")
+    cursor.close()
+    connection.close()
     return redirect(url_for("company.view_employees"))
 
 
@@ -1686,54 +1812,44 @@ def generate_common_qr():
     import qrcode
     import os
     from flask import jsonify, current_app
-    
+
     try:
-        # Generate company-scoped registration URL so employee registration is tied to the correct company.
         company_id = session.get("company_id")
+
+        # Always use the legacy URL — single source of truth for QR and link
         registration_url = url_for(
             'employee_registration.common_employee_registration',
             _external=True,
             company_id=company_id,
         )
-        
-        # Ensure static/qr directory exists
+
         static_dir = os.path.join(current_app.root_path, 'static')
         qr_dir = os.path.join(static_dir, 'qr')
-        
-        if not os.path.exists(qr_dir):
-            os.makedirs(qr_dir)
-        
-        # Use one stable QR image filename for employee registration.
-        qr_filename = 'common_qr.png'
+        os.makedirs(qr_dir, exist_ok=True)
+
+        qr_filename = f'common_qr_{company_id}.png'
         qr_path = os.path.join(qr_dir, qr_filename)
 
-        # Reuse existing QR if already generated; only create once.
-        if not os.path.exists(qr_path):
-            qr = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_H,
-                box_size=10,
-                border=4,
-            )
-            qr.add_data(registration_url)
-            qr.make(fit=True)
+        # Always regenerate so URL stays current
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(registration_url)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_img.save(qr_path)
 
-            qr_img = qr.make_image(fill_color="black", back_color="white")
-            qr_img.save(qr_path)
-        
-        # Verify file was created
-        if not os.path.exists(qr_path):
-            raise Exception("QR code file was not created successfully")
-        
-        # Return JSON response
         return jsonify({
             "success": True,
             "registration_url": registration_url,
             "qr_image_path": f"/static/qr/{qr_filename}",
             "message": "QR code generated successfully"
         })
-        
-    except ImportError as e:
+
+    except ImportError:
         return jsonify({
             "success": False,
             "error": "QR code library not available",
@@ -1755,7 +1871,7 @@ from flask import Blueprint
 # Create a separate blueprint for public employee registration
 employee_registration_bp = Blueprint("employee_registration", __name__)
 
-@employee_registration_bp.route("/employee/register", methods=["GET", "POST"])
+@employee_registration_bp.route("/employee/register-full", methods=["GET", "POST"])
 def common_employee_registration():
     """Public employee self-registration from company QR flow."""
 
@@ -1856,7 +1972,7 @@ def common_employee_registration():
 
     if not errors:
         connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor(dictionary=True, buffered=True)
         cursor.execute("SELECT id FROM employees WHERE emp_id = %s", (emp_id,))
         if cursor.fetchone():
             errors.append("An employee with this Employee ID already exists.")
@@ -1890,7 +2006,7 @@ def common_employee_registration():
     shift_name = None
     if department_id and shift_id and not errors:
         connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor(dictionary=True, buffered=True)
         cursor.execute("SELECT name FROM departments WHERE id = %s AND company_id = %s", (department_id, company_id))
         dept_result = cursor.fetchone()
         cursor.execute("SELECT name FROM shifts WHERE id = %s AND company_id = %s", (shift_id, company_id))
@@ -1934,8 +2050,6 @@ def common_employee_registration():
             errors.append(f"Error processing face image: {str(e)}")
 
     if errors:
-        for error in errors:
-            flash(error, "error")
         return render_template(
             "employee/self_registration.html",
             departments=departments,
@@ -1945,6 +2059,7 @@ def common_employee_registration():
             page_title="Employee Self Registration",
             company_name=company["company_name"],
             company_id=company_id,
+            errors=errors,
         )
 
     connection = get_db_connection()
@@ -1979,13 +2094,8 @@ def common_employee_registration():
     cursor.close()
     connection.close()
 
-    return render_template(
-        "employee/registration_success.html",
-        employee_id=emp_id,
-        name=name,
-        company_name=company["company_name"],
-        company_id=company_id,
-    )
+    flash(f"Registration submitted successfully for {name}. Please wait for approval.", "success")
+    return redirect(url_for("auth.landing_page"))
 
 
 # Role Management Routes

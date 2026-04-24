@@ -939,9 +939,15 @@
                     renderMealPrompt(data.employee_id);
                 } else {
                     faceVerified = false;
-                    faceStatus.innerHTML = `<i class="bi bi-x-circle me-2"></i>${data.message}`;
-                    faceStatus.className = 'status-message status-error';
-                    document.getElementById('retakeBtn').style.display = 'inline-block';
+                    if (data.shift_error) {
+                        faceStatus.innerHTML = `<i class="bi bi-clock me-2"></i>${data.message}`;
+                        faceStatus.className = 'status-message status-warning';
+                        // Don't show retake — shift time issue, not a face issue
+                    } else {
+                        faceStatus.innerHTML = `<i class="bi bi-x-circle me-2"></i>${data.message}`;
+                        faceStatus.className = 'status-message status-error';
+                        document.getElementById('retakeBtn').style.display = 'inline-block';
+                    }
                     checkRequirements();
                 }
             })

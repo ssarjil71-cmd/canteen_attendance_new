@@ -12,6 +12,7 @@ from routes.employee_routes import employee_bp
 from routes.attendance_routes import attendance
 from routes.meal_confirmation_routes import meal_confirmation
 from routes.salary_routes import salary_bp
+from routes.employee_request_routes import employee_request_bp
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -26,7 +27,7 @@ app.register_blueprint(company)
 app.register_blueprint(attendance)  # Face recognition attendance system
 app.register_blueprint(meal_confirmation)  # Meal confirmation dashboard
 app.register_blueprint(salary_bp)
-
+app.register_blueprint(employee_request_bp)
 app.register_blueprint(employee_registration_bp)  # Public employee registration
 app.register_blueprint(employee_bp)
 
@@ -40,6 +41,7 @@ def sync_company_module_flags():
             update_module_flags_in_session(company_id)
         except Exception as exc:
             app.logger.warning("Module flag sync skipped due to DB error: %s", exc)
+            # Do NOT touch session on failure — preserve existing login state
 
 
 @app.context_processor

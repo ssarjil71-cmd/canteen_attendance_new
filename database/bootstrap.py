@@ -717,13 +717,30 @@ def _apply_schema_updates(connection):
         """
     )
 
-    # Shift table: add grace_time, half_day_hours, full_day_hours
+    # Shift table: add AttendX-style IN/OUT window fields
     if not _column_exists(cursor, "shifts", "grace_time"):
         cursor.execute("ALTER TABLE shifts ADD COLUMN grace_time INT NOT NULL DEFAULT 10 COMMENT 'Late grace in minutes'")
     if not _column_exists(cursor, "shifts", "half_day_hours"):
         cursor.execute("ALTER TABLE shifts ADD COLUMN half_day_hours DECIMAL(4,2) NOT NULL DEFAULT 4.00")
     if not _column_exists(cursor, "shifts", "full_day_hours"):
         cursor.execute("ALTER TABLE shifts ADD COLUMN full_day_hours DECIMAL(4,2) NOT NULL DEFAULT 8.00")
+    if not _column_exists(cursor, "shifts", "duration_minutes"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN duration_minutes INT NULL COMMENT 'Shift duration in minutes'")
+    if not _column_exists(cursor, "shifts", "late_allowed_till"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN late_allowed_till TIME NULL COMMENT 'Latest time for check-in'")
+    if not _column_exists(cursor, "shifts", "out_start"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN out_start TIME NULL COMMENT 'Check-out window start time'")
+    if not _column_exists(cursor, "shifts", "out_end_time"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN out_end_time TIME NULL COMMENT 'Check-out window end time'")
+    # AttendX-style IN/OUT window fields
+    if not _column_exists(cursor, "shifts", "in_start"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN in_start TIME NULL COMMENT 'Check-in window start'")
+    if not _column_exists(cursor, "shifts", "in_end"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN in_end TIME NULL COMMENT 'Check-in window end'")
+    if not _column_exists(cursor, "shifts", "department_id"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN department_id INT NULL COMMENT 'Department assignment'")
+    if not _column_exists(cursor, "shifts", "status"):
+        cursor.execute("ALTER TABLE shifts ADD COLUMN status ENUM('active','inactive') DEFAULT 'active'")
 
     # Attendance table: add working_hours, out_face_image, half_day status
     if not _column_exists(cursor, "attendance", "working_hours"):
@@ -735,6 +752,31 @@ def _apply_schema_updates(connection):
         """
         ALTER TABLE attendance
         MODIFY COLUMN status ENUM('present', 'absent', 'late', 'half_day') DEFAULT 'present'
+        """
+    )
+
+    # Employee self-registration requests table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS employee_requests (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            emp_id VARCHAR(100) NOT NULL,
+            email VARCHAR(150) NULL,
+            phone VARCHAR(20) NULL,
+            gender ENUM('Male', 'Female', 'Other') NULL,
+            dob DATE NULL,
+            address TEXT NULL,
+            company_id INT NOT NULL,
+            status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+            rejection_reason TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            approved_at TIMESTAMP NULL,
+            INDEX idx_er_company_status (company_id, status),
+            CONSTRAINT fk_employee_requests_company FOREIGN KEY (company_id)
+                REFERENCES companies(id) ON DELETE CASCADE
+        )
         """
     )
 

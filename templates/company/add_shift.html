@@ -3,334 +3,322 @@
 {% block title %}Add Shift{% endblock %}
 
 {% block content %}
-<div class="panel form-panel">
-    <h2><i class="bi bi-clock-history me-2"></i>Add Shift</h2>
-    <p>Create a shift schedule for your company.</p>
+<div class="panel">
+    <div class="panel-header" style="margin-bottom: 24px;">
+        <div>
+            <h2><i class="bi bi-clock me-2"></i>Add Shift</h2>
+            <p style="color: var(--muted); margin: 4px 0 0;">Create a shift schedule for your company.</p>
+        </div>
+    </div>
 
-    <form method="POST" class="shift-form">
+    <form method="POST" action="{{ url_for('company.add_shift') }}" style="max-width: 800px;">
+        <!-- Shift Information Section -->
         <div class="form-section">
             <div class="section-header">
-                <h4><i class="bi bi-clock me-2"></i>Shift Information</h4>
-                <p class="section-desc">Define shift name and working hours.</p>
+                <i class="bi bi-info-circle"></i>
+                <h5>Shift Information</h5>
             </div>
-            
+            <p class="section-desc">Define shift name, department, and working hours.</p>
+
             <div class="form-row">
-                <div class="form-group full-width">
+                <div class="form-group">
+                    <label for="department_id">Department <span class="required">*</span></label>
+                    <select id="department_id" name="department_id" required>
+                        <option value="">Select Department</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="shift_name">Shift Name <span class="required">*</span></label>
-                    <input type="text" id="shift_name" name="shift_name" 
-                              placeholder="Enter shift name" 
-                           value="{{ request.form.get('shift_name', '') }}" required>
-                </div>
-            </div>
-            
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="start_time">Start Time <span class="required">*</span></label>
-                    <input type="time" id="start_time" name="start_time" 
-                           value="{{ request.form.get('start_time', '') }}" required>
-                </div>
-                <div class="form-group">
-                    <label for="end_time">End Time <span class="required">*</span></label>
-                    <input type="time" id="end_time" name="end_time" 
-                           value="{{ request.form.get('end_time', '') }}" required>
+                    <input type="text" id="shift_name" name="shift_name" placeholder="e.g., Morning Shift" required>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="grace_time">Late Grace Period (minutes)</label>
-                    <input type="number" id="grace_time" name="grace_time" min="0" max="120"
-                           value="{{ request.form.get('grace_time', '10') }}" placeholder="e.g. 10">
+                    <label for="in_start">IN Start Time <span class="required">*</span></label>
+                    <input type="time" id="in_start" name="in_start" required>
+                    <small class="help-text">Earliest time employee can check-in</small>
                 </div>
                 <div class="form-group">
-                    <label for="full_day_hours">Full Day Hours</label>
-                    <input type="number" id="full_day_hours" name="full_day_hours" min="1" max="24" step="0.5"
-                           value="{{ request.form.get('full_day_hours', '8') }}" placeholder="e.g. 8">
+                    <label for="in_end">IN End Time <span class="required">*</span></label>
+                    <input type="time" id="in_end" name="in_end" required>
+                    <small class="help-text">Latest time employee can check-in</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="out_start">OUT Start Time <span class="required">*</span></label>
+                    <input type="time" id="out_start" name="out_start" required>
+                    <small class="help-text">Earliest time employee can check-out</small>
+                </div>
+                <div class="form-group">
+                    <label for="out_end">OUT End Time <span class="required">*</span></label>
+                    <input type="time" id="out_end" name="out_end" required>
+                    <small class="help-text">Latest time employee can check-out</small>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
                     <label for="half_day_hours">Half Day Hours</label>
-                    <input type="number" id="half_day_hours" name="half_day_hours" min="1" max="24" step="0.5"
-                           value="{{ request.form.get('half_day_hours', '4') }}" placeholder="e.g. 4">
+                    <input type="number" id="half_day_hours" name="half_day_hours" min="1" max="24" step="0.5" value="4">
                 </div>
-                <div class="form-group"></div>
+                <div class="form-group">
+                    <label for="full_day_hours">Full Day Hours</label>
+                    <input type="number" id="full_day_hours" name="full_day_hours" min="1" max="24" step="0.5" value="8">
+                </div>
             </div>
-            
-            <div class="shift-preview">
-                <h5><i class="bi bi-eye me-2"></i>Shift Preview</h5>
-                <div class="preview-content">
-                    <div class="preview-item">
-                        <span class="preview-label">Shift Name:</span>
-                        <span class="preview-value" id="preview-name">-</span>
-                    </div>
-                    <div class="preview-item">
-                        <span class="preview-label">Duration:</span>
-                        <span class="preview-value" id="preview-duration">-</span>
-                    </div>
-                    <div class="preview-item">
-                        <span class="preview-label">Schedule:</span>
-                        <span class="preview-value" id="preview-schedule">-</span>
-                    </div>
-                    <div class="preview-item">
-                        <span class="preview-label">Late after:</span>
-                        <span class="preview-value" id="preview-grace">-</span>
-                    </div>
-                    <div class="preview-item">
-                        <span class="preview-label">Half Day / Full Day:</span>
-                        <span class="preview-value" id="preview-hours">-</span>
-                    </div>
+        </div>
+
+        <!-- Shift Preview Section -->
+        <div class="form-section" id="shiftPreview">
+            <div class="section-header">
+                <i class="bi bi-eye"></i>
+                <h5>Shift Preview</h5>
+            </div>
+            <p class="section-desc">Preview of shift timings based on your inputs.</p>
+
+            <div class="preview-grid">
+                <div class="preview-item">
+                    <span class="preview-label">Department:</span>
+                    <span class="preview-value" id="preview_dept">-</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Shift Name:</span>
+                    <span class="preview-value" id="preview_name">-</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">IN Window:</span>
+                    <span class="preview-value" id="preview_in_window">-</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">OUT Window:</span>
+                    <span class="preview-value" id="preview_out_window">-</span>
                 </div>
             </div>
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-2"></i>Add Shift
-            </button>
             <a href="{{ url_for('company.view_shifts') }}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-2"></i>Cancel
+                <i class="bi bi-x-circle me-2"></i>Cancel
             </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle me-2"></i>Create Shift
+            </button>
         </div>
     </form>
 </div>
 
 <style>
-.shift-form {
-    width: 100%;
-    max-width: none;
-}
-
 .form-section {
-    background: #ffffff;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 20px;
-    margin-bottom: 18px;
-    backdrop-filter: blur(8px);
+    margin-bottom: 20px;
 }
 
 .section-header {
-    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
     padding-bottom: 10px;
     border-bottom: 1px solid var(--border);
 }
 
-.section-header h4 {
-    margin: 0 0 4px 0;
-    color: #000;
+.section-header i {
+    font-size: 1.1rem;
+    color: var(--primary);
+}
+
+.section-header h5 {
+    margin: 0;
     font-size: 1rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
+    font-weight: 600;
+    color: var(--text);
 }
 
 .section-desc {
-    margin: 0;
     color: var(--muted);
-    font-size: 0.86rem;
+    font-size: 0.9rem;
+    margin: 0 0 16px 0;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.required {
+    color: #ef4444;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.95rem;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.help-text {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 4px;
 }
 
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
-    margin-bottom: 14px;
 }
 
-.form-group {
-    display: flex;
-    flex-direction: column;
-}
-
-.form-group.full-width {
-    grid-column: 1 / -1;
-}
-
-.form-group label {
-    margin-bottom: 6px;
-    color: #000;
-    font-weight: 700;
-    font-size: 0.92rem;
-}
-
-.required {
-    color: #ff6b6b;
-}
-
-.form-group input {
-    padding: 11px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: #ffffff;
-    color: #6c757d;
-    font-size: 0.92rem;
-    transition: all 0.3s ease;
-}
-
-.form-group input::placeholder {
-    color: #6c757d;
-    opacity: 1;
-}
-
-.form-group input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
-    background: #ffffff;
-}
-
-.shift-preview {
-    margin-top: 18px;
-    padding: 14px;
-    background: #f8fbff;
-    border: 1px solid rgba(13, 110, 253, 0.15);
-    border-radius: 10px;
-}
-
-.shift-preview h5 {
-    margin: 0 0 12px 0;
-    color: #174ea6;
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-}
-
-.preview-content {
+.preview-grid {
     display: grid;
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
 }
 
 .preview-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
 }
 
 .preview-label {
+    display: block;
+    font-size: 0.8rem;
     color: var(--muted);
-    font-size: 0.85rem;
+    margin-bottom: 4px;
+    font-weight: 600;
 }
 
 .preview-value {
+    display: block;
+    font-size: 0.95rem;
     color: var(--text);
-    font-weight: 500;
-    font-size: 0.9rem;
+    font-weight: 600;
 }
 
 .form-actions {
     display: flex;
-    gap: 14px;
-    justify-content: flex-start;
-    margin-top: 20px;
-    padding-top: 14px;
-    border-top: 1px solid var(--border);
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+}
+
+.btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    border: none;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary), var(--primary-2));
-    padding: 10px 16px;
-    font-weight: 600;
+    background: var(--primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
 }
 
 .btn-secondary {
-    background: #ffffff;
-    border: 1px solid var(--border);
+    background: var(--surface);
     color: var(--text);
-    padding: 10px 16px;
-    text-decoration: none;
-    border-radius: 10px;
-    transition: all 0.3s ease;
-    display: inline-flex;
-    align-items: center;
+    border: 1px solid var(--border);
 }
 
 .btn-secondary:hover {
-    background: rgba(13, 110, 253, 0.08);
-    color: var(--text);
-    text-decoration: none;
+    background: var(--hover);
     border-color: var(--primary);
 }
 
 @media (max-width: 768px) {
     .form-row {
         grid-template-columns: 1fr;
-        gap: 12px;
+    }
+    
+    .preview-grid {
+        grid-template-columns: 1fr;
     }
     
     .form-actions {
-        flex-direction: column;
+        flex-direction: column-reverse;
+    }
+    
+    .btn {
+        width: 100%;
+        justify-content: center;
     }
 }
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const shiftNameInput = document.getElementById('shift_name');
-    const startTimeInput = document.getElementById('start_time');
-    const endTimeInput = document.getElementById('end_time');
-    
-    const previewName = document.getElementById('preview-name');
-    const previewDuration = document.getElementById('preview-duration');
-    const previewSchedule = document.getElementById('preview-schedule');
-    
-    function updatePreview() {
-        previewName.textContent = shiftNameInput.value || '-';
-        
-        if (startTimeInput.value && endTimeInput.value) {
-            const startTime = new Date(`2000-01-01T${startTimeInput.value}`);
-            const endTime = new Date(`2000-01-01T${endTimeInput.value}`);
-            if (endTime < startTime) endTime.setDate(endTime.getDate() + 1);
-            const duration = (endTime - startTime) / (1000 * 60 * 60);
-            previewSchedule.textContent = `${formatTime(startTimeInput.value)} - ${formatTime(endTimeInput.value)}`;
-            previewDuration.textContent = `${duration} hrs`;
-        } else {
-            previewSchedule.textContent = '-';
-            previewDuration.textContent = '-';
-        }
+function formatTime(timeStr) {
+    if (!timeStr) return '-';
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHour = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+    return `${String(displayHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`;
+}
 
-        const grace = document.getElementById('grace_time').value;
-        const half = document.getElementById('half_day_hours').value;
-        const full = document.getElementById('full_day_hours').value;
-        document.getElementById('preview-grace').textContent = grace ? `${grace} min after start` : '-';
-        document.getElementById('preview-hours').textContent = (half && full) ? `${half} hrs / ${full} hrs` : '-';
-    }
-    
-    function formatTime(timeString) {
-        if (!timeString) return '';
-        const [hours, minutes] = timeString.split(':');
-        const hour = parseInt(hours);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour % 12 || 12;
-        return `${displayHour}:${minutes} ${ampm}`;
-    }
-    
-    shiftNameInput.addEventListener('input', updatePreview);
-    startTimeInput.addEventListener('change', updatePreview);
-    endTimeInput.addEventListener('change', updatePreview);
-    document.getElementById('grace_time').addEventListener('input', updatePreview);
-    document.getElementById('half_day_hours').addEventListener('input', updatePreview);
-    document.getElementById('full_day_hours').addEventListener('input', updatePreview);
-    
-    // Initial preview update
-    updatePreview();
-    
-    // Preset shift suggestions
-    const presetShifts = {
-        'Morning Shift': { start: '09:00', end: '17:00' },
-        'Evening Shift': { start: '14:00', end: '22:00' },
-        'Night Shift': { start: '22:00', end: '06:00' }
-    };
-    
-    shiftNameInput.addEventListener('blur', function() {
-        const shiftName = this.value;
-        if (presetShifts[shiftName] && !startTimeInput.value && !endTimeInput.value) {
-            startTimeInput.value = presetShifts[shiftName].start;
-            endTimeInput.value = presetShifts[shiftName].end;
-            updatePreview();
-        }
-    });
-});
+function updatePreview() {
+    const deptSelect = document.getElementById('department_id');
+    const deptText = deptSelect.options[deptSelect.selectedIndex]?.text || '-';
+    const shiftName = document.getElementById('shift_name').value || '-';
+    const inStart = document.getElementById('in_start').value;
+    const inEnd = document.getElementById('in_end').value;
+    const outStart = document.getElementById('out_start').value;
+    const outEnd = document.getElementById('out_end').value;
+
+    document.getElementById('preview_dept').textContent = deptText;
+    document.getElementById('preview_name').textContent = shiftName;
+    document.getElementById('preview_in_window').textContent = 
+        inStart && inEnd ? `${formatTime(inStart)} → ${formatTime(inEnd)}` : '-';
+    document.getElementById('preview_out_window').textContent = 
+        outStart && outEnd ? `${formatTime(outStart)} → ${formatTime(outEnd)}` : '-';
+}
+
+document.getElementById('department_id').addEventListener('change', updatePreview);
+document.getElementById('shift_name').addEventListener('input', updatePreview);
+document.getElementById('in_start').addEventListener('input', updatePreview);
+document.getElementById('in_end').addEventListener('input', updatePreview);
+document.getElementById('out_start').addEventListener('input', updatePreview);
+document.getElementById('out_end').addEventListener('input', updatePreview);
+
+updatePreview();
 </script>
 {% endblock %}

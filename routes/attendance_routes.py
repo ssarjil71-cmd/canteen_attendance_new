@@ -527,10 +527,11 @@ def auto_mark_attendance():
         except Exception as img_error:
             current_app.logger.error(f"Error saving attendance image: {img_error}")
 
-        # Fetch employee's shift details
+        # Fetch employee's shift details (AttendX-style IN/OUT windows)
         cursor.execute(
             """
             SELECT e.shift,
+                   s.in_start, s.in_end, s.out_start, s.out_end_time,
                    s.start_time, s.end_time, s.grace_time,
                    s.half_day_hours, s.full_day_hours
             FROM employees e
@@ -545,12 +546,125 @@ def auto_mark_attendance():
         grace_minutes = int(emp_shift['grace_time']) if emp_shift and emp_shift.get('grace_time') is not None else 10
         half_day_hours = float(emp_shift['half_day_hours']) if emp_shift and emp_shift.get('half_day_hours') is not None else 4.0
         full_day_hours = float(emp_shift['full_day_hours']) if emp_shift and emp_shift.get('full_day_hours') is not None else 8.0
-        shift_start = emp_shift['start_time'] if emp_shift and emp_shift.get('start_time') is not None else None
+        
+        # AttendX-style IN/OUT windows
+        in_start = emp_shift['in_start'] if emp_shift and emp_shift.get('in_start') is not None else None
+        in_end = emp_shift['in_end'] if emp_shift and emp_shift.get('in_end') is not None else None
+        out_start = emp_shift['out_start'] if emp_shift and emp_shift.get('out_start') is not None else None
+        out_end = emp_shift['out_end_time'] if emp_shift and emp_shift.get('out_end_time') is not None else None
 
-        # Normalise shift_start to a datetime.time object
-        if shift_start is not None and hasattr(shift_start, 'total_seconds'):
-            total_sec = int(shift_start.total_seconds())
-            shift_start = time(total_sec // 3600, (total_sec % 3600) // 60)
+        # Fallback to old fields if new ones not set
+        shift_start = emp_shift['start_time'] if emp_shift and emp_shift.get('start_time') is not None else None
+        shift_end   = emp_shift['end_time']   if emp_shift and emp_shift.get('end_time')   is not None else None
+
+        # Normalise all time fields (MySQL returns timedelta for TIME columns)
+        def normalize_time(t):
+            if t is None:
+                return None
+            if hasattr(t, 'total_seconds'):
+                total_sec = int(t.total_seconds())
+                return time(total_sec // 3600, (total_sec % 3600) // 60)
+            return t
+
+        in_start = normalize_time(in_start)
+        in_end = normalize_time(in_end)
+        out_start = normalize_time(out_start)
+        out_end = normalize_time(out_end)
+        shift_start = normalize_time(shift_start)
+        shift_end = normalize_time(shift_end)
+
+        # ── AttendX-style shift time-window enforcement ──────────────────
+        # Check for existing IN record today
+        cursor.execute(
+            """
+            SELECT id, check_in_time, check_out_time, status
+            FROM attendance
+            WHERE employee_id = %s AND company_id = %s AND date = %s
+            ORDER BY id DESC LIMIT 1
+            """,
+            (employee_id, company_id, today),
+        )
+        existing = cursor.fetchone()
+
+        # Determine if this is a check-in or check-out attempt
+        is_checkin = (existing is None or existing['check_in_time'] is None)
+        is_checkout = (existing is not None and existing['check_in_time'] is not None and existing['check_out_time'] is None)
+
+        # Validate IN window (if checking in)
+        if is_checkin and in_start and in_end:
+            now_time = now.time().replace(second=0, microsecond=0)
+            in_start_dt = datetime.combine(today, in_start)
+            in_end_dt = datetime.combine(today, in_end)
+
+            if now < in_start_dt:
+                cursor.close()
+                connection.close()
+                minutes_left = int((in_start_dt - now).total_seconds() // 60)
+                return jsonify({
+                    'success': False,
+                    'shift_error': True,
+                    'message': f'Too early. Check-in starts at {in_start.strftime("%I:%M %p")}. Please wait {minutes_left} more minute(s).',
+                }), 403
+
+            if now > in_end_dt:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'success': False,
+                    'shift_error': True,
+                    'message': f'IN time expired. Check-in window closed at {in_end.strftime("%I:%M %p")}.',
+                }), 403
+
+        # Validate OUT window (if checking out)
+        if is_checkout and out_start and out_end:
+            now_time = now.time().replace(second=0, microsecond=0)
+            out_start_dt = datetime.combine(today, out_start)
+            out_end_dt = datetime.combine(today, out_end)
+
+            if now < out_start_dt:
+                cursor.close()
+                connection.close()
+                minutes_left = int((out_start_dt - now).total_seconds() // 60)
+                return jsonify({
+                    'success': False,
+                    'shift_error': True,
+                    'message': f'Cannot check-out yet. Check-out starts at {out_start.strftime("%I:%M %p")}. Please wait {minutes_left} more minute(s).',
+                }), 403
+
+            if now > out_end_dt:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'success': False,
+                    'shift_error': True,
+                    'message': f'OUT time expired. Check-out window closed at {out_end.strftime("%I:%M %p")}.',
+                }), 403
+
+        # Fallback to old shift_start/shift_end validation if new fields not set
+        if not in_start and shift_start and shift_end:
+            now_time = now.time().replace(second=0, microsecond=0)
+            shift_start_dt = datetime.combine(today, shift_start)
+            shift_end_dt   = datetime.combine(today, shift_end)
+            grace_deadline = shift_start_dt + timedelta(minutes=grace_minutes)
+
+            if now < shift_start_dt:
+                cursor.close()
+                connection.close()
+                minutes_left = int((shift_start_dt - now).total_seconds() // 60)
+                return jsonify({
+                    'success': False,
+                    'shift_error': True,
+                    'message': f'Too early. Your shift starts at {shift_start.strftime("%I:%M %p")}. Please wait {minutes_left} more minute(s).',
+                }), 403
+
+            if now > shift_end_dt:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'success': False,
+                    'shift_error': True,
+                    'message': f'Shift ended. Attendance cannot be marked after {shift_end.strftime("%I:%M %p")}.',
+                }), 403
 
         # Check for existing IN record today
         cursor.execute(
@@ -566,13 +680,16 @@ def auto_mark_attendance():
 
         if existing is None:
             # ── FIRST SCAN → mark IN ──────────────────────────────────────
-            # Determine late status
+            # Determine late status (if checked in after in_end or after grace_deadline)
             initial_status = 'present'
-            if shift_start:
-                grace_deadline = (
-                    datetime.combine(today, shift_start) +
-                    timedelta(minutes=grace_minutes)
-                )
+            if in_end:
+                # AttendX-style: late if checked in after in_end
+                in_end_dt = datetime.combine(today, in_end)
+                if now > in_end_dt:
+                    initial_status = 'late'
+            elif shift_start:
+                # Fallback: late if checked in after grace_deadline
+                grace_deadline = datetime.combine(today, shift_start) + timedelta(minutes=grace_minutes)
                 if now > grace_deadline:
                     initial_status = 'late'
 
