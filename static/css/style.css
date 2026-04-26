@@ -1311,87 +1311,105 @@ th {
     }
 }
 
-.action-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+/* ── View Companies table ─────────────────────────────────── */
+.view-companies-table-wrap {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
 }
 
-.action-row form {
-    margin: 0;
-}
-
-.action-row .btn-open-company {
-    background: linear-gradient(135deg, var(--primary), var(--primary-2));
-    color: #fff;
-}
-
-.action-row .btn-open-company:hover {
-    box-shadow: 0 8px 20px rgba(13, 110, 253, 0.25);
-}
-
-.action-row .btn-edit-company {
-    background: linear-gradient(135deg, var(--muted), var(--text));
-    color: #fff;
-}
-
-.action-row .btn-edit-company:hover {
-    box-shadow: 0 8px 20px rgba(33, 37, 41, 0.22);
-}
-
-.action-row .btn-delete-company {
-    background: var(--error);
-    color: #fff;
-}
-
-.action-row .btn-delete-company:hover {
-    box-shadow: 0 8px 20px rgba(220, 53, 69, 0.28);
+.companies-table {
+    table-layout: auto;
+    width: 100%;
+    min-width: 1050px;
+    border-collapse: collapse;
 }
 
 .companies-table th,
 .companies-table td {
     vertical-align: middle;
-    padding: 12px 10px;
-}
-
-.companies-table td:nth-child(4) {
+    padding: 10px 12px;
     white-space: nowrap;
 }
 
-.companies-table {
-    table-layout: fixed;
+/* Sr No */
+.companies-table th:nth-child(1),
+.companies-table td:nth-child(1) {
+    width: 52px;
+    text-align: center;
 }
 
-.companies-table td:nth-child(1),
+/* Company Name */
+.companies-table th:nth-child(2),
 .companies-table td:nth-child(2) {
+    min-width: 130px;
+    max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-weight: 600;
 }
 
-.companies-table .action-row {
-    justify-content: flex-start;
-    flex-wrap: nowrap;
-    gap: 6px;
+/* Type */
+.companies-table th:nth-child(3),
+.companies-table td:nth-child(3) {
+    min-width: 70px;
 }
 
-.companies-table .action-row .btn {
-    min-width: 0;
-    padding: 7px 11px;
-    font-size: 0.84rem;
-    border-radius: 9px;
-    white-space: nowrap;
-    line-height: 1.15;
+/* Email */
+.companies-table th:nth-child(4),
+.companies-table td:nth-child(4) {
+    min-width: 160px;
+    font-size: 0.85rem;
 }
 
-.view-companies-table-wrap {
-    overflow-x: auto;
-    overflow-y: visible;
+/* Modules — allow wrapping, constrain width */
+.companies-table th:nth-child(5),
+.companies-table td:nth-child(5) {
+    min-width: 140px;
+    max-width: 200px;
+    white-space: normal;
 }
 
-.view-companies-table-wrap .companies-table {
-    min-width: 980px;
+/* Plan, Start, End, Days Left */
+.companies-table th:nth-child(6),
+.companies-table td:nth-child(6),
+.companies-table th:nth-child(7),
+.companies-table td:nth-child(7),
+.companies-table th:nth-child(8),
+.companies-table td:nth-child(8),
+.companies-table th:nth-child(9),
+.companies-table td:nth-child(9) {
+    min-width: 80px;
+    text-align: center;
 }
 
+/* Actions column */
+.companies-table th:nth-child(10),
+.companies-table td:nth-child(10) {
+    min-width: 160px;
+    width: 160px;
+}
+
+/* Sticky actions column */
+.view-companies-table-wrap .companies-table th:last-child,
+.view-companies-table-wrap .companies-table td:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    background: #ffffff;
+}
+
+.view-companies-table-wrap .companies-table th:last-child {
+    background: #eef3fb;
+    z-index: 6;
+    box-shadow: -6px 0 10px -8px rgba(0, 0, 0, 0.25);
+}
+
+.view-companies-table-wrap .companies-table td:last-child {
+    box-shadow: -6px 0 10px -8px rgba(0, 0, 0, 0.15);
+}
+
+/* Sticky header */
 .view-companies-table-wrap .companies-table thead th {
     position: sticky;
     top: 0;
@@ -1405,31 +1423,70 @@ th {
     box-shadow: 0 6px 12px -10px rgba(0, 0, 0, 0.45);
 }
 
-.view-companies-table-wrap .companies-table th:last-child,
-.view-companies-table-wrap .companies-table td:last-child {
-    position: sticky;
-    right: 0;
-    z-index: 2;
-    background: #ffffff;
+/* Module badges */
+.module-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: #e0e7ff;
+    color: #3730a3;
+    margin: 2px 2px 2px 0;
+    white-space: nowrap;
 }
 
-.view-companies-table-wrap .companies-table th:last-child {
-    background: #eef3fb;
+.module-badge.badge-attendance { background: #dbeafe; color: #1e40af; }
+.module-badge.badge-canteen    { background: #dcfce7; color: #166534; }
+.module-badge.badge-salary     { background: #fef9c3; color: #854d0e; }
+
+/* Action buttons row */
+.action-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 5px;
 }
 
-.view-companies-table-wrap .companies-table th:last-child {
-    z-index: 6;
-    box-shadow: -8px 0 10px -10px rgba(0, 0, 0, 0.35);
+.action-row form {
+    margin: 0;
+    display: flex;
 }
 
-.view-companies-table-wrap.is-scrolled .companies-table th:last-child {
-    box-shadow:
-        -8px 0 10px -10px rgba(0, 0, 0, 0.35),
-        0 6px 12px -10px rgba(0, 0, 0, 0.45);
+.action-row .btn-open-company {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    color: #fff;
 }
 
-.view-companies-table-wrap .companies-table td:last-child {
-    box-shadow: -8px 0 10px -10px rgba(0, 0, 0, 0.2);
+.action-row .btn-open-company:hover {
+    box-shadow: 0 6px 16px rgba(13, 110, 253, 0.28);
+}
+
+.action-row .btn-edit-company {
+    background: linear-gradient(135deg, #6b7280, #374151);
+    color: #fff;
+}
+
+.action-row .btn-edit-company:hover {
+    box-shadow: 0 6px 16px rgba(55, 65, 81, 0.25);
+}
+
+.action-row .btn-delete-company {
+    background: var(--error);
+    color: #fff;
+}
+
+.action-row .btn-delete-company:hover {
+    box-shadow: 0 6px 16px rgba(220, 53, 69, 0.28);
+}
+
+.companies-table .action-row .btn {
+    padding: 5px 10px;
+    font-size: 0.78rem;
+    border-radius: 7px;
+    white-space: nowrap;
+    line-height: 1.3;
+    min-width: 0;
 }
 
 .checkbox-group {

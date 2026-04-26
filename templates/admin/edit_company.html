@@ -124,6 +124,62 @@
 			</div>
 		</div>
 
+		<!-- Subscription Plan Section -->
+		<div class="col-12">
+			<div class="location-section mt-2 mb-1 p-3 border rounded bg-light">
+				<h5 class="mb-3">Subscription Plan</h5>
+				{% if company.subscription_end %}
+				{% set today = today_date %}
+				{% set days_left = (company.subscription_end - today).days %}
+				<div class="mb-3 p-2 rounded" style="background:{{ '#fef2f2' if days_left < 0 else '#fff7ed' if days_left <= 3 else '#f0fdf4' }};border:1px solid {{ '#fecaca' if days_left < 0 else '#fed7aa' if days_left <= 3 else '#bbf7d0' }};">
+					<strong>Current:</strong> {{ company.subscription_plan or '-' }} &nbsp;|&nbsp;
+					<strong>Ends:</strong> {{ company.subscription_end.strftime('%d %b %Y') }} &nbsp;|&nbsp;
+					<strong>Status:</strong>
+					{% if days_left < 0 %}
+						<span style="color:#ef4444;font-weight:700;">Expired</span>
+					{% elif days_left <= 3 %}
+						<span style="color:#f97316;font-weight:700;">⚠ {{ days_left }} day(s) left</span>
+					{% else %}
+						<span style="color:#22c55e;font-weight:700;">{{ days_left }} days left</span>
+					{% endif %}
+				</div>
+				{% endif %}
+				<div class="row g-3">
+					<div class="col-12 col-md-4">
+						<label class="form-label">Plan</label>
+						<select name="subscription_plan" id="edit_subscription_plan" class="form-control" onchange="toggleEditCustomPlan(this.value)">
+							{% for plan in subscription_plans %}
+							<option value="{{ plan.plan_name }}" {{ 'selected' if company.subscription_plan == plan.plan_name }}>
+								{{ plan.plan_name }} ({{ plan.duration_days }} days)
+							</option>
+							{% endfor %}
+							<option value="Custom" {{ 'selected' if company.subscription_plan == 'Custom' }}>Custom (pick dates)</option>
+						</select>
+					</div>
+					<div class="col-12 col-md-4">
+						<label class="form-label">Renew Action</label>
+						<select name="renew_action" id="edit_renew_action" class="form-control" onchange="toggleEditCustomPlan(document.getElementById('edit_subscription_plan').value)">
+							<option value="">No change</option>
+							<option value="reset">Reset from today</option>
+							<option value="extend">Extend from current end</option>
+						</select>
+					</div>
+				</div>
+				<div id="edit_custom_plan_wrapper" style="display:{{ 'flex' if company.subscription_plan == 'Custom' else 'none' }};" class="row g-3 mt-1">
+					<div class="col-12 col-md-6">
+						<label class="form-label">Start Date</label>
+						<input type="date" name="custom_start" id="edit_custom_start" class="form-control"
+							value="{{ company.subscription_start.strftime('%Y-%m-%d') if company.subscription_start else '' }}">
+					</div>
+					<div class="col-12 col-md-6">
+						<label class="form-label">End Date</label>
+						<input type="date" name="custom_end" id="edit_custom_end" class="form-control"
+							value="{{ company.subscription_end.strftime('%Y-%m-%d') if company.subscription_end else '' }}">
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<div class="col-12 mt-2 d-grid save-company-row">
 			<button class="btn save-company-btn" type="submit">Update Company</button>
 		</div>
@@ -206,6 +262,14 @@
 			});
 		} else {
 			alert('Geolocation is not supported by this browser.');
+		}
+	}
+
+	function toggleEditCustomPlan(val) {
+		const wrapper = document.getElementById('edit_custom_plan_wrapper');
+		wrapper.style.display = val === 'Custom' ? 'flex' : 'none';
+		if (val === 'Custom' && !document.getElementById('edit_custom_start').value) {
+			document.getElementById('edit_custom_start').value = new Date().toISOString().split('T')[0];
 		}
 	}
 	</script>

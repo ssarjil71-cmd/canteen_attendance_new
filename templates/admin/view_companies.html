@@ -9,14 +9,6 @@
 
 	<div class="table-card view-companies-table-wrap">
 		<table class="companies-table">
-			<colgroup>
-				<col style="width: 7%;">
-				<col style="width: 22%;">
-				<col style="width: 16%;">
-				<col style="width: 21%;">
-				<col style="width: 14%;">
-				<col style="width: 20%;">
-			</colgroup>
 			<thead>
 				<tr>
 					<th>Sr No</th>
@@ -24,28 +16,55 @@
 					<th>Type</th>
 					<th>Email</th>
 					<th>Modules</th>
+					<th>Plan</th>
+					<th>Start</th>
+					<th>End</th>
+					<th>Days Left</th>
 					<th>Actions</th>
 				</tr>
 			</thead>
 			<tbody>
 				{% for company in companies %}
-				<tr>
+				<tr style="{% if company._sub_status == 'Expired' %}background:rgba(239,68,68,0.04);{% endif %}">
 					<td>{{ loop.index }}</td>
-					<td>{{ company.company_name }}</td>
+					<td style="font-weight:600;">{{ company.company_name }}</td>
 					<td>{{ company.company_type_name or '-' }}</td>
-					<td>{{ company.email }}</td>
+					<td style="font-size:0.85rem;">{{ company.email }}</td>
 					<td>
-						{% set modules = [] %}
-						{% if company.attendance_module_enabled %}{% set _ = modules.append('Attendance') %}{% endif %}
-						{% if company.canteen_module_enabled %}{% set _ = modules.append('Canteen') %}{% endif %}
-						{% if company.salary_slip_module_enabled %}{% set _ = modules.append('Salary Slip') %}{% endif %}
-						{{ modules|join(', ') if modules else '-' }}
+						{% if company.attendance_module_enabled %}<span class="module-badge badge-attendance">Attendance</span>{% endif %}
+						{% if company.canteen_module_enabled %}<span class="module-badge badge-canteen">Canteen</span>{% endif %}
+						{% if company.salary_slip_module_enabled %}<span class="module-badge badge-salary">Salary Slip</span>{% endif %}
+						{% if not company.attendance_module_enabled and not company.canteen_module_enabled and not company.salary_slip_module_enabled %}<span style="color:var(--muted);">-</span>{% endif %}
+					</td>
+					<td>
+						{% if company.subscription_plan %}
+						{% set pc = {'Trial':'#854d0e','Basic':'#1e40af','Premium':'#166534','Custom':'#6b21a8'} %}
+						{% set pb = {'Trial':'#fef9c3','Basic':'#dbeafe','Premium':'#dcfce7','Custom':'#f3e8ff'} %}
+						<span style="padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;
+							background:{{ pb.get(company.subscription_plan, '#f3f4f6') }};
+							color:{{ pc.get(company.subscription_plan, '#374151') }};">
+							{{ company.subscription_plan }}
+						</span>
+						{% else %}<span style="color:var(--muted);font-size:0.82rem;">-</span>{% endif %}
+					</td>
+					<td style="font-size:0.85rem;white-space:nowrap;">{{ company._start_fmt or '-' }}</td>
+					<td style="font-size:0.85rem;white-space:nowrap;">{{ company._end_fmt or '-' }}</td>
+					<td style="font-size:0.85rem;font-weight:700;white-space:nowrap;">
+						{% if company._days_left is not none %}
+							{% if company._days_left < 0 %}
+								<span style="color:#ef4444;">Expired</span>
+							{% elif company._days_left <= 3 %}
+								<span style="color:#f97316;">⚠ {{ company._days_left }}d</span>
+							{% else %}
+								<span style="color:#22c55e;">{{ company._days_left }}d</span>
+							{% endif %}
+						{% else %}<span style="color:var(--muted);">-</span>{% endif %}
 					</td>
 					<td>
 						<div class="action-row">
 							<a href="/admin/company/{{ company.id }}" class="btn btn-small btn-open-company">Open</a>
 							<a href="/admin/company/{{ company.id }}/edit" class="btn btn-small btn-edit-company">Edit</a>
-							<form method="POST" action="/admin/company/{{ company.id }}/delete" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this company? This action cannot be undone.')">
+							<form method="POST" action="/admin/company/{{ company.id }}/delete" onsubmit="return confirm('Are you sure you want to delete this company? This action cannot be undone.')">
 								<button type="submit" class="btn btn-small btn-danger btn-delete-company">Delete</button>
 							</form>
 						</div>
@@ -53,7 +72,7 @@
 				</tr>
 				{% else %}
 				<tr>
-					<td colspan="6">No companies created yet.</td>
+					<td colspan="10">No companies created yet.</td>
 				</tr>
 				{% endfor %}
 			</tbody>
@@ -64,16 +83,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 	var tableWrap = document.querySelector('.view-companies-table-wrap');
-	if (!tableWrap) {
-		return;
-	}
-
-	var toggleScrolledState = function () {
+	if (!tableWrap) return;
+	tableWrap.addEventListener('scroll', function () {
 		tableWrap.classList.toggle('is-scrolled', tableWrap.scrollTop > 0);
-	};
-
-	tableWrap.addEventListener('scroll', toggleScrolledState, { passive: true });
-	toggleScrolledState();
+	}, { passive: true });
 });
 </script>
 {% endblock %}

@@ -53,7 +53,7 @@
             <div class="col-6 col-md-3">
                 <div class="summary-card">
                     <div class="summary-label">Today Rate</div>
-                    <div class="summary-value text-info">{{ "%.0f"|format((today_count / total_employees * 100) if total_employees > 0 else 0) }}%</div>
+                    <div class="summary-value text-info">{{ [((today_count / total_employees * 100) if total_employees > 0 else 0), 100]|min|round|int }}%</div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
@@ -67,16 +67,16 @@
         <div class="card mb-4">
             <div class="card-body py-3">
                 <h6 class="reports-filter-heading mb-3">Filters</h6>
-                <div class="row g-3 align-items-end">
-                    <div class="col-12 col-md-6 col-lg-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-6 col-md-2">
                         <label class="form-label small mb-1">From Date</label>
                         <input type="date" id="dateFrom" class="form-control form-control-sm" value="{{ filters.date_from }}">
                     </div>
-                    <div class="col-12 col-md-6 col-lg-3">
+                    <div class="col-6 col-md-2">
                         <label class="form-label small mb-1">To Date</label>
                         <input type="date" id="dateTo" class="form-control form-control-sm" value="{{ filters.date_to }}">
                     </div>
-                    <div class="col-12 col-md-6 col-lg-3">
+                    <div class="col-6 col-md-2">
                         <label class="form-label small mb-1">Employee ID</label>
                         <select id="employeeFilter" class="form-select form-select-sm">
                             <option value="">Select Employee</option>
@@ -87,11 +87,11 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-12 col-md-6 col-lg-3">
+                    <div class="col-6 col-md-2">
                         <label class="form-label small mb-1">Employee Name</label>
                         <input type="text" id="employeeNameFilter" class="form-control form-control-sm" placeholder="Search by name" value="{{ filters.employee_name }}">
                     </div>
-                    <div class="col-12 col-md-6 col-lg-3">
+                    <div class="col-6 col-md-2">
                         <label class="form-label small mb-1">Status</label>
                         <select id="statusFilter" class="form-select form-select-sm">
                             <option value="" {% if not filters.status %}selected{% endif %}>All</option>
@@ -100,11 +100,11 @@
                             <option value="late" {% if filters.status == 'late' %}selected{% endif %}>Late</option>
                         </select>
                     </div>
-                    <div class="col-12 d-flex justify-content-lg-end gap-2">
-                        <button class="btn btn-primary btn-sm reports-filter-btn" onclick="applyFilters()">
+                    <div class="col-6 col-md-2 d-flex gap-2">
+                        <button class="btn btn-primary btn-sm reports-filter-btn w-100" onclick="applyFilters()">
                             <i class="bi bi-funnel me-1"></i>Apply
                         </button>
-                        <button class="btn btn-outline-secondary btn-sm reports-filter-btn" onclick="clearFilters()">
+                        <button class="btn btn-outline-secondary btn-sm reports-filter-btn w-100" onclick="clearFilters()">
                             <i class="bi bi-x-circle me-1"></i>Clear
                         </button>
                     </div>
@@ -158,7 +158,6 @@
                                         <th>Check Out</th>
                                         <th>Status</th>
                                         <th>Meal Status</th>
-                                        <th>Meal Taken</th>
                                         <th>Meal Confirmed</th>
                                     </tr>
                                 </thead>
@@ -174,7 +173,6 @@
                                             </span>
                                         </td>
                                         <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_status == 'YES' else 'secondary' }}">{{ record.meal_status }}</span></td>
-                                        <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_taken == 'YES' else 'secondary' }}">{{ record.meal_taken }}</span></td>
                                         <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_confirmed == 'YES' else 'secondary' }}">{{ record.meal_confirmed }}</span></td>
                                     </tr>
                                     {% endfor %}

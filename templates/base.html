@@ -53,6 +53,10 @@
                 <i class="bi bi-buildings" style="margin-right: 12px;"></i>
                 View Companies
             </a>
+            <a href="/admin/subscription_plans" class="sidebar-link">
+                <i class="bi bi-card-checklist" style="margin-right: 12px;"></i>
+                Subscription Plans
+            </a>
         {% elif session.get('role') == 'company' %}
             {% set company_modules = session.get('company_modules', {}) %}
             {% set attendance_enabled = company_modules.get('attendance', session.get('attendance_module_enabled', False)) %}

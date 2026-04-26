@@ -1,12 +1,12 @@
 from functools import wraps
-from datetime import datetime, time
+from datetime import datetime, time, date
 import re
 
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for, send_file
 from werkzeug.security import generate_password_hash
 
 from database.db_connection import get_db_connection
-from module_access import has_module, module_required
+from module_access import has_module, module_required, subscription_required
 
 company = Blueprint("company", __name__, url_prefix="/company")
 
@@ -16,11 +16,36 @@ def company_required(function):
         if session.get("role") != "company":
             flash("Company access required.", "error")
             return redirect(url_for("auth.role_login", role="company"))
+        # Check subscription expiry on every protected request
+        from datetime import date
+        company_id = session.get("company_id")
+        if company_id:
+            if session.get("subscription_status") == "expired":
+                # Allow profile page through
+                if request.endpoint not in ("company.company_profile", "company.update_profile", "company.subscription_expired"):
+                    return redirect(url_for("company.subscription_expired"))
+            else:
+                from database.db_connection import get_db_connection as _gdb
+                conn = _gdb()
+                cur = conn.cursor(dictionary=True)
+                cur.execute("SELECT subscription_end FROM companies WHERE id = %s", (company_id,))
+                row = cur.fetchone() or {}
+                cur.close()
+                conn.close()
+                end_date = row.get("subscription_end")
+                if end_date:
+                    if hasattr(end_date, "date"):
+                        end_date = end_date.date()
+                    if date.today() > end_date:
+                        session["subscription_status"] = "expired"
+                        if request.endpoint not in ("company.company_profile", "company.update_profile", "company.subscription_expired"):
+                            return redirect(url_for("company.subscription_expired"))
         return function(*args, **kwargs)
     return wrapper
 
 @company.route("/attendance/qr")
 @company_required
+@subscription_required
 @module_required("attendance")
 def attendance_qr_page():
     import os
@@ -83,12 +108,42 @@ def company_dashboard():
 
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT company_name, logo FROM companies WHERE id = %s", (company_id,))
+    cursor.execute(
+        "SELECT company_name, logo, subscription_plan, subscription_start, subscription_end FROM companies WHERE id = %s",
+        (company_id,),
+    )
     company_info = cursor.fetchone() or {}
     cursor.close()
     connection.close()
 
-    return render_template("company/dashboard.html", dashboard_stats=dashboard_stats, company_info=company_info)
+    # Calculate subscription status
+    sub_info = {"plan": None, "end_fmt": None, "days_left": None, "status": "none"}
+    if company_info.get("subscription_plan") and company_info.get("subscription_end"):
+        from datetime import date
+        today = date.today()
+        end_date = company_info["subscription_end"]
+        if hasattr(end_date, "date"):
+            end_date = end_date.date()
+        days_left = (end_date - today).days
+        if days_left > 3:
+            status = "active"
+        elif days_left >= 0:
+            status = "expiring"
+        else:
+            status = "expired"
+        sub_info = {
+            "plan": company_info["subscription_plan"],
+            "end_fmt": end_date.strftime("%d %b %Y"),
+            "days_left": days_left,
+            "status": status,
+        }
+
+    return render_template(
+        "company/dashboard.html",
+        dashboard_stats=dashboard_stats,
+        company_info=company_info,
+        sub_info=sub_info,
+    )
 
 
 @company.route("/dashboard/stats")
@@ -96,6 +151,29 @@ def company_dashboard():
 def company_dashboard_stats():
     company_id = session.get("company_id")
     return jsonify(_get_company_dashboard_stats(company_id))
+
+
+@company.route("/subscription_expired")
+def subscription_expired():
+    """Shown when a company's subscription has expired."""
+    if session.get("role") != "company":
+        return redirect(url_for("auth.role_login", role="company"))
+    company_id = session.get("company_id")
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute(
+        "SELECT company_name, subscription_plan, subscription_end FROM companies WHERE id = %s",
+        (company_id,),
+    )
+    company_info = cursor.fetchone() or {}
+    cursor.close()
+    connection.close()
+    end_date = company_info.get("subscription_end")
+    if end_date and hasattr(end_date, "strftime"):
+        company_info["subscription_end_fmt"] = end_date.strftime("%d %b %Y")
+    else:
+        company_info["subscription_end_fmt"] = str(end_date) if end_date else "N/A"
+    return render_template("company/subscription_expired.html", company_info=company_info)
 
 
 def _get_company_dashboard_stats(company_id):
@@ -139,11 +217,18 @@ def _get_company_dashboard_stats(company_id):
     today = datetime.now().date()
     attendance_rows = []
     if attendance_enabled:
+        # Use latest record per employee to avoid double-counting across status changes
         cursor.execute(
             """
             SELECT status, COUNT(*) AS count
-            FROM attendance
-            WHERE company_id = %s AND date = %s
+            FROM (
+                SELECT employee_id,
+                       SUBSTRING_INDEX(GROUP_CONCAT(status ORDER BY id DESC), ',', 1) AS status
+                FROM attendance
+                WHERE company_id = %s AND date = %s
+                  AND check_in_time IS NOT NULL
+                GROUP BY employee_id
+            ) AS latest_per_employee
             GROUP BY status
             """,
             (company_id, today),
@@ -161,12 +246,13 @@ def _get_company_dashboard_stats(company_id):
 
     present_count = int(status_counts["present"])
     late_count = int(status_counts["late"])
-    explicit_absent_count = int(status_counts["absent"])
-    inferred_absent_count = max(total_employees - (present_count + late_count + explicit_absent_count), 0)
-    absent_count = explicit_absent_count + inferred_absent_count
+    # Absent = employees who have not checked in at all today
+    # (present + late are the only ones with check_in_time IS NOT NULL)
+    checked_in_unique = present_count + late_count
+    absent_count = max(total_employees - checked_in_unique, 0)
 
-    attendance_marked_count = present_count + late_count + explicit_absent_count
-    attendance_rate = round((attendance_marked_count / total_employees) * 100, 1) if total_employees else 0
+    # Rate = unique employees who checked in today / total employees, capped at 100%
+    attendance_rate = min(round((checked_in_unique / total_employees) * 100, 1), 100.0) if total_employees else 0
     manager_coverage = round((total_managers / total_employees) * 100, 1) if total_employees else 0
 
     return {
@@ -205,9 +291,8 @@ def _attendance_column_exists(connection, column_name):
 
 def _attendance_meal_select_clause(connection):
     meal_status_expr = "COALESCE(a.meal_status, 'NO') AS meal_status" if _attendance_column_exists(connection, "meal_status") else "'NO' AS meal_status"
-    meal_taken_expr = "COALESCE(a.meal_taken, 'NO') AS meal_taken" if _attendance_column_exists(connection, "meal_taken") else "'NO' AS meal_taken"
     meal_confirmed_expr = "COALESCE(a.meal_confirmed, 'NO') AS meal_confirmed" if _attendance_column_exists(connection, "meal_confirmed") else "'NO' AS meal_confirmed"
-    return meal_status_expr, meal_taken_expr, meal_confirmed_expr
+    return meal_status_expr, meal_confirmed_expr
 
 
 def _normalize_attendance_filters(args):
@@ -230,6 +315,7 @@ def _normalize_attendance_filters(args):
 # Attendance Reports Route
 @company.route("/attendance/reports")
 @company_required
+@subscription_required
 @module_required("attendance")
 def attendance_reports():
     company_id = session.get("company_id")
@@ -239,20 +325,17 @@ def attendance_reports():
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
-    meal_status_expr, meal_taken_expr, meal_confirmed_expr = _attendance_meal_select_clause(connection)
-
-    # Get total employees count
+    meal_status_expr, meal_confirmed_expr = _attendance_meal_select_clause(connection)
     cursor.execute("SELECT COUNT(*) as count FROM employees WHERE company_id = %s", (company_id,))
     total_employees = cursor.fetchone()['count']
 
-    # Get today's attendance count
-    from datetime import date
+    # Get today's unique present employees count (distinct to avoid duplicates)
     today = date.today()
-
     cursor.execute("""
-        SELECT COUNT(*) as count 
+        SELECT COUNT(DISTINCT employee_id) as count 
         FROM attendance 
         WHERE company_id = %s AND date = %s
+          AND check_in_time IS NOT NULL
     """, (company_id, today))
     today_count = cursor.fetchone()['count']
 
@@ -299,7 +382,7 @@ def attendance_reports():
         report_query = f"""
             SELECT a.employee_id, e.name as employee_name, a.date, a.check_in_time,
                    a.check_out_time, a.status,
-                   {meal_status_expr}, {meal_taken_expr}, {meal_confirmed_expr},
+                   {meal_status_expr}, {meal_confirmed_expr},
                    a.location_verified, a.face_verified
             FROM attendance a
             JOIN employees e ON a.employee_id = e.emp_id AND a.company_id = e.company_id
@@ -324,7 +407,7 @@ def attendance_reports():
         cursor.execute(report_query, report_params)
         recent_attendance = cursor.fetchall()
     else:
-        # Day-wise records — only from each employee's joining_date onward
+        # Day-wise records — one row per employee per day (latest record)
         from datetime import timedelta
         daywise_query = f"""
             SELECT a.date, a.employee_id, e.name AS employee_name,
@@ -336,6 +419,14 @@ def attendance_reports():
                AND a.company_id = e.company_id
             WHERE a.company_id = %s
               AND a.date >= COALESCE(e.joining_date, DATE(e.created_at), '2000-01-01')
+              AND a.id = (
+                  SELECT id FROM attendance a2
+                  WHERE a2.employee_id = a.employee_id
+                    AND a2.company_id = a.company_id
+                    AND a2.date = a.date
+                  ORDER BY a2.id DESC
+                  LIMIT 1
+              )
         """
         daywise_params = [company_id]
 
@@ -384,6 +475,7 @@ def attendance_reports():
 
 @company.route("/attendance/report/<employee_id>")
 @company_required
+@subscription_required
 @module_required("attendance")
 def attendance_employee_report(employee_id):
     company_id = session.get("company_id")
@@ -392,7 +484,7 @@ def attendance_employee_report(employee_id):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
-    meal_status_expr, meal_taken_expr, meal_confirmed_expr = _attendance_meal_select_clause(connection)
+    meal_status_expr, meal_confirmed_expr = _attendance_meal_select_clause(connection)
 
     cursor.execute(
         """
@@ -432,7 +524,7 @@ def attendance_employee_report(employee_id):
     query = f"""
         SELECT a.employee_id, e.name AS employee_name, a.date, a.check_in_time,
                a.check_out_time, a.status,
-               {meal_status_expr}, {meal_taken_expr}, {meal_confirmed_expr},
+               {meal_status_expr}, {meal_confirmed_expr},
                a.location_verified, a.face_verified
         FROM attendance a
         JOIN employees e ON a.employee_id = e.emp_id AND a.company_id = e.company_id
@@ -462,7 +554,6 @@ def attendance_employee_report(employee_id):
         "late": sum(1 for row in records if row.get("status") == "late"),
         "absent": sum(1 for row in records if row.get("status") == "absent"),
         "meal_yes": sum(1 for row in records if (row.get("meal_status") or "NO").upper() == "YES"),
-        "meal_taken_yes": sum(1 for row in records if (row.get("meal_taken") or "NO").upper() == "YES"),
         "meal_confirmed_yes": sum(1 for row in records if (row.get("meal_confirmed") or "NO").upper() == "YES"),
     }
 
@@ -482,6 +573,7 @@ def attendance_employee_report(employee_id):
 # Attendance Export Route
 @company.route("/attendance/export")
 @company_required
+@subscription_required
 @module_required("attendance")
 def attendance_export():
     company_id = session.get("company_id")
@@ -493,12 +585,12 @@ def attendance_export():
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
     
-    meal_status_expr, meal_taken_expr, meal_confirmed_expr = _attendance_meal_select_clause(connection)
+    meal_status_expr, meal_confirmed_expr = _attendance_meal_select_clause(connection)
 
     # Build query for attendance data with filters
     query = f"""
         SELECT a.employee_id, e.name as employee_name, a.date, a.check_in_time, 
-               a.check_out_time, a.status, {meal_status_expr}, {meal_taken_expr}, {meal_confirmed_expr},
+               a.check_out_time, a.status, {meal_status_expr}, {meal_confirmed_expr},
                a.location_verified, a.face_verified
         FROM attendance a
         JOIN employees e ON a.employee_id = e.emp_id AND a.company_id = e.company_id
@@ -545,7 +637,7 @@ def attendance_export():
         
         writer.writerow([
             'Employee ID', 'Employee Name', 'Date', 'Check In', 'Check Out',
-            'Status', 'Working Hours', 'Meal Status', 'Meal Taken', 'Meal Confirmed',
+            'Status', 'Working Hours', 'Meal Status', 'Meal Confirmed',
             'Location Verified', 'Face Verified'
         ])
         
@@ -559,7 +651,6 @@ def attendance_export():
                 record['status'],
                 record.get('working_hours', ''),
                 record.get('meal_status', 'NO'),
-                record.get('meal_taken', 'NO'),
                 record.get('meal_confirmed', 'NO'),
                 'Yes' if record['location_verified'] else 'No',
                 'Yes' if record['face_verified'] else 'No'
@@ -823,6 +914,7 @@ def update_location():
 # Department Management Routes
 @company.route("/add_department", methods=["GET", "POST"])
 @company_required
+@subscription_required
 def add_department():
     company_id = session.get("company_id")
 
@@ -881,6 +973,7 @@ def add_department():
 
 @company.route("/departments")
 @company_required
+@subscription_required
 def view_departments():
     company_id = session.get("company_id")
 
@@ -904,6 +997,7 @@ def view_departments():
 
 @company.route("/delete_department/<int:department_id>", methods=["POST"])
 @company_required
+@subscription_required
 def delete_department(department_id):
     company_id = session.get("company_id")
 
@@ -931,6 +1025,7 @@ def delete_department(department_id):
 # Shift Management Routes
 @company.route("/add_shift", methods=["GET", "POST"])
 @company_required
+@subscription_required
 def add_shift():
     company_id = session.get("company_id")
     connection = get_db_connection()
@@ -1016,6 +1111,7 @@ def add_shift():
 
 @company.route("/shifts")
 @company_required
+@subscription_required
 def view_shifts():
     company_id = session.get("company_id")
 
@@ -1055,6 +1151,7 @@ def view_shifts():
 
 @company.route("/delete_shift/<int:shift_id>", methods=["POST"])
 @company_required
+@subscription_required
 def delete_shift(shift_id):
     company_id = session.get("company_id")
 
@@ -1081,6 +1178,7 @@ def delete_shift(shift_id):
 
 @company.route("/edit_department/<int:department_id>", methods=["POST"])
 @company_required
+@subscription_required
 def edit_department(department_id):
     company_id = session.get("company_id")
     department_name = request.form.get("department_name", "").strip()
@@ -1123,6 +1221,7 @@ def edit_department(department_id):
 
 @company.route("/edit_shift/<int:shift_id>", methods=["POST"])
 @company_required
+@subscription_required
 def edit_shift(shift_id):
     company_id = session.get("company_id")
     shift_name = request.form.get("shift_name", "").strip()
@@ -1198,6 +1297,7 @@ def edit_shift(shift_id):
 
 @company.route("/add_employee", methods=["GET", "POST"])
 @company_required
+@subscription_required
 def add_employee():
     company_id = session.get("company_id")
 
@@ -1431,6 +1531,7 @@ def add_employee():
 
 @company.route("/employees")
 @company_required
+@subscription_required
 def view_employees():
     company_id = session.get("company_id")
 
@@ -1493,6 +1594,7 @@ def view_employees():
 
 @company.route("/delete_employee/<int:employee_id>", methods=["POST"])
 @company_required
+@subscription_required
 def delete_employee(employee_id):
     company_id = session.get("company_id")
 
@@ -1519,6 +1621,7 @@ def delete_employee(employee_id):
 
 @company.route("/approve_employee/<int:employee_id>", methods=["POST"])
 @company_required
+@subscription_required
 def approve_employee(employee_id):
     company_id = session.get("company_id")
     connection = get_db_connection()
@@ -1544,6 +1647,7 @@ def approve_employee(employee_id):
 
 @company.route("/reject_employee/<int:employee_id>", methods=["POST"])
 @company_required
+@subscription_required
 def reject_employee(employee_id):
     company_id = session.get("company_id")
     connection = get_db_connection()
@@ -1569,6 +1673,7 @@ def reject_employee(employee_id):
 
 @company.route("/view_employee/<int:employee_id>")
 @company_required
+@subscription_required
 def view_employee(employee_id):
     """View individual employee details"""
     company_id = session.get("company_id")
@@ -1600,6 +1705,7 @@ def view_employee(employee_id):
 
 @company.route("/edit_employee/<int:employee_id>", methods=["GET", "POST"])
 @company_required
+@subscription_required
 def edit_employee(employee_id):
     """Edit individual employee details"""
     company_id = session.get("company_id")
@@ -1807,6 +1913,7 @@ def edit_employee(employee_id):
 # Employee Registration Routes (QR-based)
 @company.route("/employee/qr")
 @company_required
+@subscription_required
 def generate_common_qr():
     """Generate common QR code for employee registration and save as image"""
     import qrcode
@@ -2101,6 +2208,7 @@ def common_employee_registration():
 # Role Management Routes
 @company.route("/add_role", methods=["GET", "POST"])
 @company_required
+@subscription_required
 def add_role():
     company_id = session.get("company_id")
 
@@ -2154,6 +2262,7 @@ def add_role():
 
 @company.route("/add_canteen", methods=["GET", "POST"])
 @company_required
+@subscription_required
 @module_required("canteen_management")
 def add_canteen():
     company_id = session.get("company_id")
@@ -2233,6 +2342,7 @@ def add_canteen():
 
 @company.route("/roles")
 @company_required
+@subscription_required
 def view_roles():
     company_id = session.get("company_id")
 
@@ -2259,6 +2369,7 @@ def view_roles():
 
 @company.route("/delete_role/<int:role_id>", methods=["POST"])
 @company_required
+@subscription_required
 def delete_role(role_id):
     company_id = session.get("company_id")
 
@@ -2297,6 +2408,7 @@ def delete_role(role_id):
 
 @company.route("/edit_role/<int:role_id>", methods=["GET", "POST"])
 @company_required
+@subscription_required
 def edit_role(role_id):
     company_id = session.get("company_id")
 

@@ -8,7 +8,7 @@ import openpyxl
 from flask import Blueprint, current_app, flash, redirect, render_template, request, send_file, session, url_for, make_response
 
 from database.db_connection import get_db_connection
-from module_access import module_required
+from module_access import module_required, subscription_required
 
 salary_bp = Blueprint("salary", __name__, url_prefix="/company")
 
@@ -143,6 +143,7 @@ def _render_salary_pdf(payload, salary_id):
 
 @salary_bp.route("/salary/generate", methods=["GET"])
 @company_required
+@subscription_required
 @module_required("salary_slip_management")
 def salary_generate_page():
     company_id = session.get("company_id")
@@ -181,6 +182,7 @@ def salary_generate_page():
 
 @salary_bp.route("/generate_salary", methods=["POST"])
 @company_required
+@subscription_required
 @module_required("salary_slip_management")
 def generate_salary():
     company_id = session.get("company_id")
@@ -325,6 +327,7 @@ def _compute_and_save_salary(cursor, connection, company_id, company, employee, 
 
 @salary_bp.route("/generate_salary_department", methods=["POST"])
 @company_required
+@subscription_required
 @module_required("salary_slip_management")
 def generate_salary_department():
     company_id = session.get("company_id")
@@ -388,6 +391,7 @@ def generate_salary_department():
 
 @salary_bp.route("/salary_records", methods=["GET"])
 @company_required
+@subscription_required
 @module_required("salary_slip_management")
 def salary_records():
     company_id = session.get("company_id")
@@ -435,6 +439,7 @@ def salary_records():
 
 @salary_bp.route("/salary_slip/<int:salary_id>", methods=["GET"])
 @company_required
+@subscription_required
 @module_required("salary_slip_management")
 def salary_slip_view(salary_id):
     company_id = session.get("company_id")
@@ -468,6 +473,7 @@ def salary_slip_view(salary_id):
 
 @salary_bp.route("/download_salary/<int:salary_id>", methods=["GET"])
 @company_required
+@subscription_required
 @module_required("salary_slip_management")
 def download_salary(salary_id):
     company_id = session.get("company_id")
@@ -539,6 +545,7 @@ def download_salary(salary_id):
 
 @salary_bp.route("/download_sample_excel", methods=["GET"])
 @company_required
+@subscription_required
 @module_required("salary_slip_management")
 def download_sample_excel():
     """Download sample Excel template for bulk salary generation."""
@@ -572,6 +579,7 @@ def download_sample_excel():
 
 @salary_bp.route("/generate_salary_excel", methods=["POST"])
 @company_required
+@subscription_required
 @module_required("salary_slip_management")
 def generate_salary_excel():
     """Generate salary slips from uploaded Excel file."""

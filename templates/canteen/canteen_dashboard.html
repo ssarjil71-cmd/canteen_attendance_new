@@ -139,7 +139,9 @@
             <h5 style="margin:0 0 16px;font-weight:700;font-size:1rem;color:var(--text);display:flex;align-items:center;gap:8px;">
                 <i class="bi bi-bar-chart-fill" style="color:#22c55e;"></i> Meal Participation Chart
             </h5>
-            <canvas id="mealChart" height="180"></canvas>
+            <div style="position:relative;height:220px;">
+                <canvas id="mealChart"></canvas>
+            </div>
         </div>
 
     </div>
@@ -201,41 +203,47 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const ctx = document.getElementById('mealChart').getContext('2d');
-new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: ['Coming', 'Not Coming', 'Breakfast', 'Lunch', 'Dinner'],
-        datasets: [{
-            label: 'Count',
-            data: [{{ stats.coming }}, {{ stats.not_coming }}, {{ stats.breakfast }}, {{ stats.lunch }}, {{ stats.dinner }}],
-            backgroundColor: [
-                'rgba(59,130,246,0.7)',
-                'rgba(239,68,68,0.7)',
-                'rgba(249,115,22,0.7)',
-                'rgba(34,197,94,0.7)',
-                'rgba(168,85,247,0.7)'
-            ],
-            borderRadius: 8,
-            borderSkipped: false,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} employees` } }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: { stepSize: 1, precision: 0 },
-                grid: { color: 'rgba(0,0,0,0.05)' }
-            },
-            x: { grid: { display: false } }
-        }
+(function () {
+    if (window._mealChart) {
+        window._mealChart.destroy();
     }
-});
+    const ctx = document.getElementById('mealChart').getContext('2d');
+    window._mealChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Coming', 'Not Coming', 'Breakfast', 'Lunch', 'Dinner'],
+            datasets: [{
+                label: 'Count',
+                data: [{{ stats.coming }}, {{ stats.not_coming }}, {{ stats.breakfast }}, {{ stats.lunch }}, {{ stats.dinner }}],
+                backgroundColor: [
+                    'rgba(59,130,246,0.7)',
+                    'rgba(239,68,68,0.7)',
+                    'rgba(249,115,22,0.7)',
+                    'rgba(34,197,94,0.7)',
+                    'rgba(168,85,247,0.7)'
+                ],
+                borderRadius: 8,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} employees` } }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, precision: 0 },
+                    grid: { color: 'rgba(0,0,0,0.05)' }
+                },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}());
 </script>
 
 {% endblock %}

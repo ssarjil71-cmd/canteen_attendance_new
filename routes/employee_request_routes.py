@@ -1,6 +1,7 @@
 from datetime import date
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from database.db_connection import get_db_connection
+from module_access import subscription_required
 
 employee_request_bp = Blueprint("employee_request", __name__)
 
@@ -60,6 +61,7 @@ def _ensure_employee_requests_table(connection):
 
 @employee_request_bp.route("/company/employee-requests", methods=["GET"])
 @_company_required
+@subscription_required
 def view_requests():
     company_id = session.get("company_id")
     connection = get_db_connection()
@@ -77,6 +79,7 @@ def view_requests():
 
 @employee_request_bp.route("/company/employee-requests/approve/<int:req_id>", methods=["POST"])
 @_company_required
+@subscription_required
 def approve_request(req_id):
     company_id = session.get("company_id")
     connection = get_db_connection()
@@ -122,6 +125,7 @@ def approve_request(req_id):
 
 @employee_request_bp.route("/company/employee-requests/reject/<int:req_id>", methods=["POST"])
 @_company_required
+@subscription_required
 def reject_request(req_id):
     company_id = session.get("company_id")
     connection = get_db_connection()

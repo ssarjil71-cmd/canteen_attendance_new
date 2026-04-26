@@ -67,10 +67,6 @@
 			<div class="confirmation-value">{{ stats.meal_requested or 0 }}</div>
 		</article>
 		<article class="confirmation-card">
-			<div class="confirmation-label">Meal Taken</div>
-			<div class="confirmation-value">{{ stats.meal_taken_count or 0 }}</div>
-		</article>
-		<article class="confirmation-card">
 			<div class="confirmation-label">Meal Confirmed</div>
 			<div class="confirmation-value">{{ stats.meal_confirmed_count or 0 }}</div>
 		</article>
@@ -89,7 +85,6 @@
 							<th>Employee</th>
 							<th>Department</th>
 							<th>Meal Status</th>
-							<th>Meal Taken</th>
 							<th>Meal Confirmed</th>
 							<th>Face Verified</th>
 						</tr>
@@ -107,9 +102,6 @@
 									<span class="badge {{ 'bg-success' if record.meal_status_label == 'YES' else 'bg-secondary' }}">{{ record.meal_status_label }}</span>
 								</td>
 								<td>
-									<span class="badge {{ 'bg-success' if record.meal_taken_label == 'YES' else 'bg-secondary' }}">{{ record.meal_taken_label }}</span>
-								</td>
-								<td>
 									<span class="badge {{ 'bg-success' if record.meal_confirmed_label == 'YES' else 'bg-secondary' }}">{{ record.meal_confirmed_label }}</span>
 								</td>
 								<td>
@@ -119,7 +111,7 @@
 							{% endfor %}
 						{% else %}
 							<tr>
-								<td colspan="6" class="text-center text-muted py-4">No meal records found for today.</td>
+								<td colspan="5" class="text-center text-muted py-4">No meal records found for today.</td>
 							</tr>
 						{% endif %}
 					</tbody>

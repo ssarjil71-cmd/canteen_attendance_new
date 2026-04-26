@@ -199,6 +199,45 @@ def update_module_flags_in_session(company_id):
 	return flags
 
 
+def subscription_required(function):
+	"""Decorator that blocks access to company routes when subscription is expired."""
+	@wraps(function)
+	def wrapper(*args, **kwargs):
+		from datetime import date
+		company_id = session.get("company_id")
+		if not company_id:
+			return function(*args, **kwargs)
+
+		# Check session cache first to avoid a DB hit on every request
+		sub_status = session.get("subscription_status")
+		if sub_status == "expired":
+			from flask import redirect, url_for
+			return redirect(url_for("company.subscription_expired"))
+
+		# Verify against DB (in case session is stale)
+		connection = get_db_connection()
+		cursor = connection.cursor(dictionary=True)
+		cursor.execute(
+			"SELECT subscription_end FROM companies WHERE id = %s",
+			(company_id,),
+		)
+		row = cursor.fetchone() or {}
+		cursor.close()
+		connection.close()
+
+		end_date = row.get("subscription_end")
+		if end_date:
+			if hasattr(end_date, "date"):
+				end_date = end_date.date()
+			if date.today() > end_date:
+				session["subscription_status"] = "expired"
+				from flask import redirect, url_for
+				return redirect(url_for("company.subscription_expired"))
+
+		return function(*args, **kwargs)
+	return wrapper
+
+
 def module_required(module_name, json_response=False):
 	def decorator(function):
 		@wraps(function)

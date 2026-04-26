@@ -1,68 +1,78 @@
 {% extends "base.html" %}
 
-{% block title %}Add Menu{% endblock %}
+{% block title %}{{ 'Edit' if existing_menu else 'Add' }} Menu{% endblock %}
 
 {% block content %}
 <div class="panel menu-form-panel">
     <div class="menu-form-head">
-        <h2 class="mb-1">Add Daily Menu</h2>
-        <p class="text-muted mb-0">Set breakfast, lunch, and evening menu for a selected date.</p>
+        <h2 class="mb-1">Weekly Menu</h2>
+        <p class="text-muted mb-0">Set breakfast, lunch, and evening menu for a day of the week.</p>
     </div>
 
     <form method="post" class="menu-form mt-4">
         <div class="row g-3">
             <div class="col-md-4">
-                <label class="form-label">Menu Date</label>
-                <input type="date" name="menu_date" class="form-control" value="{{ default_date }}" required>
+                <label class="form-label">Day of Week</label>
+                <select name="day_of_week" id="daySelect" class="form-select" required>
+                    <option value="" disabled {% if not preselect_day %}selected{% endif %}>Select Day</option>
+                    {% for day in days %}
+                    <option value="{{ day }}" {% if day == preselect_day %}selected{% endif %}>{{ day }}</option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
 
         <div class="row g-3 mt-1">
             <div class="col-md-4">
                 <label class="form-label">Morning (Breakfast)</label>
-                <input type="text" name="morning_item" class="form-control" placeholder="e.g. Poha + Tea" required>
+                <input type="text" name="morning_item" id="morningInput" class="form-control"
+                       value="{{ existing_menu.morning_item if existing_menu else '' }}"
+                       placeholder="e.g. Poha + Tea" required>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Afternoon (Lunch)</label>
-                <input type="text" name="afternoon_item" class="form-control" placeholder="e.g. Rice, Dal, Sabji" required>
+                <input type="text" name="afternoon_item" id="afternoonInput" class="form-control"
+                       value="{{ existing_menu.afternoon_item if existing_menu else '' }}"
+                       placeholder="e.g. Rice, Dal, Sabji" required>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Evening (Snacks/Dinner)</label>
-                <input type="text" name="evening_item" class="form-control" placeholder="e.g. Sandwich + Tea" required>
+                <input type="text" name="evening_item" id="eveningInput" class="form-control"
+                       value="{{ existing_menu.evening_item if existing_menu else '' }}"
+                       placeholder="e.g. Sandwich + Tea" required>
             </div>
         </div>
 
         <div class="mt-4 d-flex gap-2">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-2"></i>Save Menu</button>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-2"></i>{{ 'Update Menu' if existing_menu else 'Save Menu' }}
+            </button>
             <a href="{{ url_for('auth.view_menu') }}" class="btn btn-outline-secondary">View Menu</a>
         </div>
     </form>
 </div>
 
+<script>
+// When day changes, reload the page with ?day= to fetch existing values
+document.getElementById('daySelect').addEventListener('change', function () {
+    window.location.href = '/canteen/menu/add?day=' + encodeURIComponent(this.value);
+});
+</script>
+
 <style>
-.menu-form-panel {
-    max-width: 980px;
-    margin: 0 auto;
-}
-
-.menu-form-head h2 {
-    font-size: 1.5rem;
-}
-
-.menu-form .form-label {
-    font-weight: 600;
-    color: #374151;
-}
-
-.menu-form .form-control {
+.menu-form-panel { max-width: 980px; margin: 0 auto; }
+.menu-form-head h2 { font-size: 1.5rem; }
+.menu-form .form-label { font-weight: 600; color: #374151; }
+.menu-form .form-control,
+.menu-form .form-select {
     border-radius: 10px;
     border: 1px solid #d1d5db;
     padding: 10px 12px;
 }
-
-.menu-form .form-control:focus {
+.menu-form .form-control:focus,
+.menu-form .form-select:focus {
     border-color: #2563eb;
-    box-shadow: 0 0 0 0.15rem rgba(37, 99, 235, 0.15);
+    box-shadow: 0 0 0 0.15rem rgba(37,99,235,0.15);
 }
 </style>
 {% endblock %}

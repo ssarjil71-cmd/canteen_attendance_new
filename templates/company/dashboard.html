@@ -17,6 +17,21 @@
                 <p class="company-dashboard-subtitle mb-0">Real-time view of workforce and attendance health.</p>
             </div>
         </div>
+        <div class="sub-badge-wrap">
+            {% if sub_info.status == 'none' %}
+                <span class="sub-badge sub-badge-none">No Active Plan</span>
+            {% elif sub_info.status == 'expired' %}
+                <span class="sub-badge sub-badge-expired">❌ Expired on {{ sub_info.end_fmt }}</span>
+            {% elif sub_info.status == 'expiring' %}
+                <span class="sub-badge sub-badge-expiring">
+                    ⚠ {{ sub_info.plan }} &nbsp;|&nbsp; Expires {{ sub_info.end_fmt }} &nbsp;|&nbsp; {{ sub_info.days_left }}d left
+                </span>
+            {% else %}
+                <span class="sub-badge sub-badge-active">
+                    ✅ {{ sub_info.plan }} &nbsp;|&nbsp; Expires {{ sub_info.end_fmt }} &nbsp;|&nbsp; {{ sub_info.days_left }}d left
+                </span>
+            {% endif %}
+        </div>
     </div>
 
     <div class="dashboard-metrics-grid">
@@ -118,6 +133,47 @@
     border: 1px solid rgba(13, 110, 253, 0.15);
     background: #fff;
     padding: 4px;
+}
+
+/* Subscription badge */
+.sub-badge-wrap {
+    flex-shrink: 0;
+}
+
+.sub-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+}
+
+.sub-badge-active {
+    background: #dcfce7;
+    color: #166534;
+    border: 1.5px solid #86efac;
+}
+
+.sub-badge-expiring {
+    background: #fef9c3;
+    color: #854d0e;
+    border: 1.5px solid #fde047;
+}
+
+.sub-badge-expired {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1.5px solid #fca5a5;
+}
+
+.sub-badge-none {
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1.5px solid #d1d5db;
 }
 
 .dashboard-panel {
@@ -402,6 +458,15 @@
         align-items: flex-start;
     }
 
+    .sub-badge-wrap {
+        width: 100%;
+    }
+
+    .sub-badge {
+        white-space: normal;
+        border-radius: 12px;
+    }
+
     .dashboard-metrics-grid {
         grid-template-columns: 1fr;
         gap: 12px;
@@ -443,7 +508,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     const formatPercent = function (value) {
-        const numeric = Number(value || 0);
+        const numeric = Math.min(Number(value || 0), 100);
         return `${numeric.toFixed(1)}%`;
     };
 
@@ -464,14 +529,20 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        const chartData = [
-            Number(attendance.present || 0),
-            Number(attendance.absent || 0),
-            Number(attendance.late || 0),
-        ];
+        const present = Number(attendance.present || 0);
+        const absent  = Number(attendance.absent  || 0);
+        const late    = Number(attendance.late    || 0);
+
+        // Use a placeholder slice when all values are zero to avoid a blank chart
+        const allZero = (present + absent + late) === 0;
+        const chartData = allZero ? [1] : [present, absent, late];
+        const chartLabels = allZero ? ["No Data"] : ["Present", "Absent", "Late"];
+        const chartColors = allZero ? ["#e5e7eb"] : ["#22a35a", "#ef5350", "#f7a534"];
 
         if (attendanceChart) {
+            attendanceChart.data.labels = chartLabels;
             attendanceChart.data.datasets[0].data = chartData;
+            attendanceChart.data.datasets[0].backgroundColor = chartColors;
             attendanceChart.update();
             return;
         }
@@ -479,17 +550,19 @@ document.addEventListener("DOMContentLoaded", function () {
         attendanceChart = new Chart(chartCanvas, {
             type: "pie",
             data: {
-                labels: ["Present", "Absent", "Late"],
+                labels: chartLabels,
                 datasets: [
                     {
                         data: chartData,
-                        backgroundColor: ["#22a35a", "#ef5350", "#f7a534"],
+                        backgroundColor: chartColors,
                         borderWidth: 2,
                         borderColor: "#ffffff",
                     },
                 ],
             },
             options: {
+                responsive: true,
+                maintainAspectRatio: false,
                 animation: {
                     duration: 650,
                 },
@@ -500,6 +573,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     tooltip: {
                         callbacks: {
                             label: function (context) {
+                                if (allZero) return "No attendance data yet";
                                 const total = context.dataset.data.reduce((sum, item) => sum + Number(item || 0), 0);
                                 const value = Number(context.raw || 0);
                                 const share = total ? ((value / total) * 100).toFixed(1) : "0.0";

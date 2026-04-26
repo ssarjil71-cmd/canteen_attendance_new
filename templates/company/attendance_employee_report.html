@@ -54,12 +54,6 @@
             </div>
             <div class="col-6 col-md-2">
                 <div class="summary-card">
-                    <div class="summary-label">Meal Taken</div>
-                    <div class="summary-value text-info">{{ stats.meal_taken_yes }}</div>
-                </div>
-            </div>
-            <div class="col-6 col-md-2">
-                <div class="summary-card">
                     <div class="summary-label">Meal Confirmed</div>
                     <div class="summary-value text-secondary">{{ stats.meal_confirmed_yes }}</div>
                 </div>
@@ -118,7 +112,6 @@
                                 <th>Check In</th>
                                 <th>Check Out</th>
                                 <th>Meal Status</th>
-                                <th>Meal Taken</th>
                                 <th>Meal Confirmed</th>
                             </tr>
                         </thead>
@@ -134,7 +127,6 @@
                                 <td>{{ record.check_in_time.strftime('%H:%M:%S') if record.check_in_time else 'N/A' }}</td>
                                 <td>{{ record.check_out_time.strftime('%H:%M:%S') if record.check_out_time else 'N/A' }}</td>
                                 <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_status == 'YES' else 'secondary' }}">{{ record.meal_status }}</span></td>
-                                <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_taken == 'YES' else 'secondary' }}">{{ record.meal_taken }}</span></td>
                                 <td><span class="badge rounded-pill bg-{{ 'success' if record.meal_confirmed == 'YES' else 'secondary' }}">{{ record.meal_confirmed }}</span></td>
                             </tr>
                             {% endfor %}

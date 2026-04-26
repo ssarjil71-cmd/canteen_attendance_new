@@ -47,6 +47,7 @@ def sync_company_module_flags():
 @app.context_processor
 def inject_company_logo():
     logo = None
+    sub_expired = False
     company_id = session.get("company_id")
     if company_id and session.get("role") in {"company", "canteen"}:
         try:
@@ -60,7 +61,9 @@ def inject_company_logo():
                 logo = row.get("logo")
         except Exception:
             pass
-    return {"company_logo": logo}
+    if session.get("subscription_status") == "expired":
+        sub_expired = True
+    return {"company_logo": logo, "sub_expired": sub_expired}
 
 if __name__ == "__main__":
     app.run(debug=True)

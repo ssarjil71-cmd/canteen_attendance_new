@@ -919,24 +919,56 @@
             .then(data => {
                 if (data.success) {
                     faceVerified = true;
-                    faceStatus.innerHTML = `<i class="bi bi-check-circle me-2"></i>Attendance recorded. Please select meal option.`;
-                    faceStatus.className = 'status-message status-success';
-                    pendingAttendanceInfo = {
-                        employee_name: data.employee_name,
-                        company_name: data.company_name,
-                        timestamp: data.timestamp,
-                    };
+                    const isCheckOut = data.scan_type === 'check_out';
 
-                    document.getElementById('successMessage').style.display = 'none';
-                    document.getElementById('successMessage').innerHTML = '';
+                    if (isCheckOut) {
+                        // ── CHECK-OUT: show simple success, no meal prompt ──
+                        faceStatus.innerHTML = `<i class="bi bi-check-circle me-2"></i>Check-out recorded.`;
+                        faceStatus.className = 'status-message status-success';
 
-                    checkRequirements();
+                        document.querySelectorAll('.form-section').forEach(section => {
+                            section.style.display = 'none';
+                        });
 
-                    document.querySelectorAll('.form-section').forEach(section => {
-                        section.style.display = 'none';
-                    });
+                        document.getElementById('mealPromptSection').style.display = 'none';
+                        document.getElementById('mealResultSection').style.display = 'none';
+                        document.getElementById('menuDisplaySection').style.display = 'none';
 
-                    renderMealPrompt(data.employee_id);
+                        const successSection = document.getElementById('successMessage');
+                        successSection.innerHTML = `
+                            <div class="success-card">
+                                <i class="bi bi-check-circle-fill text-success" style="font-size:2.4rem;"></i>
+                                <h4>Check-out recorded</h4>
+                                <div>
+                                    <strong>Employee:</strong> ${data.employee_name}<br>
+                                    <strong>Company:</strong> ${data.company_name}<br>
+                                    <strong>Time:</strong> ${data.timestamp}<br>
+                                    <strong>Working hours:</strong> ${data.working_hours ? data.working_hours.toFixed(2) + ' hrs' : 'N/A'}
+                                </div>
+                            </div>
+                        `;
+                        successSection.style.display = 'block';
+                    } else {
+                        // ── CHECK-IN: show meal prompt ──
+                        faceStatus.innerHTML = `<i class="bi bi-check-circle me-2"></i>Attendance recorded. Please select meal option.`;
+                        faceStatus.className = 'status-message status-success';
+                        pendingAttendanceInfo = {
+                            employee_name: data.employee_name,
+                            company_name: data.company_name,
+                            timestamp: data.timestamp,
+                        };
+
+                        document.getElementById('successMessage').style.display = 'none';
+                        document.getElementById('successMessage').innerHTML = '';
+
+                        checkRequirements();
+
+                        document.querySelectorAll('.form-section').forEach(section => {
+                            section.style.display = 'none';
+                        });
+
+                        renderMealPrompt(data.employee_id);
+                    }
                 } else {
                     faceVerified = false;
                     if (data.shift_error) {

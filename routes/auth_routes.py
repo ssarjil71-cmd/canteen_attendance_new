@@ -75,7 +75,7 @@ def _ensure_canteen_reports_face_verified_column(connection):
 
 ROLE_LOGIN_SELECT_MAP = {
 	"admin": "SELECT id, username, NULL AS company_id FROM admins WHERE username = %s AND password = %s",
-	"company": "SELECT id, email AS username, id AS company_id FROM companies WHERE email = %s AND password = %s",
+	"company": "SELECT id, email AS username, id AS company_id, subscription_end, subscription_status FROM companies WHERE email = %s AND password = %s",
 	"canteen": "SELECT id, username, email, company_id, password FROM canteen WHERE email = %s",
 }
 
@@ -163,11 +163,35 @@ def role_login(role):
 			flash(login_error, "error")
 			return render_template("auth/login.html", role=role, login_error=login_error)
 
+		# Subscription check for company login — allow login but flag as expired
+		if role == "company":
+			from datetime import date as _date
+			sub_end = user.get("subscription_end")
+			if sub_end and _date.today() > sub_end:
+				conn2 = get_db_connection()
+				cur2 = conn2.cursor()
+				cur2.execute(
+					"UPDATE companies SET subscription_status = 'expired' WHERE id = %s",
+					(user["id"],)
+				)
+				conn2.commit()
+				cur2.close()
+				conn2.close()
+
 		session["user_id"] = user["id"]
 		session["username"] = user["username"]
 		session["role"] = role
 		session["company_id"] = user.get("company_id")
 		session.permanent = True  # persist session across navigation
+
+		# Flag expired subscription in session so routes can redirect without a DB hit
+		if role == "company":
+			from datetime import date as _date
+			sub_end = user.get("subscription_end")
+			if sub_end and _date.today() > sub_end:
+				session["subscription_status"] = "expired"
+			else:
+				session.pop("subscription_status", None)  # persist session across navigation
 
 		if role == "canteen" and not has_module(user.get("company_id"), "canteen_management"):
 			session.clear()
@@ -214,19 +238,32 @@ def canteen_dashboard():
 
 	connection = get_db_connection()
 	cursor = connection.cursor(dictionary=True)
+
+	# Total employees for this company
+	cursor.execute(
+		"SELECT COUNT(*) AS count FROM employees WHERE company_id = %s",
+		(company_id,),
+	)
+	total_employees = int((cursor.fetchone() or {}).get("count") or 0)
+
 	if _attendance_has_meal_status(connection):
 		cursor.execute(
 			"""
-			SELECT
-				SUM(CASE WHEN meal_status = 'YES' THEN 1 ELSE 0 END) AS coming_count,
-				SUM(CASE WHEN COALESCE(meal_status, 'NO') = 'NO' THEN 1 ELSE 0 END) AS not_coming_count
-			FROM attendance
-			WHERE company_id = %s
-			  AND DATE(check_in_time) = %s
-			  AND check_in_time IS NOT NULL
+			SELECT COUNT(DISTINCT a.employee_id) AS coming_count
+			FROM attendance a
+			JOIN employees e
+			  ON e.company_id = a.company_id
+			 AND a.employee_id = e.emp_id
+			WHERE a.company_id = %s
+			  AND a.date = %s
+			  AND a.check_in_time IS NOT NULL
+			  AND a.meal_status = 'YES'
 			""",
 			(company_id, today),
 		)
+		row = cursor.fetchone() or {}
+		coming_count = int(row.get("coming_count") or 0)
+		not_coming_count = max(total_employees - coming_count, 0)
 	else:
 		cursor.execute(
 			"""
@@ -238,18 +275,17 @@ def canteen_dashboard():
 			""",
 			(canteen_id, today),
 		)
-	meal_counts = cursor.fetchone() or {}
-
-	coming_count = int(meal_counts.get("coming_count") or 0)
-	not_coming_count = int(meal_counts.get("not_coming_count") or 0)
+		meal_counts = cursor.fetchone() or {}
+		coming_count = int(meal_counts.get("coming_count") or 0)
+		not_coming_count = int(meal_counts.get("not_coming_count") or 0)
 
 	cursor.execute(
 		"""
 		SELECT morning_item, afternoon_item, evening_item
 		FROM canteen_menus
-		WHERE canteen_id = %s AND menu_date = %s
+		WHERE canteen_id = %s AND day_of_week = %s
 		""",
-		(canteen_id, today),
+		(canteen_id, today.strftime("%A")),
 	)
 	today_menu = cursor.fetchone()
 
@@ -333,22 +369,23 @@ def canteen_meal_scan():
 @module_required("canteen_management")
 def add_menu():
 	canteen_id = session.get("user_id")
+	DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 	if request.method == "POST":
-		menu_date = request.form.get("menu_date", "").strip()
+		day_of_week = request.form.get("day_of_week", "").strip()
 		morning_item = request.form.get("morning_item", "").strip()
 		afternoon_item = request.form.get("afternoon_item", "").strip()
 		evening_item = request.form.get("evening_item", "").strip()
 
-		if not menu_date or not morning_item or not afternoon_item or not evening_item:
+		if day_of_week not in DAYS or not morning_item or not afternoon_item or not evening_item:
 			flash("All menu fields are required.", "error")
-			return render_template("canteen/add_menu.html", today=date.today().isoformat())
+			return render_template("canteen/add_menu.html", days=DAYS)
 
 		connection = get_db_connection()
 		cursor = connection.cursor()
 		cursor.execute(
 			"""
-			INSERT INTO canteen_menus (canteen_id, menu_date, morning_item, afternoon_item, evening_item)
+			INSERT INTO canteen_menus (canteen_id, day_of_week, morning_item, afternoon_item, evening_item)
 			VALUES (%s, %s, %s, %s, %s)
 			ON DUPLICATE KEY UPDATE
 				morning_item = VALUES(morning_item),
@@ -356,7 +393,7 @@ def add_menu():
 				evening_item = VALUES(evening_item),
 				updated_at = CURRENT_TIMESTAMP
 			""",
-			(canteen_id, menu_date, morning_item, afternoon_item, evening_item),
+			(canteen_id, day_of_week, morning_item, afternoon_item, evening_item),
 		)
 		connection.commit()
 		cursor.close()
@@ -365,7 +402,88 @@ def add_menu():
 		flash("Menu saved successfully.", "success")
 		return redirect(url_for("auth.view_menu"))
 
-	return render_template("canteen/add_menu.html", today=date.today().isoformat())
+	# GET: pre-fill existing menu if day is provided
+	preselect_day = request.args.get("day", "")
+	existing_menu = None
+	if preselect_day in DAYS:
+		connection = get_db_connection()
+		cursor = connection.cursor(dictionary=True)
+		cursor.execute(
+			"SELECT * FROM canteen_menus WHERE canteen_id = %s AND day_of_week = %s",
+			(canteen_id, preselect_day),
+		)
+		existing_menu = cursor.fetchone()
+		cursor.close()
+		connection.close()
+
+	return render_template("canteen/add_menu.html", days=DAYS, preselect_day=preselect_day, existing_menu=existing_menu)
+
+	return render_template("canteen/add_menu.html", days=DAYS, preselect_day=request.args.get("day", ""))
+
+	# GET: pre-fill existing menu if day is provided
+	preselect_day = request.args.get("day", "")
+	existing_menu = None
+	if preselect_day in DAYS:
+		connection = get_db_connection()
+		cursor = connection.cursor(dictionary=True)
+		cursor.execute(
+			"SELECT * FROM canteen_menus WHERE canteen_id = %s AND day_of_week = %s",
+			(canteen_id, preselect_day),
+		)
+		existing_menu = cursor.fetchone()
+		cursor.close()
+		connection.close()
+
+	return render_template("canteen/add_menu.html", days=DAYS, preselect_day=preselect_day, existing_menu=existing_menu)
+
+
+@auth.route("/canteen/menu/edit/<day>", methods=["GET", "POST"])
+@login_required(["canteen"])
+@module_required("canteen_management")
+def edit_menu(day):
+	DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+	if day not in DAYS:
+		flash("Invalid day.", "error")
+		return redirect(url_for("auth.view_menu"))
+
+	canteen_id = session.get("user_id")
+	connection = get_db_connection()
+	cursor = connection.cursor(dictionary=True)
+
+	if request.method == "POST":
+		morning_item = request.form.get("morning_item", "").strip()
+		afternoon_item = request.form.get("afternoon_item", "").strip()
+		evening_item = request.form.get("evening_item", "").strip()
+
+		if not morning_item or not afternoon_item or not evening_item:
+			flash("All fields are required.", "error")
+		else:
+			cursor.execute(
+				"""
+				INSERT INTO canteen_menus (canteen_id, day_of_week, morning_item, afternoon_item, evening_item)
+				VALUES (%s, %s, %s, %s, %s)
+				ON DUPLICATE KEY UPDATE
+					morning_item = VALUES(morning_item),
+					afternoon_item = VALUES(afternoon_item),
+					evening_item = VALUES(evening_item),
+					updated_at = CURRENT_TIMESTAMP
+				""",
+				(canteen_id, day, morning_item, afternoon_item, evening_item),
+			)
+			connection.commit()
+			flash("Menu updated.", "success")
+			cursor.close()
+			connection.close()
+			return redirect(url_for("auth.view_menu"))
+
+	cursor.execute(
+		"SELECT * FROM canteen_menus WHERE canteen_id = %s AND day_of_week = %s",
+		(canteen_id, day),
+	)
+	existing = cursor.fetchone()
+	cursor.close()
+	connection.close()
+	return render_template("canteen/edit_menu.html", day=day, menu=existing, days=DAYS)
 
 
 @auth.route("/canteen/menu/view")
@@ -373,22 +491,33 @@ def add_menu():
 @module_required("canteen_management")
 def view_menu():
 	canteen_id = session.get("user_id")
+	DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+	today_day = date.today().strftime("%A")
+
 	connection = get_db_connection()
 	cursor = connection.cursor(dictionary=True)
 	cursor.execute(
 		"""
-		SELECT id, menu_date, morning_item, afternoon_item, evening_item, created_at, updated_at
+		SELECT id, day_of_week, morning_item, afternoon_item, evening_item, updated_at
 		FROM canteen_menus
-		WHERE canteen_id = %s
-		ORDER BY menu_date DESC
+		WHERE canteen_id = %s AND day_of_week IS NOT NULL
+		ORDER BY FIELD(day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')
 		""",
 		(canteen_id,),
 	)
-	menus = cursor.fetchall()
+	menus_raw = cursor.fetchall()
 	cursor.close()
 	connection.close()
 
-	return render_template("canteen/view_menu.html", menus=menus)
+	# Build a dict keyed by day for easy lookup
+	menus_by_day = {m["day_of_week"]: m for m in menus_raw}
+
+	return render_template(
+		"canteen/view_menu.html",
+		menus_by_day=menus_by_day,
+		days=DAYS,
+		today_day=today_day,
+	)
 
 
 @auth.route("/canteen/reports")
@@ -422,7 +551,7 @@ def canteen_reports():
 
 	count_query = (
 		"""
-		SELECT COUNT(*) AS total_count
+		SELECT COUNT(DISTINCT a.employee_id) AS total_count
 		FROM attendance a
 		JOIN employees e
 		  ON e.company_id = a.company_id
@@ -430,7 +559,7 @@ def canteen_reports():
 		"""
 		+ """
 		WHERE a.company_id = %s
-		  AND DATE(a.check_in_time) = %s
+		  AND a.date = %s
 		  AND a.check_in_time IS NOT NULL
 		"""
 	)
@@ -461,7 +590,6 @@ def canteen_reports():
 			e.emp_id,
 			e.department,
 			COALESCE(a.meal_status, 'NO') AS meal_status,
-			COALESCE(a.meal_taken, 'NO') AS meal_taken,
 			COALESCE(a.meal_confirmed, 'NO') AS meal_confirmed,
 			CASE WHEN COALESCE(a.face_verified, 0) = 1 THEN 'YES' ELSE 'NO' END AS face_verified,
 			a.check_in_time
@@ -470,8 +598,16 @@ def canteen_reports():
 		  ON e.company_id = a.company_id
 		 AND a.employee_id = e.emp_id
 		WHERE a.company_id = %s
-		  AND DATE(a.check_in_time) = %s
+		  AND a.date = %s
 		  AND a.check_in_time IS NOT NULL
+		  AND a.id = (
+		      SELECT id FROM attendance a2
+		      WHERE a2.employee_id = a.employee_id
+		        AND a2.company_id = a.company_id
+		        AND a2.date = a.date
+		      ORDER BY a2.check_in_time DESC
+		      LIMIT 1
+		  )
 		"""
 	)
 	params = [company_id, selected_date]

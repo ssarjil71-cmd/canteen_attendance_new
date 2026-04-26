@@ -210,7 +210,8 @@ def _ensure_core_tables(connection):
         CREATE TABLE IF NOT EXISTS canteen_menus (
             id INT AUTO_INCREMENT PRIMARY KEY,
             canteen_id INT NOT NULL,
-            menu_date DATE NOT NULL,
+            menu_date DATE NULL,
+            day_of_week VARCHAR(10) NULL,
             morning_item VARCHAR(255) NOT NULL,
             afternoon_item VARCHAR(255) NOT NULL,
             evening_item VARCHAR(255) NOT NULL,
@@ -222,6 +223,39 @@ def _ensure_core_tables(connection):
         )
         """
     )
+
+    # Migrate: add day_of_week column and unique key if not present
+    cursor.execute(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'canteen_menus' AND COLUMN_NAME = 'day_of_week'"
+    )
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("ALTER TABLE canteen_menus ADD COLUMN day_of_week VARCHAR(10) NULL AFTER canteen_id")
+        connection.commit()
+
+    # Make menu_date nullable so day-of-week inserts don't require it
+    cursor.execute(
+        "SELECT IS_NULLABLE FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'canteen_menus' AND COLUMN_NAME = 'menu_date'"
+    )
+    row = cursor.fetchone()
+    if row and row[0] == 'NO':
+        try:
+            cursor.execute("ALTER TABLE canteen_menus MODIFY COLUMN menu_date DATE NULL DEFAULT NULL")
+            connection.commit()
+        except Exception:
+            pass
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM information_schema.STATISTICS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'canteen_menus' AND INDEX_NAME = 'uk_canteen_menu_day'"
+    )
+    if cursor.fetchone()[0] == 0:
+        try:
+            cursor.execute("ALTER TABLE canteen_menus ADD UNIQUE KEY uk_canteen_menu_day (canteen_id, day_of_week)")
+            connection.commit()
+        except Exception:
+            pass  # key may already exist under a different name
 
     cursor.execute(
         """
@@ -359,6 +393,37 @@ def _apply_schema_updates(connection):
         cursor.execute("ALTER TABLE companies ADD COLUMN canteen_module_enabled TINYINT(1) NOT NULL DEFAULT 1")
     if not _column_exists(cursor, "companies", "salary_slip_module_enabled"):
         cursor.execute("ALTER TABLE companies ADD COLUMN salary_slip_module_enabled TINYINT(1) NOT NULL DEFAULT 0")
+
+    # Subscription plan columns
+    if not _column_exists(cursor, "companies", "subscription_plan"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN subscription_plan VARCHAR(50) DEFAULT 'Trial'")
+    if not _column_exists(cursor, "companies", "subscription_start"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN subscription_start DATE NULL")
+    if not _column_exists(cursor, "companies", "subscription_end"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN subscription_end DATE NULL")
+    if not _column_exists(cursor, "companies", "subscription_status"):
+        cursor.execute("ALTER TABLE companies ADD COLUMN subscription_status VARCHAR(20) DEFAULT 'active'")
+
+    # Subscription plans table (dynamic, admin-managed)
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS subscription_plans (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            plan_name VARCHAR(50) NOT NULL,
+            duration_days INT NOT NULL DEFAULT 30,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_plan_name (plan_name)
+        )
+        """
+    )
+    # Seed default plans if table is empty
+    cursor.execute("SELECT COUNT(*) FROM subscription_plans")
+    if cursor.fetchone()[0] == 0:
+        cursor.executemany(
+            "INSERT IGNORE INTO subscription_plans (plan_name, duration_days) VALUES (%s, %s)",
+            [("Trial", 7), ("Basic", 30), ("Premium", 90)]
+        )
 
     # Canteen sub-modules
     if not _column_exists(cursor, "companies", "canteen_qr_generate_enabled"):

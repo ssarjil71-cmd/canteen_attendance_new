@@ -140,7 +140,16 @@ def admin_dashboard():
 @admin.route("/admin/add_company", methods=["GET", "POST"])
 @admin_required
 def add_company():
+	from datetime import date as _date, timedelta as _timedelta
 	company_types = _get_company_types(active_only=True)
+
+	# Fetch active subscription plans for dropdown
+	_conn = get_db_connection()
+	_cur = _conn.cursor(dictionary=True)
+	_cur.execute("SELECT id, plan_name, duration_days FROM subscription_plans WHERE is_active = 1 ORDER BY plan_name")
+	subscription_plans_list = _cur.fetchall()
+	_cur.close()
+	_conn.close()
 
 	if request.method == "POST":
 		company_name = request.form.get("company_name", "").strip()
@@ -169,6 +178,31 @@ def add_company():
 		salary_slip_module_enabled = 1 if request.form.get("salary_slip_module_enabled") else 0
 		logo_file = request.files.get('logo')
 
+		# Subscription plan — supports predefined plans (by duration) or Custom (by date)
+		from datetime import date as _date, timedelta as _timedelta
+		subscription_plan = request.form.get("subscription_plan", "").strip()
+		custom_start_str = request.form.get("custom_start", "").strip()
+		custom_end_str = request.form.get("custom_end", "").strip()
+
+		if subscription_plan == "Custom":
+			try:
+				subscription_start = _date.fromisoformat(custom_start_str) if custom_start_str else _date.today()
+				subscription_end = _date.fromisoformat(custom_end_str) if custom_end_str else subscription_start + _timedelta(days=30)
+			except ValueError:
+				subscription_start = _date.today()
+				subscription_end = subscription_start + _timedelta(days=30)
+		else:
+			# Look up duration from DB
+			_c2 = get_db_connection()
+			_cur2 = _c2.cursor(dictionary=True)
+			_cur2.execute("SELECT duration_days FROM subscription_plans WHERE plan_name = %s AND is_active = 1", (subscription_plan,))
+			_plan_row = _cur2.fetchone()
+			_cur2.close()
+			_c2.close()
+			_days = _plan_row["duration_days"] if _plan_row else 30
+			subscription_start = _date.today()
+			subscription_end = subscription_start + _timedelta(days=_days)
+
 		if not attendance_module_enabled:
 			attendance_qr_generation_enabled = 0
 			attendance_qr_scanner_enabled = 0
@@ -181,11 +215,11 @@ def add_company():
 
 		if not (attendance_module_enabled or canteen_module_enabled or salary_slip_module_enabled):
 			flash("Please select at least one module.", "error")
-			return render_template("admin/add_company.html", company_types=company_types)
+			return render_template("admin/add_company.html", company_types=company_types, subscription_plans=subscription_plans_list)
 
 		if not all([company_name, company_type_id, email, phone, address, password, confirm_password, latitude, longitude, radius]):
 			flash("All fields are mandatory except Company ID and Company Logo.", "error")
-			return render_template("admin/add_company.html", company_types=company_types)
+			return render_template("admin/add_company.html", company_types=company_types, subscription_plans=subscription_plans_list)
 
 		if logo_file and logo_file.filename:
 			logo_file.stream.seek(0, 2)
@@ -193,15 +227,15 @@ def add_company():
 			logo_file.stream.seek(0)
 			if logo_size > 10 * 1024 * 1024:
 				flash("Company logo must be 10 MB or less.", "error")
-				return render_template("admin/add_company.html", company_types=company_types)
+				return render_template("admin/add_company.html", company_types=company_types, subscription_plans=subscription_plans_list)
 
 		if len(phone) != 10 or not phone.isdigit():
 			flash("Contact number must be exactly 10 digits.", "error")
-			return render_template("admin/add_company.html", company_types=company_types)
+			return render_template("admin/add_company.html", company_types=company_types, subscription_plans=subscription_plans_list)
 
 		if password != confirm_password:
 			flash("Password and confirm password must match.", "error")
-			return render_template("admin/add_company.html", company_types=company_types)
+			return render_template("admin/add_company.html", company_types=company_types, subscription_plans=subscription_plans_list)
 
 		connection = get_db_connection()
 		cursor = connection.cursor(dictionary=True)
@@ -214,7 +248,7 @@ def add_company():
 			cursor.close()
 			connection.close()
 			flash("Email already exists.", "error")
-			return render_template("admin/add_company.html", company_types=company_types)
+			return render_template("admin/add_company.html", company_types=company_types, subscription_plans=subscription_plans_list)
 
 		if company_code:
 			cursor.execute("SELECT id FROM companies WHERE company_code = %s", (company_code,))
@@ -223,7 +257,7 @@ def add_company():
 				cursor.close()
 				connection.close()
 				flash("Company ID already exists.", "error")
-				return render_template("admin/add_company.html", company_types=company_types)
+				return render_template("admin/add_company.html", company_types=company_types, subscription_plans=subscription_plans_list)
 
 		cursor.execute("SELECT id FROM company_types WHERE id = %s AND is_active = 1", (company_type_id,))
 		selected_company_type = cursor.fetchone()
@@ -231,7 +265,7 @@ def add_company():
 			cursor.close()
 			connection.close()
 			flash("Please select a valid company type.", "error")
-			return render_template("admin/add_company.html", company_types=company_types)
+			return render_template("admin/add_company.html", company_types=company_types, subscription_plans=subscription_plans_list)
 
 		# Handle logo upload
 		logo_filename = None
@@ -262,8 +296,9 @@ def add_company():
 			 attendance_module_enabled, attendance_qr_generation_enabled, attendance_qr_scanner_enabled,
 			 canteen_module_enabled, canteen_qr_generate_enabled, canteen_qr_scan_enabled,
 			 canteen_face_verify_enabled, canteen_reports_enabled,
-			 salary_slip_module_enabled, status)
-			VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+			 salary_slip_module_enabled, status,
+			 subscription_plan, subscription_start, subscription_end, subscription_status)
+			VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 			""",
 			(
 				company_name,
@@ -290,7 +325,11 @@ def add_company():
 				canteen_face_verify_enabled,
 				canteen_reports_enabled,
 				salary_slip_module_enabled,
-				'active'
+				'active',
+				subscription_plan,
+				subscription_start,
+				subscription_end,
+				'active',
 			),
 		)
 		connection.commit()
@@ -300,7 +339,7 @@ def add_company():
 		flash("Company created successfully.", "success")
 		return redirect(url_for("admin.admin_dashboard"))
 
-	return render_template("admin/add_company.html", company_types=company_types)
+	return render_template("admin/add_company.html", company_types=company_types, subscription_plans=subscription_plans_list)
 
 
 @admin.route("/admin/add_company_type", methods=["GET", "POST"])
@@ -403,6 +442,7 @@ def delete_company_type(type_id):
 @admin.route("/admin/companies")
 @admin_required
 def view_companies():
+	from datetime import date as _date
 	connection = get_db_connection()
 	cursor = connection.cursor(dictionary=True)
 
@@ -411,18 +451,55 @@ def view_companies():
 		SELECT companies.id, companies.company_name, companies.company_code, companies.email,
 		       companies.attendance_module_enabled, companies.canteen_module_enabled,
 		       companies.salary_slip_module_enabled, companies.created_at,
+		       companies.subscription_plan, companies.subscription_start,
+		       companies.subscription_end, companies.subscription_status,
 		       company_types.type_name AS company_type_name
 		FROM companies
 		LEFT JOIN company_types ON company_types.id = companies.company_type_id
 		ORDER BY companies.id DESC
 		"""
 	)
-	companies = cursor.fetchall()
-
+	raw_companies = cursor.fetchall()
 	cursor.close()
 	connection.close()
 
-	return render_template("admin/view_companies.html", companies=companies)
+	today = _date.today()
+	companies = []
+	for c in raw_companies:
+		sub_end = c.get("subscription_end")
+		sub_start = c.get("subscription_start")
+		sub_plan = c.get("subscription_plan")
+
+		if sub_end:
+			days_left = (sub_end - today).days
+			if days_left < 0:
+				sub_status = "Expired"
+			elif days_left <= 3:
+				sub_status = "Warning"
+			else:
+				sub_status = "Active"
+			# Auto-update status in DB if expired
+			if days_left < 0 and c.get("subscription_status") != "expired":
+				_conn2 = get_db_connection()
+				_cur2 = _conn2.cursor()
+				_cur2.execute("UPDATE companies SET subscription_status='expired' WHERE id=%s", (c["id"],))
+				_conn2.commit()
+				_cur2.close()
+				_conn2.close()
+		elif sub_plan:
+			days_left = None
+			sub_status = "No Dates"
+		else:
+			days_left = None
+			sub_status = "No Plan"
+
+		c["_days_left"] = days_left
+		c["_sub_status"] = sub_status
+		c["_start_fmt"] = sub_start.strftime("%d %b %Y") if sub_start else None
+		c["_end_fmt"] = sub_end.strftime("%d %b %Y") if sub_end else None
+		companies.append(c)
+
+	return render_template("admin/view_companies.html", companies=companies, today_date=today)
 
 
 @admin.route("/admin/company/<int:company_id>")
@@ -506,6 +583,48 @@ def edit_company(company_id):
 		canteen_reports_enabled = 1 if request.form.get("canteen_reports_enabled") else 0
 		salary_slip_module_enabled = 1 if request.form.get("salary_slip_module_enabled") else 0
 		logo_file = request.files.get('logo')
+
+		# Subscription renewal — supports predefined plans (by duration) or Custom (by date)
+		from datetime import date as _date, timedelta as _timedelta
+		renew_action = request.form.get("renew_action", "").strip()
+		subscription_plan = request.form.get("subscription_plan", company.get("subscription_plan", "Trial")).strip()
+		custom_start_str = request.form.get("custom_start", "").strip()
+		custom_end_str = request.form.get("custom_end", "").strip()
+
+		if renew_action in ("reset", "extend") or subscription_plan != company.get("subscription_plan"):
+			if subscription_plan == "Custom":
+				try:
+					new_sub_start = _date.fromisoformat(custom_start_str) if custom_start_str else _date.today()
+					new_sub_end = _date.fromisoformat(custom_end_str) if custom_end_str else new_sub_start + _timedelta(days=30)
+				except ValueError:
+					new_sub_start = _date.today()
+					new_sub_end = new_sub_start + _timedelta(days=30)
+			else:
+				# Look up duration from DB
+				_c2 = get_db_connection()
+				_cur2 = _c2.cursor(dictionary=True)
+				_cur2.execute("SELECT duration_days FROM subscription_plans WHERE plan_name = %s AND is_active = 1", (subscription_plan,))
+				_plan_row = _cur2.fetchone()
+				_cur2.close()
+				_c2.close()
+				_days = _plan_row["duration_days"] if _plan_row else 30
+
+				if renew_action == "reset":
+					new_sub_start = _date.today()
+					new_sub_end = new_sub_start + _timedelta(days=_days)
+				elif renew_action == "extend":
+					existing_end = company.get("subscription_end")
+					base = existing_end if existing_end and existing_end > _date.today() else _date.today()
+					new_sub_start = company.get("subscription_start") or _date.today()
+					new_sub_end = base + _timedelta(days=_days)
+				else:
+					# Plan changed but no renew action — reset from today
+					new_sub_start = _date.today()
+					new_sub_end = new_sub_start + _timedelta(days=_days)
+		else:
+			new_sub_start = company.get("subscription_start")
+			new_sub_end = company.get("subscription_end")
+		new_sub_status = 'active' if new_sub_end and new_sub_end >= __import__('datetime').date.today() else 'expired'
 
 		if not attendance_module_enabled:
 			attendance_qr_generation_enabled = 0
@@ -764,7 +883,11 @@ def edit_company(company_id):
 				canteen_qr_scan_enabled = %s,
 				canteen_face_verify_enabled = %s,
 				canteen_reports_enabled = %s,
-				salary_slip_module_enabled = %s
+				salary_slip_module_enabled = %s,
+				subscription_plan = %s,
+				subscription_start = %s,
+				subscription_end = %s,
+				subscription_status = %s
 			WHERE id = %s
 			""",
 			(
@@ -792,6 +915,10 @@ def edit_company(company_id):
 				canteen_face_verify_enabled,
 				canteen_reports_enabled,
 				salary_slip_module_enabled,
+				subscription_plan,
+				new_sub_start,
+				new_sub_end,
+				new_sub_status,
 				company_id,
 			),
 		)
@@ -809,7 +936,14 @@ def edit_company(company_id):
 
 	cursor.close()
 	connection.close()
-	return render_template("admin/edit_company.html", company=company, company_types=company_types)
+	_sp_conn = get_db_connection()
+	_sp_cur = _sp_conn.cursor(dictionary=True)
+	_sp_cur.execute("SELECT id, plan_name, duration_days FROM subscription_plans WHERE is_active = 1 ORDER BY plan_name")
+	_sub_plans = _sp_cur.fetchall()
+	_sp_cur.close()
+	_sp_conn.close()
+	return render_template("admin/edit_company.html", company=company, company_types=company_types,
+	                       subscription_plans=_sub_plans, today_date=__import__('datetime').date.today())
 
 
 @admin.route("/admin/company/<int:company_id>/delete", methods=["POST"])
@@ -1048,3 +1182,113 @@ def delete_manager(manager_id):
 
 	flash("Manager deleted successfully.", "success")
 	return redirect(url_for("admin.admin_dashboard"))
+
+
+# ── Subscription Plans Management ────────────────────────────────────────────
+
+@admin.route("/admin/subscription_plans", methods=["GET", "POST"])
+@admin_required
+def subscription_plans():
+	from datetime import date as _date
+	connection = get_db_connection()
+	cursor = connection.cursor(dictionary=True)
+
+	if request.method == "POST":
+		action = request.form.get("action", "").strip()
+
+		if action == "add":
+			plan_name = request.form.get("plan_name", "").strip()
+			duration_days = request.form.get("duration_days", "").strip()
+			if not plan_name or not duration_days or not duration_days.isdigit():
+				flash("Plan name and valid duration are required.", "error")
+			else:
+				cursor.execute(
+					"SELECT id FROM subscription_plans WHERE LOWER(plan_name) = LOWER(%s)",
+					(plan_name,)
+				)
+				if cursor.fetchone():
+					flash("A plan with this name already exists.", "error")
+				else:
+					cursor.execute(
+						"INSERT INTO subscription_plans (plan_name, duration_days, is_active) VALUES (%s, %s, 1)",
+						(plan_name, int(duration_days))
+					)
+					connection.commit()
+					flash(f"Plan '{plan_name}' added successfully.", "success")
+
+		elif action == "edit":
+			plan_id = request.form.get("plan_id", "").strip()
+			plan_name = request.form.get("plan_name", "").strip()
+			duration_days = request.form.get("duration_days", "").strip()
+			if not plan_id or not plan_name or not duration_days or not duration_days.isdigit():
+				flash("All fields are required for editing.", "error")
+			else:
+				cursor.execute(
+					"SELECT id FROM subscription_plans WHERE LOWER(plan_name) = LOWER(%s) AND id != %s",
+					(plan_name, int(plan_id))
+				)
+				if cursor.fetchone():
+					flash("Another plan with this name already exists.", "error")
+				else:
+					cursor.execute(
+						"UPDATE subscription_plans SET plan_name = %s, duration_days = %s WHERE id = %s",
+						(plan_name, int(duration_days), int(plan_id))
+					)
+					connection.commit()
+					flash(f"Plan updated successfully.", "success")
+
+		elif action == "toggle":
+			plan_id = request.form.get("plan_id", "").strip()
+			if plan_id:
+				cursor.execute("SELECT is_active FROM subscription_plans WHERE id = %s", (int(plan_id),))
+				row = cursor.fetchone()
+				if row:
+					new_status = 0 if row["is_active"] else 1
+					cursor.execute(
+						"UPDATE subscription_plans SET is_active = %s WHERE id = %s",
+						(new_status, int(plan_id))
+					)
+					connection.commit()
+					flash("Plan status updated.", "success")
+
+		elif action == "delete":
+			plan_id = request.form.get("plan_id", "").strip()
+			if plan_id:
+				cursor.execute(
+					"SELECT COUNT(*) AS cnt FROM companies WHERE subscription_plan = (SELECT plan_name FROM subscription_plans WHERE id = %s)",
+					(int(plan_id),)
+				)
+				row = cursor.fetchone()
+				if row and row["cnt"] > 0:
+					flash("Cannot delete — plan is assigned to companies. Disable it instead.", "error")
+				else:
+					cursor.execute("DELETE FROM subscription_plans WHERE id = %s", (int(plan_id),))
+					connection.commit()
+					flash("Plan deleted.", "success")
+
+		cursor.close()
+		connection.close()
+		return redirect(url_for("admin.subscription_plans"))
+
+	cursor.execute("SELECT * FROM subscription_plans ORDER BY is_active DESC, plan_name ASC")
+	plans = cursor.fetchall()
+	cursor.close()
+	connection.close()
+	return render_template("admin/subscription_plans.html", plans=plans, today=_date.today())
+
+
+@admin.route("/admin/subscription_plans/api", methods=["GET"])
+@admin_required
+def subscription_plans_api():
+	"""Return active plans as JSON for dynamic dropdowns."""
+	from flask import jsonify
+	connection = get_db_connection()
+	cursor = connection.cursor(dictionary=True)
+	cursor.execute(
+		"SELECT id, plan_name, duration_days FROM subscription_plans WHERE is_active = 1 ORDER BY plan_name"
+	)
+	plans = cursor.fetchall()
+	cursor.close()
+	connection.close()
+	return jsonify(plans)
+

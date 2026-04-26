@@ -1,86 +1,93 @@
 {% extends "base.html" %}
 
-{% block title %}View Menu{% endblock %}
+{% block title %}Weekly Menu{% endblock %}
 
 {% block content %}
 <div class="panel view-menu-panel">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
-            <h2 class="mb-1">Menu History</h2>
-            <p class="text-muted mb-0">Recent published menus for your canteen.</p>
+            <h2 class="mb-1">Weekly Menu</h2>
+            <p class="text-muted mb-0">Menu is shown automatically based on today's day.</p>
         </div>
-        <a href="{{ url_for('auth.add_menu') }}" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Add Menu</a>
+        <a href="{{ url_for('auth.add_menu') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>Add / Edit Menu
+        </a>
     </div>
 
-    {% if menus %}
     <div class="table-responsive">
-        <table class="table table-hover menu-table align-middle">
+        <table class="table menu-table align-middle text-center">
             <thead>
                 <tr>
-                    <th>Date</th>
+                    <th class="text-start">Day</th>
                     <th>Breakfast</th>
                     <th>Lunch</th>
                     <th>Evening</th>
-                    <th>Updated At</th>
+                    <th>Last Updated</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
-                {% for menu in menus %}
-                <tr>
-                    <td><strong>{{ menu.menu_date }}</strong></td>
+                {% for day in days %}
+                {% set menu = menus_by_day.get(day) %}
+                <tr class="{{ 'today-row' if day == today_day else '' }}">
+                    <td class="text-start">
+                        <strong>{{ day }}</strong>
+                        {% if day == today_day %}
+                        <span class="badge bg-primary ms-2">Today</span>
+                        {% endif %}
+                    </td>
+                    {% if menu %}
                     <td>{{ menu.morning_item }}</td>
                     <td>{{ menu.afternoon_item }}</td>
                     <td>{{ menu.evening_item }}</td>
-                    <td>{{ menu.updated_at }}</td>
+                    <td class="text-muted small">
+                        {{ menu.updated_at.strftime('%d %b %Y %H:%M') if menu.updated_at else '—' }}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('auth.add_menu') }}?day={{ day }}" class="btn btn-sm btn-warning">
+                            <i class="bi bi-pencil me-1"></i>Edit
+                        </a>
+                    </td>
+                    {% else %}
+                    <td class="text-muted fst-italic">—</td>
+                    <td class="text-muted fst-italic">—</td>
+                    <td class="text-muted fst-italic">—</td>
+                    <td class="text-muted small">Not set</td>
+                    <td>
+                        <a href="{{ url_for('auth.add_menu') }}?day={{ day }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-plus me-1"></i>Add
+                        </a>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    {% else %}
-    <div class="empty-state text-center">
-        <i class="bi bi-journal-x"></i>
-        <h5 class="mt-2">No Menu Found</h5>
-        <p class="text-muted mb-3">Add a menu to start collecting meal responses from employees.</p>
-        <a href="{{ url_for('auth.add_menu') }}" class="btn btn-primary">Create First Menu</a>
-    </div>
-    {% endif %}
 </div>
 
 <style>
-.view-menu-panel {
-    max-width: 1020px;
-    margin: 0 auto;
-}
+.view-menu-panel { max-width: 1020px; margin: 0 auto; }
 
-.menu-table {
-    background: #fff;
-    border-radius: 12px;
-    overflow: hidden;
-}
-
+.menu-table { background: #fff; border-radius: 12px; overflow: hidden; }
 .menu-table thead th {
     background: #f8fafc;
     color: #334155;
     font-weight: 700;
-    font-size: 0.92rem;
-    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.88rem;
+    border-bottom: 2px solid #e2e8f0;
+    padding: 12px 10px;
 }
-
 .menu-table tbody td {
     border-bottom: 1px solid #f1f5f9;
+    padding: 11px 10px;
+    vertical-align: middle;
 }
 
-.empty-state {
-    border: 1px dashed #d1d5db;
-    border-radius: 14px;
-    padding: 34px 20px;
-    background: #fcfcfd;
-}
+.today-row { background: #eff6ff !important; }
+.today-row > td:first-child { border-left: 3px solid #2563eb; }
 
-.empty-state i {
-    font-size: 2rem;
-    color: #9ca3af;
-}
+.btn-warning { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+.btn-warning:hover { background: #d97706; border-color: #d97706; color: #fff; }
 </style>
 {% endblock %}

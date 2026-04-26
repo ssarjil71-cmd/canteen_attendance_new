@@ -97,6 +97,35 @@
 			</div>
 		</div>
 
+		<!-- Subscription Plan Section -->
+		<div class="col-12">
+			<div class="location-section mt-2 mb-1 p-3 border rounded bg-light">
+				<h5 class="mb-3">Subscription Plan</h5>
+				<div class="row g-3">
+					<div class="col-12 col-md-6">
+						<label class="form-label required-label">Plan</label>
+						<select name="subscription_plan" id="subscription_plan" class="form-control" required onchange="toggleCustomPlan(this.value)">
+							<option value="">Select a plan</option>
+							{% for plan in subscription_plans %}
+							<option value="{{ plan.plan_name }}">{{ plan.plan_name }} ({{ plan.duration_days }} days)</option>
+							{% endfor %}
+							<option value="Custom">Custom (pick dates)</option>
+						</select>
+					</div>
+				</div>
+				<div id="custom_plan_wrapper" style="display:none;" class="row g-3 mt-1">
+					<div class="col-12 col-md-6">
+						<label class="form-label required-label">Start Date</label>
+						<input type="date" name="custom_start" id="custom_start" class="form-control">
+					</div>
+					<div class="col-12 col-md-6">
+						<label class="form-label required-label">End Date</label>
+						<input type="date" name="custom_end" id="custom_end" class="form-control">
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<div class="col-12">
 			<label class="form-label required-label">Modules</label>
 			<div class="checkbox-group">
@@ -187,6 +216,15 @@
 			});
 		} else {
 			alert('Geolocation is not supported by this browser.');
+		}
+	}
+
+	function toggleCustomPlan(val) {
+		const wrapper = document.getElementById('custom_plan_wrapper');
+		wrapper.style.display = val === 'Custom' ? 'flex' : 'none';
+		const today = new Date().toISOString().split('T')[0];
+		if (val === 'Custom') {
+			document.getElementById('custom_start').value = today;
 		}
 	}
 	</script>

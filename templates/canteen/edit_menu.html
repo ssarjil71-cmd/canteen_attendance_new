@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ day }} Menu{% endblock %}
+
+{% block content %}
+<div class="panel menu-form-panel">
+    <div class="menu-form-head">
+        <h2 class="mb-1">Edit Menu — {{ day }}</h2>
+        <p class="text-muted mb-0">Update the menu for {{ day }}.</p>
+    </div>
+
+    <form method="post" class="menu-form mt-4">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Morning (Breakfast)</label>
+                <input type="text" name="morning_item" class="form-control"
+                       value="{{ menu.morning_item if menu else '' }}"
+                       placeholder="e.g. Poha + Tea" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Afternoon (Lunch)</label>
+                <input type="text" name="afternoon_item" class="form-control"
+                       value="{{ menu.afternoon_item if menu else '' }}"
+                       placeholder="e.g. Rice, Dal, Sabji" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Evening (Snacks/Dinner)</label>
+                <input type="text" name="evening_item" class="form-control"
+                       value="{{ menu.evening_item if menu else '' }}"
+                       placeholder="e.g. Sandwich + Tea" required>
+            </div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-2"></i>Save</button>
+            <a href="{{ url_for('auth.view_menu') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.menu-form-panel { max-width: 980px; margin: 0 auto; }
+.menu-form-head h2 { font-size: 1.5rem; }
+.menu-form .form-label { font-weight: 600; color: #374151; }
+.menu-form .form-control {
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    padding: 10px 12px;
+}
+.menu-form .form-control:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 0.15rem rgba(37,99,235,0.15);
+}
+</style>
+{% endblock %}

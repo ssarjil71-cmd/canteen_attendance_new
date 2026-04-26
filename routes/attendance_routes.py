@@ -210,7 +210,8 @@ def _get_or_create_today_meal_qr(cursor, employee_id, company_id, response_date)
         FROM attendance
         WHERE employee_id = %s
           AND company_id = %s
-          AND DATE(COALESCE(check_in_time, date)) = %s
+          AND date = %s
+          AND check_in_time IS NOT NULL
         ORDER BY check_in_time DESC, id DESC
         LIMIT 1
         """,
@@ -590,16 +591,15 @@ def auto_mark_attendance():
         is_checkin = (existing is None or existing['check_in_time'] is None)
         is_checkout = (existing is not None and existing['check_in_time'] is not None and existing['check_out_time'] is None)
 
-        # Validate IN window (if checking in)
+        # Validate IN window (if checking in) — strict: must be within in_start..in_end
         if is_checkin and in_start and in_end:
-            now_time = now.time().replace(second=0, microsecond=0)
             in_start_dt = datetime.combine(today, in_start)
             in_end_dt = datetime.combine(today, in_end)
 
             if now < in_start_dt:
                 cursor.close()
                 connection.close()
-                minutes_left = int((in_start_dt - now).total_seconds() // 60)
+                minutes_left = max(1, int((in_start_dt - now).total_seconds() // 60))
                 return jsonify({
                     'success': False,
                     'shift_error': True,
@@ -612,19 +612,18 @@ def auto_mark_attendance():
                 return jsonify({
                     'success': False,
                     'shift_error': True,
-                    'message': f'IN time expired. Check-in window closed at {in_end.strftime("%I:%M %p")}.',
+                    'message': f'Check-in window closed at {in_end.strftime("%I:%M %p")}. Please contact your manager.',
                 }), 403
 
-        # Validate OUT window (if checking out)
+        # Validate OUT window (if checking out) — strict: must be within out_start..out_end
         if is_checkout and out_start and out_end:
-            now_time = now.time().replace(second=0, microsecond=0)
             out_start_dt = datetime.combine(today, out_start)
             out_end_dt = datetime.combine(today, out_end)
 
             if now < out_start_dt:
                 cursor.close()
                 connection.close()
-                minutes_left = int((out_start_dt - now).total_seconds() // 60)
+                minutes_left = max(1, int((out_start_dt - now).total_seconds() // 60))
                 return jsonify({
                     'success': False,
                     'shift_error': True,
@@ -637,7 +636,7 @@ def auto_mark_attendance():
                 return jsonify({
                     'success': False,
                     'shift_error': True,
-                    'message': f'OUT time expired. Check-out window closed at {out_end.strftime("%I:%M %p")}.',
+                    'message': f'Check-out window closed at {out_end.strftime("%I:%M %p")}. Please contact your manager.',
                 }), 403
 
         # Fallback to old shift_start/shift_end validation if new fields not set
@@ -736,17 +735,19 @@ def auto_mark_attendance():
 
             delta_hours = round((now - check_in_dt).total_seconds() / 3600, 2)
 
-            if delta_hours >= full_day_hours:
+            # Status is based on check-in existence, NOT hours worked.
+            # If check-in exists → at minimum 'present'; late check-in → 'late'.
+            # 'absent' is only set when there is NO check-in at all.
+            checkin_status = existing.get('status', 'present') or 'present'
+            if checkin_status == 'late':
+                final_status = 'late'
+            elif delta_hours >= full_day_hours:
                 final_status = 'present'
             elif delta_hours >= half_day_hours:
-                # Use half_day only if the column supports it, else fall back to present
                 final_status = 'half_day'
             else:
-                final_status = 'absent'
-
-            # Keep 'late' if they were late on check-in and worked a full day
-            if existing['status'] == 'late' and final_status == 'present':
-                final_status = 'late'
+                # Worked less than half-day but DID check in → still present
+                final_status = 'present'
 
             # Safely check if half_day is a valid enum value before using it
             try:
@@ -870,6 +871,7 @@ def meal_response():
 
         canteen_id = canteen['id']
         _ensure_attendance_meal_status(connection)
+        # Update meal_status on the most recent check-in record for today
         cursor.execute(
             """
             UPDATE attendance
@@ -877,10 +879,12 @@ def meal_response():
                 updated_at = CURRENT_TIMESTAMP
             WHERE employee_id = %s
               AND company_id = %s
-              AND DATE(check_in_time) = CURDATE()
+              AND date = %s
               AND check_in_time IS NOT NULL
+            ORDER BY check_in_time DESC
+            LIMIT 1
             """,
-            (meal_status, employee_id, company_id),
+            (meal_status, employee_id, company_id, response_date),
         )
 
         if cursor.rowcount == 0:
@@ -898,9 +902,9 @@ def meal_response():
                 """
                 SELECT morning_item, afternoon_item, evening_item
                 FROM canteen_menus
-                WHERE canteen_id = %s AND menu_date = %s
+                WHERE canteen_id = %s AND day_of_week = %s
                 """,
-                (canteen_id, response_date),
+                (canteen_id, response_date.strftime("%A")),
             )
             today_menu = cursor.fetchone()
             if today_menu:
@@ -910,17 +914,15 @@ def meal_response():
                     'evening': today_menu['evening_item'],
                 }
 
-            if qr_generation_enabled:
-                qr_payload = _get_or_create_today_meal_qr(cursor, employee_id, company_id, response_date)
-                if not qr_payload:
-                    cursor.close()
-                    connection.close()
-                    return jsonify({
-                        'success': False,
-                        'message': 'Attendance record not found for today. Please mark attendance first.'
-                    }), 400
-            else:
-                _deactivate_today_qr_tokens(cursor, employee_id, company_id, response_date)
+            # Always generate meal QR when employee selects YES
+            qr_payload = _get_or_create_today_meal_qr(cursor, employee_id, company_id, response_date)
+            if not qr_payload:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'success': False,
+                    'message': 'Attendance record not found for today. Please mark attendance first.'
+                }), 400
         else:
             _deactivate_today_qr_tokens(cursor, employee_id, company_id, response_date)
 
@@ -947,7 +949,7 @@ def meal_response():
             'success': True,
             'status': status,
             'meal_selected': 'YES',
-            'show_qr': bool(qr_generation_enabled and qr_payload),
+            'show_qr': bool(qr_payload),
             'qr_image_b64': qr_payload['qr_image_b64'] if qr_payload else None,
             'qr_token': qr_payload['token'] if qr_payload else None,
             'qr_data': qr_payload['payload'] if qr_payload else None,
